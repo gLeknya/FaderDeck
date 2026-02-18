@@ -9,48 +9,34 @@ function closeModal() {
 }
 
 async function createChannel() {
-    const app = document.getElementById('modalAppSelect').value;
-    const buttonCount = parseInt(document.getElementById('modalButtonCount').value || '4', 10);
-
-    if (!app) {
-        showToast('error', 'Select an application for the channel');
-        return;
-    }
-
-    const appObj = audioApps.find(a => a.process === app);
-    const title = appObj ? appObj.name : app;
+    // next channel index
+    const index = channels.length + 1;
+    const title = `Channel ${index}`;
 
     const channel = {
         id: Date.now(),
-        app: app,
-        appName: title,
+        app: null,            // no app bound yet
+        appName: '',
         title: title,
         faderCC: null,
         faderMapping: null,
         volume: 100,
         buttons: [],
         skipBinding: false,
-        showBindHint: true
+        showBindHint: true,
+        flashOnCreate: true   // флаг для анимации вспышки
     };
 
-    for (let i = 0; i < buttonCount; i++) {
-        channel.buttons.push({
-            id: Date.now() + i,
-            text: `BTN ${i+1}`,
-            icon: '🎵',
-            note: 60 + i,
-            key: null,
-            active: false
-        });
-    }
+    // по умолчанию без кнопок, или можешь оставить 4:
+    // for (let i = 0; i < 4; i++) { ... }
 
     channels.push(channel);
-    closeModal();
     renderMixer();
     saveProfileToLocal();
-    logTest('createChannel', { app, buttonCount, channelId: channel.id });
-    showToast('success', 'Channel added. You can bind a fader or keep it UI-only.');
+    logTest('createChannel', { channelId: channel.id, title });
+
 }
+
 
 function removeChannel(id) {
     channels = channels.filter(c => c.id !== id);
@@ -183,7 +169,7 @@ function renderMixer() {
                     or “+ Button” to add a standalone button
                 </div>
             </div>
-            <div class="add-channel-strip" onclick="addChannel()">
+            <div class="add-channel-strip" onclick="createChannel()">
                 <div class="add-channel-plus">+</div>
             </div>
         `;
@@ -260,10 +246,22 @@ function renderMixer() {
             </div>
         `).join('') +
         `
-        <div class="add-channel-strip" onclick="addChannel()">
+        <div class="add-channel-strip" onclick="createChannel()">
             <div class="add-channel-plus">+</div>
         </div>
         `;
 
     setupFaderDrag();
+    
+    channels.forEach(ch => {
+            if (!ch.flashOnCreate) return;
+            const el = document.querySelector(`.channel-strip[data-channel-id="${ch.id}"]`);
+            if (!el) return;
+            el.classList.add('flash');
+            ch.flashOnCreate = false;
+            // после анимации класс можно не снимать, но можно и снять для чистоты
+            setTimeout(() => {
+                el.classList.remove('flash');
+            }, 250);
+        });
 }

@@ -9,21 +9,21 @@
 <body>
 <div class="toolbar">
     <div class="toolbar-left">
-        <div class="logo">🎚️ MIDI Mixer</div>
+        <div class="logo">🎚️ FaderDeck</div>
         <select id="midiInput">
-            <option value="">Выбрать MIDI устройство</option>
+            <option value="">Select MIDI device</option>
         </select>
         <select id="profileSelect">
-            <option value="">Профиль по умолчанию</option>
+            <option value="">Default profile</option>
         </select>
     </div>
     <div class="toolbar-right">
         <div class="status-indicator">
             <div class="status-dot" id="statusDot"></div>
-            <span id="statusText">Не подключено</span>
+            <span id="statusText">not connected</span>
         </div>
-        <button class="btn" onclick="addStandaloneButton()">+ Кнопка</button>
-        <button class="btn" onclick="openProfileModal()">Профили</button>
+        <button class="btn" onclick="addStandaloneButton()">+ Button</button>
+        <button class="btn" onclick="openProfileModal()">Profiles</button>
         <button class="btn" onclick="openSettings()">⚙️</button>
     </div>
 </div>
@@ -32,48 +32,27 @@
     <div class="empty-state">
         <div class="empty-state-icon">🎛️</div>
         <div class="empty-state-text">
-            Нажмите «+» справа, чтобы добавить канал<br>
-            или «+ Кнопка» для отдельной кнопки
+            Click “+” on the right to add a channel<br>
+            or “+ Button” to add a standalone button
         </div>
     </div>
-    <div class="add-channel-strip" onclick="addChannel()">
+    <div class="add-channel-strip" onclick="createChannel()">
         <div class="add-channel-plus">+</div>
     </div>
 </div>
 
 <div class="standalone-buttons" id="standaloneButtons"></div>
 
-<!-- Модалка добавления канала -->
-<div class="modal" id="channelModal">
-    <div class="modal-content">
-        <div class="modal-header">Добавить канал</div>
-        <div class="form-group">
-            <label class="form-label">Приложение</label>
-            <select class="form-input" id="modalAppSelect">
-                <option value="">Загрузка...</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label class="form-label">Количество кнопок</label>
-            <input type="number" class="form-input" id="modalButtonCount" value="4" min="0" max="8">
-        </div>
-        <div class="modal-actions">
-            <button class="btn" onclick="closeModal()">Отмена</button>
-            <button class="btn btn-primary" onclick="createChannel()">Создать</button>
-        </div>
-    </div>
-</div>
-
 <!-- Модалка настройки кнопки -->
 <div class="modal" id="buttonModal">
     <div class="modal-content">
-        <div class="modal-header">Настройка кнопки</div>
+        <div class="modal-header">Button settings</div>
         <div class="form-group">
-            <label class="form-label">Текст</label>
+            <label class="form-label">Text</label>
             <input type="text" class="form-input" id="buttonText" placeholder="Mute">
         </div>
         <div class="form-group">
-            <label class="form-label">Иконка (эмодзи)</label>
+            <label class="form-label">Icon</label>
             <input type="text" class="form-input" id="buttonIcon" placeholder="🔇">
         </div>
         <div class="form-group">
@@ -81,12 +60,12 @@
             <input type="number" class="form-input" id="buttonNote" value="60" min="0" max="127">
         </div>
         <div class="form-group">
-            <label class="form-label">Клавиша (опционально)</label>
+            <label class="form-label">Key</label>
             <input type="text" class="form-input" id="buttonKey" placeholder="Нажмите клавишу..." readonly>
         </div>
         <div class="modal-actions">
-            <button class="btn" onclick="closeButtonModal()">Отмена</button>
-            <button class="btn btn-primary" onclick="saveButtonConfig()">Сохранить</button>
+            <button class="btn" onclick="closeButtonModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="saveButtonConfig()">Save</button>
         </div>
     </div>
 </div>
@@ -96,29 +75,36 @@
 
 <!-- Контекстное меню -->
 <div id="contextMenu" class="context-menu">
-    <div class="context-item" data-action="edit">Изменить</div>
-    <div class="context-item" data-action="remap">Переназначить</div>
-    <div class="context-item" data-action="delete">Удалить</div>
+    <div class="context-item" data-action="edit">Edit</div>
+    <div class="context-item" data-action="remap">Reassign</div>
+    <div class="context-item" data-action="delete">Delete</div>
 </div>
 
 <!-- Панель настроек -->
 <div id="settingsPanel" class="settings-panel">
     <div class="settings-header">
-        <span>Настройки</span>
+        <span>Settings</span>
         <button class="settings-close" onclick="closeSettings()">×</button>
     </div>
     <div class="settings-content">
         <label class="settings-item">
-            <span>Режим разработчика</span>
-            <div class="settings-toggle disabled">Выкл</div>
+            <span>Developer mode</span>
+            <div class="settings-toggle disabled">Off</div>
         </label>
         <label class="settings-item">
-            <span>Продвинутый режим</span>
-            <div class="settings-toggle" id="advancedModeToggle">Выкл</div>
+            <span>Advanced mode</span>
+            <div class="settings-toggle" id="advancedModeToggle">Off</div>
         </label>
         <label class="settings-item">
             <span>Start on boot</span>
-            <div class="settings-toggle disabled">Выкл</div>
+            <div class="settings-toggle disabled">Off</div>
+        </label>
+        <label class="settings-item">
+            <span>Language</span>
+            <select id="languageSelect" class="settings-select">
+                <option value="ru">Русский</option>
+                <option value="en">English</option>
+            </select>
         </label>
 
         <div id="advancedInfo" class="advanced-info hidden">

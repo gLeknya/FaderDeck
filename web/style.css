@@ -122,6 +122,21 @@ select {
 .channel-strip:hover {
     border-color: var(--color-primary);
 }
+.channel-strip.flash {
+    animation: channel-appear 0.22s ease-out;
+}
+
+/* ключевые кадры появления */
+@keyframes channel-appear {
+    0% {
+        opacity: 0;
+        transform: scale(0.9);
+    }
+    100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
 
 .channel-header {
     display: flex;
@@ -195,7 +210,6 @@ select {
     background: var(--color-text);
     border: 2px solid var(--color-primary);
     border-radius: 4px;
-    cursor: grab;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
@@ -559,27 +573,47 @@ select {
 
 .settings-panel {
     position: fixed;
-    inset: 0;
-    background: var(--color-bg);
+    top: 0;
+    right: 0;
+    width: 360px;
+    max-width: 90vw;
+    height: 100vh;
+    background: var(--color-surface);
     color: var(--color-text);
-    z-index: 3000;
+    z-index: 3001;
     transform: translateX(100%);
     transition: transform 0.25s ease;
     display: flex;
     flex-direction: column;
+    box-shadow: -10px 0 40px rgba(0, 0, 0, 0.6);
+    border-left: 1px solid var(--color-border);
 }
 
 .settings-panel.open {
     transform: translateX(0);
 }
 
+/* затемнение и blur фона */
 .settings-backdrop {
-    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 3000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+}
+
+.settings-panel.open ~ .settings-backdrop {
+    opacity: 1;
+    pointer-events: auto;
 }
 
 .settings-header {
     display: flex;
-    justify-content: space_between;
+    justify-content: space-between;
     align-items: center;
     padding: 12px 20px;
     border-bottom: 1px solid var(--color-border);
@@ -630,6 +664,18 @@ select {
     opacity: 0.4;
     cursor: default;
 }
+
+.settings-select {
+    min-width: 100px;
+    background: var(--color-surface-hover);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
 
 .advanced-info.hidden {
     display: none;
