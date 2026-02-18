@@ -27,7 +27,7 @@ function showToast(type, text, options = {}) {
     const cfg = TOAST_TYPES[type] || TOAST_TYPES.success;
     const id = options.id || ('toast_' + Date.now());
 
-    const defaultTimeout = type === 'pending' ? 0 : 2500;
+    const defaultTimeout = type === 'pending' ? 0 : 1500;
     const timeout = typeof options.timeout === 'number'
         ? options.timeout
         : defaultTimeout;
