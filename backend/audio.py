@@ -54,10 +54,10 @@ class AudioManager:
                 pass
 
             CoUninitialize()
-            self._log('list_applications:', apps)
+            #self._log('list_applications:', apps)
             return {'applications': apps}
         except Exception as e:
-            self._log('list_applications error:', e)
+            #self._log('list_applications error:', e)
             return {'applications': [], 'error': str(e)}
 
     def set_volume(self, process_name, volume):
