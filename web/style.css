@@ -27,33 +27,105 @@ body {
 /* Toolbar */
 
 .toolbar {
-    background: var(--color-surface);
-    border-bottom: 1px solid var(--color-border);
-    padding: 12px 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    position: sticky;
-    top: 0;
-    z-index: 100;
+  height: 32px;
+  background: #202020;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 8px;
+  -webkit-app-region: drag;
+  z-index: 100;
+}
+
+.toolbar-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .toolbar-left {
-    display: flex;
-    gap: 12px;
-    align-items: center;
+  min-width: 0;
+}
+
+.toolbar-center {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .toolbar-right {
-    display: flex;
-    gap: 12px;
-    align-items: center;
+  margin-left: auto;
 }
 
-.logo {
-    font-weight: 600;
-    font-size: 16px;
-    color: var(--color-primary);
+.toolbar-icon {
+  width: 16px;
+  height: 16px;
+}
+
+.toolbar-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+
+.toolbar select,
+.toolbar button,
+.toolbar .status-indicator {
+  -webkit-app-region: no-drag;
+}
+
+.toolbar select {
+  background: #2a2a2a;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 12px;
+  height: 22px;
+  min-width: 160px;
+}
+
+.btn.icon-btn {
+  padding: 0 8px;
+  height: 22px;
+  border-radius: 4px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.window-controls {
+  display: flex;
+  align-items: center;
+  margin-left: 8px;
+}
+
+.window-btn {
+  -webkit-app-region: no-drag;
+  width: 36px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.window-btn:hover {
+  background: #2b2b2b;
+  color: var(--color-text);
+}
+
+.window-btn-close:hover {
+  background: #e81123;
+  color: #fff;
 }
 
 .btn {
@@ -116,6 +188,7 @@ select {
     display: flex;
     flex-direction: column;
     gap: 12px;
+    transition: all 0.2s;
     position: relative;
 }
 
@@ -378,18 +451,18 @@ select {
 /* Status */
 
 .status-indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    color: var(--color-text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
 }
 
 .status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--color-text-secondary);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
 }
 
 .status-dot.connected {
@@ -406,7 +479,7 @@ select {
 
 .add-channel-strip {
     width: 60px;
-    height: 260px;
+    height: 408px;
     border-radius: 12px;
     border: 1px dashed var(--color-border);
     display: flex;

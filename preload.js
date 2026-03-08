@@ -16,7 +16,8 @@ const api = {
   delete_profile: (name) => ipcRenderer.invoke('api:delete_profile', name),
 
   // Exit
-  exit_app: () => ipcRenderer.invoke('api:exit_app')
+  exit_app: () => ipcRenderer.invoke('api:exit_app'),
+  windowControl: (action) => ipcRenderer.invoke('window-control', action)
 };
 
 // Эмуляция pywebview: window.pywebview.api

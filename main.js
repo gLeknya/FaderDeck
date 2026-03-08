@@ -11,11 +11,14 @@ function createWindow() {
   api = new MidiMixerAPI();
 
   mainWindow = new BrowserWindow({
-    width: 1200,
+    width: 1300,
     height: 800,
     minWidth: 800,
     minHeight: 600,
     resizable: true,
+    frame: false,
+    titleBarStyle: 'hidden',
+    titleBarOverlay: false,
     icon: path.join(__dirname, 'assets', 'favicon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
@@ -25,6 +28,8 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'web', 'index.html'));
+
+  Menu.setApplicationMenu(null);
 
   mainWindow.on('closed', () => {
     api.shutdown();
@@ -57,4 +62,18 @@ ipcMain.handle('api:delete_profile', (e, name) => api.delete_profile(name));
 // Misc
 ipcMain.handle('api:exit_app', () => {
   if (mainWindow) mainWindow.close();
+});
+
+ipcMain.handle('window-control', (event, action) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!win) return;
+
+  if (action === 'minimize') {
+    win.minimize();
+  } else if (action === 'maximize') {
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  } else if (action === 'close') {
+    win.close();
+  }
 });

@@ -220,3 +220,25 @@ function closeAppWindow() {
     window.close();
   }
 }
+
+
+function setupWindowControls() {
+  const buttons = document.querySelectorAll('.window-btn');
+  buttons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      const action = btn.dataset.action;
+      if (window.pywebview && window.pywebview.api && window.pywebview.api.windowControl) {
+        window.pywebview.api.windowControl(action);
+      }
+    });
+  });
+}
+
+// В init() после setupSettings() и initWebMIDI():
+function init() {
+  loadAudioApps();
+  loadProfileFromLocal();
+  setupSettings();
+  initWebMIDI();
+  setupWindowControls();
+}

@@ -6,27 +6,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="style.css">
 </head>
-<body>
 <div class="toolbar">
-    <div class="toolbar-left">
-        <div class="logo">🎚️ FaderDeck</div>
+    <div class="toolbar-section toolbar-left">
+        <button class="btn icon-btn" onclick="openSettings()">⚙️</button>
         <select id="midiInput">
             <option value="">Select MIDI device</option>
         </select>
-        <select id="profileSelect">
-            <option value="">Default profile</option>
-        </select>
-    </div>
-    <div class="toolbar-right">
         <div class="status-indicator">
             <div class="status-dot" id="statusDot"></div>
             <span id="statusText">not connected</span>
+        </div>  
+    </div>  
+    <div class="toolbar-section toolbar-center">
+        <img src="../assets/FaderDeckIcon256x256.png" class="toolbar-icon" alt="">
+        <span class="toolbar-title">FaderDeck</span>
+    </div>  
+    <div class="toolbar-section toolbar-right">  
+        <div class="window-controls">
+            <button class="window-btn" data-action="minimize">🗕</button>
+            <button class="window-btn" data-action="maximize">🗖</button>
+            <button class="window-btn window-btn-close" data-action="close">✕</button>
         </div>
-        <button class="btn" onclick="addStandaloneButton()">+ Button</button>
-        <button class="btn" onclick="openProfileModal()">Profiles</button>
-        <button class="btn" onclick="openSettings()">⚙️</button>
     </div>
 </div>
+
 
 <div class="mixer-container" id="mixerContainer">
     <div class="empty-state">
