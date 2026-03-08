@@ -6,7 +6,7 @@ FaderDeck - app to control volume(or somthing another) of other apps by using a 
 
 Since there is currently no full release for download, you can compile it yourself.
 
-### Here a full instruction 
+### Here a full guide
 
 1. Download the project (from this page or with git)
 ```
@@ -25,3 +25,5 @@ npm install
 ```
 npm start
 ```
+
+have fun!
