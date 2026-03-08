@@ -5,3 +5,4 @@ __pycache__/
 *.log
 website/
 tests/
+node_modules/
