@@ -1,12 +1,66 @@
-// web/js/midi-ui.js
-// MIDI-related UI: advanced log, live fader updates, MIDI learn for faders (через WebMIDI)
-
 let midiAccess = null;
+let midiInputCount = 0;
+
+function updateMidiStatus(isConnected, text) {
+  const statusDot = document.getElementById('statusDot');
+  const statusText = document.getElementById('statusText');
+
+  statusDot?.classList.toggle('connected', isConnected);
+
+  if (statusText) {
+    statusText.textContent = text;
+  }
+}
+
+function populateMidiInputs() {
+  const select = document.getElementById('midiInput');
+
+  if (!select) {
+    return;
+  }
+
+  const inputs = midiAccess ? Array.from(midiAccess.inputs.values()) : [];
+  midiInputCount = inputs.length;
+
+  select.innerHTML = `
+    <option value="">${t('toolbar.selectMidi')}</option>
+    ${inputs.map((input) => `<option value="${input.id}">${input.name}</option>`).join('')}
+  `;
+
+  updateMidiStatus(
+    inputs.length > 0,
+    inputs.length > 0 ? t('status.devices', { count: inputs.length }) : t('status.notConnected')
+  );
+}
+
+function refreshMidiUiLanguage() {
+  const select = document.getElementById('midiInput');
+
+  if (select?.options?.length) {
+    select.options[0].textContent = t('toolbar.selectMidi');
+  }
+
+  if (midiInputCount > 0) {
+    updateMidiStatus(true, t('status.devices', { count: midiInputCount }));
+    return;
+  }
+
+  if (midiAccess) {
+    updateMidiStatus(false, t('status.notConnected'));
+  }
+}
+
+function bindMidiInput(port) {
+  if (port?.type === 'input') {
+    port.onmidimessage = onWebMidiMessage;
+  }
+}
 
 async function initWebMIDI() {
   if (!navigator.requestMIDIAccess) {
     console.warn('Web MIDI API not supported in this environment');
-    showToast('error', 'Web MIDI API not supported');
+    updateMidiStatus(false, t('status.unsupported'));
+    showToast('error', t('midi.unsupported'));
     return;
   }
 
@@ -14,162 +68,190 @@ async function initWebMIDI() {
     midiAccess = await navigator.requestMIDIAccess();
     console.log('WebMIDI ready', midiAccess);
 
-    midiAccess.inputs.forEach(input => {
+    midiAccess.inputs.forEach((input) => {
       console.log('MIDI input:', input.name);
-      input.onmidimessage = onWebMidiMessage;
+      bindMidiInput(input);
     });
 
-    midiAccess.onstatechange = (e) => {
-      console.log('MIDI state change', e.port.name, e.port.state, e.port.type);
-      if (e.port.type === 'input' && e.port.state === 'connected') {
-        e.port.onmidimessage = onWebMidiMessage;
+    populateMidiInputs();
+
+    midiAccess.onstatechange = (event) => {
+      console.log('MIDI state change', event.port.name, event.port.state, event.port.type);
+
+      if (event.port.type === 'input' && event.port.state === 'connected') {
+        bindMidiInput(event.port);
       }
+
+      populateMidiInputs();
     };
 
-    showToast('success', 'WebMIDI initialized');
-  } catch (e) {
-    console.error('WebMIDI error', e);
-    showToast('error', 'WebMIDI initialization failed');
+    showToast('success', t('midi.initialized'));
+  } catch (error) {
+    console.error('WebMIDI error', error);
+    updateMidiStatus(false, t('status.connectionFailed'));
+    showToast('error', t('midi.initFailed'));
   }
 }
 
-function onWebMidiMessage(e) {
-  const [status, d1, d2] = e.data;
+function createMidiMessage(event) {
+  const [status, data1, data2] = event.data;
   const typeNibble = status & 0xF0;
   const channel = status & 0x0F;
 
-  const msg = {
+  const baseMessage = {
     type: null,
     note: null,
     velocity: null,
     control: null,
     value: null,
     channel,
-    timestamp: e.timeStamp / 1000
+    timestamp: event.timeStamp / 1000
   };
 
   if (typeNibble === 0x90) {
-    msg.type = 'note_on';
-    msg.note = d1;
-    msg.velocity = d2;
-  } else if (typeNibble === 0x80) {
-    msg.type = 'note_off';
-    msg.note = d1;
-    msg.velocity = d2;
-  } else if (typeNibble === 0xB0) {
-    msg.type = 'control_change';
-    msg.control = d1;
-    msg.value = d2;
+    return { ...baseMessage, type: 'note_on', note: data1, velocity: data2 };
   }
 
-  if (window.__onMidiFromPython) {
-    window.__onMidiFromPython(msg);
+  if (typeNibble === 0x80) {
+    return { ...baseMessage, type: 'note_off', note: data1, velocity: data2 };
+  }
+
+  if (typeNibble === 0xB0) {
+    return { ...baseMessage, type: 'control_change', control: data1, value: data2 };
+  }
+
+  return null;
+}
+
+function onWebMidiMessage(event) {
+  const message = createMidiMessage(event);
+
+  if (message && window.__onMidiFromPython) {
+    window.__onMidiFromPython(message);
   }
 }
 
-function _advancedMidiLogHandler(msg) {
-  if (!advancedMode) return;
-  const el = document.getElementById('advancedMidiLog');
-  if (!el) return;
-
-  const ts = new Date(msg.timestamp * 1000).toLocaleTimeString();
-  let line = `[${ts}] ${msg.type}`;
-  if (msg.type === 'control_change') {
-    line += ` CC=${msg.control} val=${msg.value}`;
-  }
-  if (msg.type === 'note_on' || msg.type === 'note_off') {
-    line += ` note=${msg.note} vel=${msg.velocity}`;
+function advancedMidiLogHandler(message) {
+  if (!advancedMode) {
+    return;
   }
 
-  el.textContent = (el.textContent + '\n' + line).trim().split('\n').slice(-20).join('\n');
+  const logElement = document.getElementById('advancedMidiLog');
+
+  if (!logElement) {
+    return;
+  }
+
+  const time = new Date(message.timestamp * 1000).toLocaleTimeString();
+  let line = `[${time}] ${message.type}`;
+
+  if (message.type === 'control_change') {
+    line += ` CC=${message.control} val=${message.value}`;
+  }
+
+  if (message.type === 'note_on' || message.type === 'note_off') {
+    line += ` note=${message.note} vel=${message.velocity}`;
+  }
+
+  logElement.textContent = `${logElement.textContent}\n${line}`
+    .trim()
+    .split('\n')
+    .slice(-20)
+    .join('\n');
 }
 
-// global MIDI callback (WebMIDI использует то же имя)
-window.__onMidiFromPython = function (msg) {
-  _advancedMidiLogHandler(msg);
+window.__onMidiFromPython = function handleMidiMessage(message) {
+  advancedMidiLogHandler(message);
 
-  if (msg.type === 'control_change') {
-    channels.forEach(ch => {
-      if (ch.faderMapping &&
-          ch.faderMapping.type === 'control_change' &&
-          ch.faderMapping.control === msg.control &&
-          ch.faderMapping.channel === msg.channel) {
-
-        const vol = Math.round((msg.value / 127) * 100);
-        ch.volume = Math.max(0, Math.min(100, vol));
-      }
-    });
+  if (message.type !== 'control_change') {
+    return;
   }
+
+  channels.forEach((channel) => {
+    const mapping = channel.faderMapping;
+
+    if (
+      mapping &&
+      mapping.type === 'control_change' &&
+      mapping.control === message.control &&
+      mapping.channel === message.channel
+    ) {
+      channel.volume = clampVolume(Math.round((message.value / 127) * 100));
+    }
+  });
 
   updateFadersFromState();
 };
 
-// Bind fader (упрощённый learn на фронте)
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-async function startBindFader(ev, channelId) {
-  ev.stopPropagation();
-  const channel = channels.find(c => c.id === channelId);
-  if (!channel) return;
+async function learnFaderMessage() {
+  let learnedMessage = null;
 
-  logTest('startBindFader', { channelId, channel });
-
-  showToast(
-    'pending',
-    `Move the fader for channel "${channel.title || channel.appName}"`
-  );
-
-  if (!midiAccess) {
-    showToast('error', 'WebMIDI not initialized', { updatePending: true });
-    return;
-  }
-
-  let learned = null;
-
-  const handler = (e) => {
-    const [status, d1, d2] = e.data;
+  const handler = (event) => {
+    const [status, control, value] = event.data;
     const typeNibble = status & 0xF0;
-    const ch = status & 0x0F;
+    const channel = status & 0x0F;
 
     if (typeNibble === 0xB0) {
-      learned = {
+      learnedMessage = {
         type: 'control_change',
-        control: d1,
-        value: d2,
-        channel: ch
+        control,
+        value,
+        channel
       };
     }
   };
 
-  midiAccess.inputs.forEach(input => {
+  midiAccess.inputs.forEach((input) => {
     input.addEventListener('midimessage', handler);
   });
 
-  for (let i = 0; i < 80; i++) {
-    if (learned) break;
-    await new Promise(r => setTimeout(r, 100));
+  for (let attempt = 0; attempt < 80 && !learnedMessage; attempt += 1) {
+    await wait(100);
   }
 
-  midiAccess.inputs.forEach(input => {
+  midiAccess.inputs.forEach((input) => {
     input.removeEventListener('midimessage', handler);
   });
 
+  return learnedMessage;
+}
+
+async function startBindFader(event, channelId) {
+  event.stopPropagation();
+
+  const channel = findChannel(channelId);
+
+  if (!channel) {
+    return;
+  }
+
+  showToast('pending', t('midi.moveFader', { name: channel.title || channel.appName }));
+
+  if (!midiAccess) {
+    showToast('error', t('midi.initFailed'), { updatePending: true });
+    return;
+  }
+
+  const learned = await learnFaderMessage();
+
   if (!learned) {
-    showToast('error', 'Failed to detect fader movement', { updatePending: true });
+    showToast('error', t('midi.failedToDetect'), { updatePending: true });
     logTest('startBindFader: NO LEARNED MESSAGE');
     return;
   }
 
-  logTest('startBindFader: LEARNED', learned);
+  const conflict = channels.find((item) => item.id !== channelId && item.faderCC === learned.control);
 
-  const cc = learned.control;
-
-  const conflict = channels.find(c => c.id !== channelId && c.faderCC === cc);
   if (conflict) {
-    const ok = confirm(
-      `This controller is already used by channel “${conflict.title || conflict.appName}”. Bind anyway?`
-    );
-    if (!ok) {
-      showToast('warn', 'Fader binding cancelled', { updatePending: true });
+    const conflictName = conflict.title || conflict.appName;
+    const confirmed = confirm(t('midi.conflict', { name: conflictName }));
+
+    if (!confirmed) {
+      showToast('warn', t('midi.bindCancelled'), { updatePending: true });
       logTest('startBindFader: USER CANCELED ON CONFLICT');
       return;
     }
@@ -180,16 +262,15 @@ async function startBindFader(ev, channelId) {
     control: learned.control ?? null,
     channel: learned.channel ?? 0
   };
-  channel.faderCC = cc;
+  channel.faderCC = learned.control;
   channel.showBindHint = false;
   channel.skipBinding = false;
 
   saveProfileToLocal();
   renderMixer();
-  showToast('success', 'Fader bound', { updatePending: true });
+  showToast('success', t('midi.bindSuccess'), { updatePending: true });
 }
 
 async function remapChannelFader(channelId) {
-  const fakeEvent = { stopPropagation: () => {} };
-  await startBindFader(fakeEvent, channelId);
+  await startBindFader({ stopPropagation() {} }, channelId);
 }

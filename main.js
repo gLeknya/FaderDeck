@@ -1,5 +1,4 @@
-// main.js
-const { app, BrowserWindow, ipcMain } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu } = require('electron');
 const path = require('path');
 
 const { MidiMixerAPI } = require('./backend/api');
@@ -7,8 +6,25 @@ const { MidiMixerAPI } = require('./backend/api');
 let mainWindow = null;
 let api = null;
 
+function ensureApi() {
+  if (!api) {
+    api = new MidiMixerAPI();
+  }
+
+  return api;
+}
+
+function shutdownApi() {
+  if (!api) {
+    return;
+  }
+
+  api.shutdown();
+  api = null;
+}
+
 function createWindow() {
-  api = new MidiMixerAPI();
+  ensureApi();
 
   mainWindow = new BrowserWindow({
     width: 1300,
@@ -27,53 +43,75 @@ function createWindow() {
     }
   });
 
+  Menu.setApplicationMenu(null);
   mainWindow.loadFile(path.join(__dirname, 'web', 'index.html'));
 
-  Menu.setApplicationMenu(null);
-
   mainWindow.on('closed', () => {
-    api.shutdown();
     mainWindow = null;
+    shutdownApi();
   });
 }
 
-app.whenReady().then(createWindow);
+function registerIpcHandlers() {
+  ipcMain.handle('api:get_audio_applications', () => ensureApi().get_audio_applications());
+  ipcMain.handle('api:set_app_volume', (_event, processName, volume) => (
+    ensureApi().set_app_volume(processName, volume)
+  ));
+  ipcMain.handle('api:toggle_app_mute', (_event, processName) => (
+    ensureApi().toggle_app_mute(processName)
+  ));
 
-app.on('window-all-closed', () => {
-  api.shutdown();
-  if (process.platform !== 'darwin') {
-    app.quit();
+  ipcMain.handle('api:save_profile', (_event, name, data) => ensureApi().save_profile(name, data));
+  ipcMain.handle('api:load_profile', (_event, name) => ensureApi().load_profile(name));
+  ipcMain.handle('api:list_profiles', () => ensureApi().list_profiles());
+  ipcMain.handle('api:delete_profile', (_event, name) => ensureApi().delete_profile(name));
+
+  ipcMain.handle('api:exit_app', () => {
+    mainWindow?.close();
+  });
+
+  ipcMain.handle('window-control', (event, action) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+
+    if (!window) {
+      return;
+    }
+
+    if (action === 'minimize') {
+      window.minimize();
+      return;
+    }
+
+    if (action === 'maximize') {
+      if (window.isMaximized()) {
+        window.unmaximize();
+      } else {
+        window.maximize();
+      }
+      return;
+    }
+
+    if (action === 'close') {
+      window.close();
+    }
+  });
+}
+
+app.whenReady().then(() => {
+  registerIpcHandlers();
+  createWindow();
+});
+
+app.on('activate', () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
   }
 });
 
-// ---- IPC API (аналог Python MidiMixerAPI) ----
+app.on('window-all-closed', () => {
+  shutdownApi();
 
-// Audio
-ipcMain.handle('api:get_audio_applications', () => api.get_audio_applications());
-ipcMain.handle('api:set_app_volume', (e, proc, vol) => api.set_app_volume(proc, vol));
-ipcMain.handle('api:toggle_app_mute', (e, proc) => api.toggle_app_mute(proc));
-
-// Profiles
-ipcMain.handle('api:save_profile', (e, name, data) => api.save_profile(name, data));
-ipcMain.handle('api:load_profile', (e, name) => api.load_profile(name));
-ipcMain.handle('api:list_profiles', () => api.list_profiles());
-ipcMain.handle('api:delete_profile', (e, name) => api.delete_profile(name));
-
-// Misc
-ipcMain.handle('api:exit_app', () => {
-  if (mainWindow) mainWindow.close();
-});
-
-ipcMain.handle('window-control', (event, action) => {
-  const win = BrowserWindow.fromWebContents(event.sender);
-  if (!win) return;
-
-  if (action === 'minimize') {
-    win.minimize();
-  } else if (action === 'maximize') {
-    if (win.isMaximized()) win.unmaximize();
-    else win.maximize();
-  } else if (action === 'close') {
-    win.close();
+  if (process.platform !== 'darwin') {
+    app.quit();
   }
 });
