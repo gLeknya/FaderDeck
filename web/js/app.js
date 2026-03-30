@@ -4,8 +4,15 @@ let audioApps = [];
 let currentButtonConfig = null;
 let contextTarget = null;
 let advancedMode = false;
+let developerMode = false;
+let activeMenuTab = null;
+let menuScrollVisibilitySnapshot = null;
 
 const dom = {};
+const UI_STORAGE_KEYS = {
+  advancedMode: 'faderdeck_advanced_mode',
+  developerMode: 'faderdeck_developer_mode'
+};
 const FALLBACK_AUDIO_APPS = [
   { name: 'Chrome', process: 'chrome.exe' },
   { name: 'Spotify', process: 'spotify.exe' },
@@ -13,6 +20,8 @@ const FALLBACK_AUDIO_APPS = [
   { name: 'OBS Studio', process: 'obs64.exe' },
   { name: 'VLC', process: 'vlc.exe' }
 ];
+
+let contentMetricsFrame = null;
 
 function logTest(...args) {
   console.log('[TEST]', ...args);
@@ -28,60 +37,104 @@ function getApi() {
 
 function buildAudioAppsList(applications = []) {
   const localizedMaster = { name: t('audio.systemVolume'), process: 'master' };
-  const externalApps = Array.isArray(applications) ? applications.filter((app) => app.process !== 'master') : [];
+  const externalApps = Array.isArray(applications)
+    ? applications.filter((app) => app.process !== 'master')
+    : [];
   return [localizedMaster, ...externalApps];
 }
 
 function cacheDomElements() {
   dom.appShell = $('appShell');
+  dom.menuRail = $('menuRail');
+  dom.menuPanelOverlay = $('menuPanelOverlay');
   dom.advancedModeToggle = $('advancedModeToggle');
+  dom.developerModeToggle = $('developerModeToggle');
+  dom.devtoolsAction = $('devtoolsAction');
+  dom.openDevtoolsButton = $('openDevtoolsButton');
   dom.advancedInfo = $('advancedInfo');
   dom.buttonKey = $('buttonKey');
   dom.contextMenu = $('contextMenu');
-  dom.mainMenuPanel = $('mainMenuPanel');
-  dom.mainMenuTabs = Array.from(document.querySelectorAll('.main-menu-tab'));
-  dom.mainMenuViews = Array.from(document.querySelectorAll('.main-menu-view'));
+  dom.menuTabs = Array.from(document.querySelectorAll('.menu-icon-tab'));
+  dom.menuViews = Array.from(document.querySelectorAll('.menu-panel-view'));
   dom.languageSelect = $('languageSelect');
+  dom.mainContentViewport = $('mainContentViewport');
+  dom.contentScrollBar = $('contentScrollBar');
+  dom.contentScrollRange = $('contentScrollRange');
 }
 
-function togglePanel(panel, isOpen) {
-  if (!panel) {
-    return;
-  }
-
-  panel.classList.toggle('open', isOpen);
+function loadUiSettingsFromLocal() {
+  advancedMode = localStorage.getItem(UI_STORAGE_KEYS.advancedMode) === 'true';
+  developerMode = localStorage.getItem(UI_STORAGE_KEYS.developerMode) === 'true';
 }
 
-function activateMainMenuTab(tabName) {
-  dom.mainMenuTabs.forEach((tab) => {
-    tab.classList.toggle('active', tab.dataset.tab === tabName);
+function saveUiSetting(key, value) {
+  localStorage.setItem(key, String(Boolean(value)));
+}
+
+function isMenuOpen() {
+  return dom.menuRail?.classList.contains('open');
+}
+
+function syncMenuTabUi() {
+  dom.menuTabs.forEach((tab) => {
+    tab.classList.toggle('active', tab.dataset.tab === activeMenuTab);
   });
 
-  dom.mainMenuViews.forEach((view) => {
-    view.hidden = view.dataset.tab !== tabName;
+  dom.menuViews.forEach((view) => {
+    view.hidden = view.dataset.tab !== activeMenuTab;
   });
+
+  dom.menuPanelOverlay?.classList.toggle('hidden', !activeMenuTab);
 }
 
-function openMainMenu(tabName = null) {
-  if (tabName) {
-    activateMainMenuTab(tabName);
-  }
+function setActiveMenuTab(tabName) {
+  activeMenuTab = tabName;
+  syncMenuTabUi();
+}
 
-  togglePanel(dom.mainMenuPanel, true);
-  dom.appShell?.classList.add('menu-open');
+function openMainMenu() {
+  menuScrollVisibilitySnapshot = !dom.contentScrollBar?.classList.contains('hidden');
+  dom.menuRail?.classList.add('open');
+  document.body.classList.add('menu-open');
+  scheduleContentMetricsUpdate();
 }
 
 function closeMainMenu() {
-  togglePanel(dom.mainMenuPanel, false);
-  dom.appShell?.classList.remove('menu-open');
+  dom.menuRail?.classList.remove('open');
+  document.body.classList.remove('menu-open');
+  setActiveMenuTab(null);
+
+  if (menuScrollVisibilitySnapshot === false) {
+    dom.contentScrollBar?.classList.add('hidden');
+  }
+
+  scheduleContentMetricsUpdate();
+
+  requestAnimationFrame(() => {
+    if (menuScrollVisibilitySnapshot === false) {
+      dom.contentScrollBar?.classList.add('hidden');
+    }
+    menuScrollVisibilitySnapshot = null;
+    scheduleContentMetricsUpdate();
+  });
+}
+
+function toggleMainMenu() {
+  if (isMenuOpen()) {
+    closeMainMenu();
+    return;
+  }
+
+  openMainMenu();
 }
 
 function openSettings() {
-  openMainMenu('settings');
+  openMainMenu();
+  setActiveMenuTab('settings');
 }
 
 function closeSettings() {
-  closeMainMenu();
+  setActiveMenuTab(null);
 }
 
 function openSettingsFromMenu() {
@@ -98,24 +151,89 @@ function syncAdvancedModeUi() {
   dom.advancedInfo.classList.toggle('hidden', !advancedMode);
 }
 
+function syncDeveloperModeUi() {
+  if (!dom.developerModeToggle || !dom.devtoolsAction) {
+    return;
+  }
+
+  dom.developerModeToggle.classList.toggle('on', developerMode);
+  dom.developerModeToggle.textContent = developerMode ? t('settings.on') : t('settings.off');
+  dom.devtoolsAction.hidden = !developerMode;
+}
+
 function syncLanguageUi() {
   if (dom.languageSelect) {
     dom.languageSelect.value = getCurrentLanguage();
   }
 }
 
-function setupSettings() {
-  if (!dom.advancedModeToggle) {
+function syncContentScrollUi() {
+  if (!dom.mainContentViewport || !dom.contentScrollRange || !dom.contentScrollBar) {
     return;
   }
 
+  const actualMaxScroll = Math.max(
+    0,
+    dom.mainContentViewport.scrollWidth - dom.mainContentViewport.clientWidth
+  );
+  const railCompensation = isMenuOpen() ? (dom.menuRail?.offsetWidth || 0) : 0;
+  const baseVisibleWidth = dom.mainContentViewport.clientWidth + railCompensation;
+  const baseOverflow = Math.max(0, dom.mainContentViewport.scrollWidth - baseVisibleWidth);
+  const shouldShowScroll = menuScrollVisibilitySnapshot === false
+    ? false
+    : baseOverflow > 0;
+
+  dom.contentScrollBar.classList.toggle('hidden', !shouldShowScroll);
+  dom.contentScrollRange.max = String(actualMaxScroll);
+  dom.contentScrollRange.value = String(
+    Math.min(actualMaxScroll, Math.round(dom.mainContentViewport.scrollLeft))
+  );
+}
+
+function scheduleContentMetricsUpdate() {
+  if (contentMetricsFrame) {
+    cancelAnimationFrame(contentMetricsFrame);
+  }
+
+  contentMetricsFrame = requestAnimationFrame(() => {
+    contentMetricsFrame = null;
+    syncContentScrollUi();
+  });
+}
+
+function setupContentScroller() {
+  if (!dom.contentScrollRange || !dom.mainContentViewport) {
+    return;
+  }
+
+  dom.contentScrollRange.addEventListener('input', (event) => {
+    dom.mainContentViewport.scrollLeft = Number(event.target.value);
+  });
+
+  dom.mainContentViewport.addEventListener('scroll', syncContentScrollUi);
+  window.addEventListener('resize', scheduleContentMetricsUpdate);
+}
+
+function setupSettings() {
   syncAdvancedModeUi();
+  syncDeveloperModeUi();
   syncLanguageUi();
 
-  dom.advancedModeToggle.addEventListener('click', () => {
+  dom.advancedModeToggle?.addEventListener('click', () => {
     advancedMode = !advancedMode;
+    saveUiSetting(UI_STORAGE_KEYS.advancedMode, advancedMode);
     syncAdvancedModeUi();
     renderMixer();
+  });
+
+  dom.developerModeToggle?.addEventListener('click', () => {
+    developerMode = !developerMode;
+    saveUiSetting(UI_STORAGE_KEYS.developerMode, developerMode);
+    syncDeveloperModeUi();
+  });
+
+  dom.openDevtoolsButton?.addEventListener('click', () => {
+    getApi()?.toggle_devtools?.();
   });
 
   dom.languageSelect?.addEventListener('change', (event) => {
@@ -133,14 +251,16 @@ async function loadAudioApps() {
     }
 
     const response = await api.get_audio_applications();
-    audioApps = buildAudioAppsList(response?.applications?.length ? response.applications : FALLBACK_AUDIO_APPS);
-    logTest('audio_apps', audioApps);
+    audioApps = buildAudioAppsList(
+      response?.applications?.length ? response.applications : FALLBACK_AUDIO_APPS
+    );
   } catch (error) {
     console.error(error);
     audioApps = buildAudioAppsList(FALLBACK_AUDIO_APPS);
   }
 
   renderMixer();
+  scheduleContentMetricsUpdate();
 }
 
 async function setupMidiInputs() {
@@ -155,7 +275,7 @@ function hideContextMenu() {
 
 function onContextMenu(event) {
   const channelEl = event.target.closest('.channel-strip');
-  const buttonEl = event.target.closest('.control-button');
+  const buttonEl = event.target.closest('.control-button, .channel-side-button');
   const standaloneEl = event.target.closest('.standalone-button');
 
   if (!channelEl && !buttonEl && !standaloneEl) {
@@ -164,7 +284,7 @@ function onContextMenu(event) {
 
   event.preventDefault();
 
-  if (buttonEl) {
+  if (buttonEl && buttonEl.dataset.buttonId) {
     contextTarget = {
       type: 'button',
       channelId: Number.parseInt(buttonEl.closest('.channel-strip').dataset.channelId, 10),
@@ -175,11 +295,13 @@ function onContextMenu(event) {
       type: 'standalone',
       buttonId: Number.parseInt(standaloneEl.dataset.buttonId, 10)
     };
-  } else {
+  } else if (channelEl) {
     contextTarget = {
       type: 'channel',
       channelId: Number.parseInt(channelEl.dataset.channelId, 10)
     };
+  } else {
+    return;
   }
 
   if (!dom.contextMenu) {
@@ -296,10 +418,19 @@ function setupWindowControls() {
   });
 }
 
-function setupMainMenuTabs() {
-  dom.mainMenuTabs.forEach((tab) => {
+function setupMenuTabs() {
+  dom.menuTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
-      activateMainMenuTab(tab.dataset.tab);
+      if (!isMenuOpen()) {
+        openMainMenu();
+      }
+
+      if (activeMenuTab === tab.dataset.tab) {
+        setActiveMenuTab(null);
+        return;
+      }
+
+      setActiveMenuTab(tab.dataset.tab);
     });
   });
 }
@@ -307,6 +438,7 @@ function setupMainMenuTabs() {
 function handleLanguageChanged() {
   syncLanguageUi();
   syncAdvancedModeUi();
+  syncDeveloperModeUi();
   audioApps = buildAudioAppsList(audioApps);
   renderMixer();
   renderStandaloneButtons();
@@ -314,6 +446,8 @@ function handleLanguageChanged() {
   if (typeof refreshMidiUiLanguage === 'function') {
     refreshMidiUiLanguage();
   }
+
+  scheduleContentMetricsUpdate();
 }
 
 function bindGlobalUi() {
@@ -332,15 +466,18 @@ function bindGlobalUi() {
 
 function init() {
   cacheDomElements();
+  loadUiSettingsFromLocal();
   applyTranslations();
   bindGlobalUi();
   setupSettings();
   setupWindowControls();
-  setupMainMenuTabs();
-  activateMainMenuTab('site');
+  setupMenuTabs();
+  setupContentScroller();
+  syncMenuTabUi();
   loadProfileFromLocal();
   loadAudioApps();
   initWebMIDI();
+  scheduleContentMetricsUpdate();
 }
 
 function safeInit() {

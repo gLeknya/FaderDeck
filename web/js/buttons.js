@@ -1,9 +1,40 @@
+const MAX_CHANNEL_BUTTONS = 4;
+const MAX_STANDALONE_BUTTONS = 24;
+
 function findChannel(channelId) {
   return channels.find((channel) => channel.id === channelId) ?? null;
 }
 
 function findStandaloneButton(buttonId) {
   return standaloneButtonsList.find((button) => button.id === buttonId) ?? null;
+}
+
+function createDefaultButton() {
+  return {
+    id: Date.now() + Math.floor(Math.random() * 1000),
+    text: t('buttons.defaultLabel'),
+    icon: 'BTN',
+    note: 70,
+    key: null,
+    active: false
+  };
+}
+
+function addChannelButton(channelId) {
+  const channel = findChannel(channelId);
+
+  if (!channel) {
+    return;
+  }
+
+  if (channel.buttons.length >= MAX_CHANNEL_BUTTONS) {
+    showToast('warn', t('buttons.channelLimit'));
+    return;
+  }
+
+  channel.buttons.push(createDefaultButton());
+  saveProfileToLocal();
+  renderMixer();
 }
 
 function fillButtonModal(button) {
@@ -49,18 +80,12 @@ async function remapButton() {
   showToast('warn', t('buttons.buttonLearnMissing'));
 }
 
-function createDefaultButton() {
-  return {
-    id: Date.now(),
-    text: t('buttons.defaultLabel'),
-    icon: '*',
-    note: 70,
-    key: null,
-    active: false
-  };
-}
-
 function addStandaloneButton() {
+  if (standaloneButtonsList.length >= MAX_STANDALONE_BUTTONS) {
+    showToast('warn', t('buttons.standaloneLimit'));
+    return;
+  }
+
   standaloneButtonsList.push(createDefaultButton());
   renderStandaloneButtons();
   saveProfileToLocal();
@@ -85,12 +110,16 @@ function renderStandaloneButtons() {
     `)
     .join('');
 
-  container.innerHTML = `
-    ${buttonsMarkup}
-    <div class="standalone-add-strip" onclick="addStandaloneButton()">
-      <div class="add-channel-plus">+</div>
-    </div>
-  `;
+  const addMarkup = standaloneButtonsList.length < MAX_STANDALONE_BUTTONS
+    ? `
+      <div class="standalone-add-strip" onclick="addStandaloneButton()">
+        <div class="add-channel-plus">+</div>
+      </div>
+    `
+    : '';
+
+  container.innerHTML = `${buttonsMarkup}${addMarkup}`;
+  scheduleContentMetricsUpdate();
 }
 
 function toggleStandaloneButton(buttonId) {
@@ -128,7 +157,7 @@ function closeButtonModal() {
 function readButtonFormState() {
   return {
     text: document.getElementById('buttonText').value.trim() || t('buttons.defaultLabel'),
-    icon: document.getElementById('buttonIcon').value.trim() || '*',
+    icon: document.getElementById('buttonIcon').value.trim() || 'BTN',
     note: Number.parseInt(document.getElementById('buttonNote').value, 10) || 0,
     key: document.getElementById('buttonKey').value || null
   };

@@ -9,7 +9,7 @@
 <body>
   <div class="toolbar">
     <div class="toolbar-section toolbar-left">
-      <button class="btn icon-btn" onclick="openMainMenu()" data-i18n="toolbar.menu">Меню</button>
+      <button class="btn icon-btn" onclick="toggleMainMenu()" data-i18n="toolbar.menu">Меню</button>
       <select id="midiInput">
         <option value="" data-i18n="toolbar.selectMidi">Выберите MIDI-устройство</option>
       </select>
@@ -34,37 +34,48 @@
   </div>
 
   <div class="app-shell" id="appShell">
-    <aside id="mainMenuPanel" class="main-menu-panel">
-      <div class="main-menu-header">
-        <span data-i18n="menu.title">Меню</span>
-        <button class="main-menu-close" onclick="closeMainMenu()">x</button>
+    <aside class="menu-rail" id="menuRail">
+      <div class="menu-rail-inner">
+        <div class="menu-tab-group">
+          <button class="menu-icon-tab" data-tab="settings" data-i18n-title="menu.tabs.settings">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 8.8A3.2 3.2 0 1 0 12 15.2A3.2 3.2 0 0 0 12 8.8ZM20 13.2V10.8L17.9 10.2C17.7 9.5 17.4 8.9 17 8.3L18.1 6.4L16.4 4.7L14.5 5.8C13.9 5.4 13.3 5.1 12.6 4.9L12 2.8H9.6L9 4.9C8.3 5.1 7.7 5.4 7.1 5.8L5.2 4.7L3.5 6.4L4.6 8.3C4.2 8.9 3.9 9.5 3.7 10.2L1.6 10.8V13.2L3.7 13.8C3.9 14.5 4.2 15.1 4.6 15.7L3.5 17.6L5.2 19.3L7.1 18.2C7.7 18.6 8.3 18.9 9 19.1L9.6 21.2H12L12.6 19.1C13.3 18.9 13.9 18.6 14.5 18.2L16.4 19.3L18.1 17.6L17 15.7C17.4 15.1 17.7 14.5 17.9 13.8L20 13.2Z" />
+            </svg>
+          </button>
+
+          <button class="menu-icon-tab" data-tab="plugins" data-i18n-title="menu.tabs.plugins">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M8 3H16V8H21V16H16V21H8V16H3V8H8V3ZM10 5V10H5V14H10V19H14V14H19V10H14V5H10Z" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="menu-tab-group menu-tab-group-bottom">
+          <button class="menu-icon-tab" data-tab="account" data-i18n-title="menu.tabs.account">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 12.5A4.25 4.25 0 1 0 12 4A4.25 4.25 0 0 0 12 12.5ZM4 20C4.8 16.9 7.8 14.75 12 14.75C16.2 14.75 19.2 16.9 20 20H4Z" />
+            </svg>
+          </button>
+        </div>
       </div>
+    </aside>
 
-      <div class="main-menu-tabs">
-        <button class="main-menu-tab active" data-tab="site" data-i18n="menu.tabs.site">Главная</button>
-        <button class="main-menu-tab" data-tab="plugins" data-i18n="menu.tabs.plugins">Плагины</button>
-        <button class="main-menu-tab" data-tab="settings" data-i18n="menu.tabs.settings">Настройки</button>
-      </div>
-
-      <div class="main-menu-content">
-        <section class="main-menu-view" data-tab="site">
-          <p data-i18n="menu.sitePlaceholder">Раздел пока не реализован.</p>
-        </section>
-
-        <section class="main-menu-view" data-tab="plugins" hidden>
-          <p data-i18n="menu.pluginsPlaceholder">Раздел плагинов пока не реализован.</p>
-        </section>
-
-        <section class="main-menu-view" data-tab="settings" hidden>
-          <div class="settings-content settings-content-embedded">
+    <div class="menu-panel-overlay hidden" id="menuPanelOverlay">
+      <div class="menu-panel-card">
+        <section class="menu-panel-view" data-tab="settings" hidden>
+          <div class="settings-content">
             <label class="settings-item">
               <span data-i18n="settings.developerMode">Режим разработчика</span>
-              <div class="settings-toggle disabled" data-i18n="settings.off">Выкл</div>
+              <button class="settings-toggle" id="developerModeToggle" type="button" data-i18n="settings.off">Выкл</button>
             </label>
+
+            <div class="settings-extra-action" id="devtoolsAction" hidden>
+              <button class="btn" id="openDevtoolsButton" type="button" data-i18n="settings.openDevtools">Открыть DevTools</button>
+            </div>
 
             <label class="settings-item">
               <span data-i18n="settings.advancedMode">Расширенный режим</span>
-              <div class="settings-toggle" id="advancedModeToggle" data-i18n="settings.off">Выкл</div>
+              <button class="settings-toggle" id="advancedModeToggle" type="button" data-i18n="settings.off">Выкл</button>
             </label>
 
             <label class="settings-item">
@@ -86,27 +97,41 @@
             </div>
           </div>
         </section>
-      </div>
-    </aside>
 
-    <main class="main-content-viewport" id="mainContentViewport">
-      <div class="main-content-canvas" id="mainContentCanvas">
-        <div class="mixer-container" id="mixerContainer">
-          <div class="empty-state">
-            <div class="empty-state-icon">Mixer</div>
-            <div class="empty-state-text" data-i18n="empty.message">
-              Нажмите "+" справа, чтобы добавить канал,<br>
-              или создайте отдельную кнопку ниже
+        <section class="menu-panel-view" data-tab="plugins" hidden>
+          <p data-i18n="menu.pluginsPlaceholder">Раздел плагинов пока не реализован.</p>
+        </section>
+
+        <section class="menu-panel-view" data-tab="account" hidden>
+          <p data-i18n="menu.accountPlaceholder">Раздел аккаунта пока не реализован.</p>
+        </section>
+      </div>
+    </div>
+
+    <div class="content-shell">
+      <div class="content-scrollbar hidden" id="contentScrollBar">
+        <input type="range" id="contentScrollRange" min="0" max="0" value="0" step="1">
+      </div>
+
+      <main class="main-content-viewport" id="mainContentViewport">
+        <div class="main-content-canvas" id="mainContentCanvas">
+          <div class="mixer-container" id="mixerContainer">
+            <div class="empty-state">
+              <div class="empty-state-icon">Mixer</div>
+              <div class="empty-state-text" data-i18n="empty.message">
+                Нажмите "+" справа, чтобы добавить канал,<br>
+                или создайте отдельную кнопку ниже
+              </div>
+            </div>
+            <div class="add-channel-strip" onclick="createChannel()">
+              <div class="add-channel-plus">+</div>
             </div>
           </div>
-          <div class="add-channel-strip" onclick="createChannel()">
-            <div class="add-channel-plus">+</div>
-          </div>
-        </div>
 
-        <div class="standalone-buttons" id="standaloneButtons"></div>
-      </div>
-    </main>
+          <div class="standalone-buttons" id="standaloneButtons"></div>
+        </div>
+      </main>
+    </div>
   </div>
 
   <div class="modal" id="buttonModal">
@@ -115,12 +140,12 @@
 
       <div class="form-group">
         <label class="form-label" for="buttonText" data-i18n="buttonModal.text">Текст</label>
-        <input type="text" class="form-input" id="buttonText" data-i18n-placeholder="buttonModal.textPlaceholder" placeholder="Mute">
+        <input type="text" class="form-input" id="buttonText" data-i18n-placeholder="buttonModal.textPlaceholder" placeholder="Button">
       </div>
 
       <div class="form-group">
         <label class="form-label" for="buttonIcon" data-i18n="buttonModal.icon">Иконка</label>
-        <input type="text" class="form-input" id="buttonIcon" data-i18n-placeholder="buttonModal.iconPlaceholder" placeholder="M">
+        <input type="text" class="form-input" id="buttonIcon" data-i18n-placeholder="buttonModal.iconPlaceholder" placeholder="BTN">
       </div>
 
       <div class="form-group">

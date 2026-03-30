@@ -55,7 +55,6 @@ function changeChannelApp(channelId, appProcess) {
 
   saveProfileToLocal();
   renderMixer();
-  logTest('changeChannelApp', { channelId, appProcess });
 }
 
 function editChannelTitle(channelId) {
@@ -179,13 +178,14 @@ function updateChannelFaderUi(channel) {
 
   const thumb = track.querySelector('.fader-thumb');
   const fill = track.querySelector('.fader-fill');
-  const value = track.parentElement?.querySelector('.volume-value');
+  const strip = track.closest('.channel-strip');
+  const value = strip?.querySelector('.volume-value');
 
   if (!thumb || !fill || !value) {
     return;
   }
 
-  thumb.style.bottom = `calc(${channel.volume}% - 10px)`;
+  thumb.style.bottom = `calc(${channel.volume}% - 25px)`;
   fill.style.height = `${channel.volume}%`;
   value.textContent = `${channel.volume}%`;
 }
@@ -216,17 +216,38 @@ function renderAppOptions(selectedProcess) {
     .join('');
 }
 
-function renderChannelButtons(channel) {
-  return channel.buttons
-    .map((button) => `
-      <button class="control-button ${button.active ? 'active' : ''}"
-              data-button-id="${button.id}"
-              onclick="toggleButton(${channel.id}, ${button.id})"
-              ondblclick="configureButton(${channel.id}, ${button.id})">
-        ${button.icon ? `${button.icon} ` : ''}${button.text}
+function renderChannelButtonSlot(channel, button) {
+  if (!button) {
+    return `
+      <button class="channel-side-button channel-side-button-add"
+              onclick="addChannelButton(${channel.id})"
+              type="button">
+        <span class="button-icon">+</span>
+        <span class="button-label">${t('channels.addButton')}</span>
       </button>
-    `)
-    .join('');
+    `;
+  }
+
+  return `
+    <button class="channel-side-button ${button.active ? 'active' : ''}"
+            type="button"
+            data-button-id="${button.id}"
+            onclick="toggleButton(${channel.id}, ${button.id})"
+            ondblclick="configureButton(${channel.id}, ${button.id})">
+      <span class="button-icon">${button.icon}</span>
+      <span class="button-label">${button.text}</span>
+    </button>
+  `;
+}
+
+function renderChannelButtons(channel) {
+  const slots = [];
+
+  for (let index = 0; index < MAX_CHANNEL_BUTTONS; index += 1) {
+    slots.push(renderChannelButtonSlot(channel, channel.buttons[index] || null));
+  }
+
+  return slots.join('');
 }
 
 function renderBindHint(channel) {
@@ -235,15 +256,9 @@ function renderBindHint(channel) {
   }
 
   return `
-    <div class="fader-bind-bar">
-      <span class="fader-bind-text" onclick="startBindFader(event, ${channel.id})">
-        ${t('channels.bindToMixer')}
-      </span>
-      <button class="fader-bind-close"
-              onclick="dismissFaderBindHint(${channel.id}); event.stopPropagation();">
-        x
-      </button>
-    </div>
+    <button class="fader-bind-chip" type="button" onclick="startBindFader(event, ${channel.id})">
+      ${t('channels.bindToMixer')}
+    </button>
   `;
 }
 
@@ -253,33 +268,36 @@ function renderChannel(channel) {
 
   return `
     <div class="channel-strip" data-channel-id="${channel.id}">
-      <div class="channel-header">
-        <div class="channel-name" title="${title}" ondblclick="editChannelTitle(${channel.id})">
-          ${title}
-        </div>
-        <button class="btn-remove" onclick="removeChannel(${channel.id}); event.stopPropagation();">
-          x
-        </button>
-      </div>
-
       <div class="channel-body">
-        <div class="fader-container">
-          ${mappingLabel ? `<div class="fader-meta">${mappingLabel}</div>` : ''}
-          <div class="fader-track" data-channel="${channel.id}">
-            <div class="fader-fill" style="height: ${channel.volume}%"></div>
-            <div class="fader-thumb" style="bottom: calc(${channel.volume}% - 10px)"></div>
+        <div class="channel-main">
+          <div class="fader-column">
+            <div class="fader-track" data-channel="${channel.id}">
+              <div class="fader-rail"></div>
+              <div class="fader-fill" style="height: ${channel.volume}%"></div>
+              <div class="fader-thumb" style="bottom: calc(${channel.volume}% - 25px)"></div>
+            </div>
           </div>
-          <div class="volume-value">${channel.volume}%</div>
-          ${renderBindHint(channel)}
+
+          <div class="channel-side-column">
+            <div class="channel-title" title="${title}" ondblclick="editChannelTitle(${channel.id})">
+              ${title}
+            </div>
+
+            ${mappingLabel ? `<div class="fader-meta">${mappingLabel}</div>` : '<div class="fader-meta"></div>'}
+
+            <div class="channel-buttons-grid">
+              ${renderChannelButtons(channel)}
+            </div>
+
+            <div class="volume-value">${channel.volume}%</div>
+          </div>
         </div>
+
+        ${renderBindHint(channel)}
 
         <select class="app-selector" onchange="changeChannelApp(${channel.id}, this.value)">
           ${renderAppOptions(channel.app)}
         </select>
-
-        <div class="button-group">
-          ${renderChannelButtons(channel)}
-        </div>
       </div>
     </div>
   `;
@@ -334,6 +352,7 @@ function renderMixer() {
         <div class="add-channel-plus">+</div>
       </div>
     `;
+    scheduleContentMetricsUpdate();
     return;
   }
 
@@ -347,4 +366,5 @@ function renderMixer() {
   setupFaderDrag();
   triggerNewChannelFlash(container);
   syncAddChannelStripHeight(container);
+  scheduleContentMetricsUpdate();
 }

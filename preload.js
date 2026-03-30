@@ -14,6 +14,7 @@ const api = Object.freeze({
   list_profiles: () => invoke('api:list_profiles'),
   delete_profile: (name) => invoke('api:delete_profile', name),
 
+  toggle_devtools: () => invoke('api:toggle_devtools'),
   exit_app: () => invoke('api:exit_app'),
   windowControl: (action) => invoke('window-control', action)
 });

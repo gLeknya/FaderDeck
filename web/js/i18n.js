@@ -11,14 +11,13 @@ const TRANSLATIONS = Object.freeze({
       devices: '{count} устройств'
     },
     menu: {
-      title: 'Меню',
       tabs: {
-        site: 'Главная',
         plugins: 'Плагины',
-        settings: 'Настройки'
+        settings: 'Настройки',
+        account: 'Аккаунт'
       },
-      sitePlaceholder: 'Раздел пока не реализован.',
-      pluginsPlaceholder: 'Раздел плагинов пока не реализован.'
+      pluginsPlaceholder: 'Раздел плагинов пока не реализован.',
+      accountPlaceholder: 'Раздел аккаунта пока не реализован.'
     },
     settings: {
       developerMode: 'Режим разработчика',
@@ -26,6 +25,7 @@ const TRANSLATIONS = Object.freeze({
       startOnBoot: 'Запуск с системой',
       language: 'Язык',
       incomingMidi: 'Входящие MIDI-сообщения',
+      openDevtools: 'Открыть DevTools',
       on: 'Вкл',
       off: 'Выкл'
     },
@@ -39,26 +39,29 @@ const TRANSLATIONS = Object.freeze({
     buttonModal: {
       title: 'Настройки кнопки',
       text: 'Текст',
-      textPlaceholder: 'Mute',
+      textPlaceholder: 'Button',
       icon: 'Иконка',
-      iconPlaceholder: 'M',
+      iconPlaceholder: 'BTN',
       midiNote: 'MIDI Note',
       key: 'Клавиша',
       keyPlaceholder: 'Нажмите клавишу...'
     },
     buttons: {
-      defaultLabel: 'Кнопка',
+      defaultLabel: 'Button',
       buttonLearnMissing: 'MIDI learn для кнопки пока не реализован.',
-      standaloneLearnMissing: 'MIDI learn для отдельной кнопки пока не реализован.'
+      standaloneLearnMissing: 'MIDI learn для отдельной кнопки пока не реализован.',
+      standaloneLimit: 'Можно добавить максимум 24 отдельные кнопки.',
+      channelLimit: 'В одном канале доступно только 4 кнопки.'
     },
     channels: {
       defaultTitle: 'Канал {index}',
       unnamed: 'Без названия',
       bindToMixer: 'Привязать к микшеру',
-      unboundWarning: 'Этот фейдер не привязан к MIDI-контроллеру. Он будет работать только через UI.',
+      unboundWarning: 'Этот фейдер не привязан к MIDI-контроллеру. Он будет работать только через интерфейс.',
       channelNamePrompt: 'Название канала:',
       advancedControlChange: 'control_change (CC {control})',
-      advancedPitchwheel: 'pitchwheel (ch {channel})'
+      advancedPitchwheel: 'pitchwheel (ch {channel})',
+      addButton: 'Добавить'
     },
     midi: {
       initialized: 'WebMIDI инициализирован',
@@ -98,14 +101,13 @@ const TRANSLATIONS = Object.freeze({
       devices: '{count} device(s)'
     },
     menu: {
-      title: 'Menu',
       tabs: {
-        site: 'Home',
         plugins: 'Plugins',
-        settings: 'Settings'
+        settings: 'Settings',
+        account: 'Account'
       },
-      sitePlaceholder: 'This section is not implemented yet.',
-      pluginsPlaceholder: 'Plugins section is not implemented yet.'
+      pluginsPlaceholder: 'Plugins section is not implemented yet.',
+      accountPlaceholder: 'Account section is not implemented yet.'
     },
     settings: {
       developerMode: 'Developer mode',
@@ -113,6 +115,7 @@ const TRANSLATIONS = Object.freeze({
       startOnBoot: 'Start on boot',
       language: 'Language',
       incomingMidi: 'Incoming MIDI messages',
+      openDevtools: 'Open DevTools',
       on: 'On',
       off: 'Off'
     },
@@ -126,9 +129,9 @@ const TRANSLATIONS = Object.freeze({
     buttonModal: {
       title: 'Button settings',
       text: 'Text',
-      textPlaceholder: 'Mute',
+      textPlaceholder: 'Button',
       icon: 'Icon',
-      iconPlaceholder: 'M',
+      iconPlaceholder: 'BTN',
       midiNote: 'MIDI Note',
       key: 'Key',
       keyPlaceholder: 'Press a key...'
@@ -136,16 +139,19 @@ const TRANSLATIONS = Object.freeze({
     buttons: {
       defaultLabel: 'Button',
       buttonLearnMissing: 'Button MIDI learn is not implemented yet.',
-      standaloneLearnMissing: 'Standalone button MIDI learn is not implemented yet.'
+      standaloneLearnMissing: 'Standalone button MIDI learn is not implemented yet.',
+      standaloneLimit: 'You can add up to 24 standalone buttons.',
+      channelLimit: 'Only 4 buttons are available per channel.'
     },
     channels: {
       defaultTitle: 'Channel {index}',
-      unnamed: 'Unassigned',
+      unnamed: 'Untitled',
       bindToMixer: 'Bind to mixer',
-      unboundWarning: 'This fader is not bound to a MIDI control. It will only respond to the UI.',
+      unboundWarning: 'This fader is not bound to a MIDI control. It will only respond through the interface.',
       channelNamePrompt: 'Channel name:',
       advancedControlChange: 'control_change (CC {control})',
-      advancedPitchwheel: 'pitchwheel (ch {channel})'
+      advancedPitchwheel: 'pitchwheel (ch {channel})',
+      addButton: 'Add'
     },
     midi: {
       initialized: 'WebMIDI initialized',

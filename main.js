@@ -27,10 +27,10 @@ function createWindow() {
   ensureApi();
 
   mainWindow = new BrowserWindow({
-    width: 1300,
-    height: 800,
-    minWidth: 800,
-    minHeight: 600,
+    width: 1400,
+    height: 760,
+    minWidth: 980,
+    minHeight: 640,
     resizable: true,
     frame: false,
     titleBarStyle: 'hidden',
@@ -52,6 +52,20 @@ function createWindow() {
   });
 }
 
+function toggleDevTools(window) {
+  if (!window) {
+    return { success: false };
+  }
+
+  if (window.webContents.isDevToolsOpened()) {
+    window.webContents.closeDevTools();
+    return { success: true, isOpen: false };
+  }
+
+  window.webContents.openDevTools({ mode: 'detach' });
+  return { success: true, isOpen: true };
+}
+
 function registerIpcHandlers() {
   ipcMain.handle('api:get_audio_applications', () => ensureApi().get_audio_applications());
   ipcMain.handle('api:set_app_volume', (_event, processName, volume) => (
@@ -65,6 +79,7 @@ function registerIpcHandlers() {
   ipcMain.handle('api:load_profile', (_event, name) => ensureApi().load_profile(name));
   ipcMain.handle('api:list_profiles', () => ensureApi().list_profiles());
   ipcMain.handle('api:delete_profile', (_event, name) => ensureApi().delete_profile(name));
+  ipcMain.handle('api:toggle_devtools', (event) => toggleDevTools(BrowserWindow.fromWebContents(event.sender)));
 
   ipcMain.handle('api:exit_app', () => {
     mainWindow?.close();
