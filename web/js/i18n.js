@@ -8,10 +8,11 @@ const TRANSLATIONS = Object.freeze({
       notConnected: 'не подключено',
       unsupported: 'не поддерживается',
       connectionFailed: 'ошибка подключения',
-      devices: '{count} устройств'
+      devices: '{count} устр.'
     },
     menu: {
       tabs: {
+        profiles: 'Профили',
         plugins: 'Плагины',
         settings: 'Настройки',
         account: 'Аккаунт'
@@ -83,7 +84,40 @@ const TRANSLATIONS = Object.freeze({
       save: 'Сохранить'
     },
     profile: {
-      autoSaveOnly: 'UI профилей пока не реализован, используется автосохранение.'
+      autoSaveOnly: 'Интерфейс профилей заменён новым разделом в меню.'
+    },
+    profiles: {
+      toolbarTitle: 'Быстрый выбор профиля',
+      toolbarPlaceholder: 'Профили',
+      saveCurrent: 'Сохранить свой профиль',
+      newProfile: 'Мой профиль',
+      emptyTitle: 'Пока нет профилей',
+      emptyText: 'Сохраните текущую раскладку или импортируйте профиль из файла.',
+      showInToolbarTitle: 'Показывать в toolbar',
+      itemActions: 'Действия с профилем',
+      revealInFolder: 'Показать в папке',
+      uploadToSite: 'Загрузить на сайт',
+      delete: 'Удалить профиль',
+      openFolder: 'Открыть папку профилей',
+      importMenu: 'Добавить профиль',
+      importFromFile: 'Файлом',
+      importFromSite: 'С сайта',
+      loaded: 'Профиль "{name}" загружен.',
+      loadFailed: 'Не удалось загрузить профиль "{name}".',
+      saved: 'Профиль "{name}" сохранён.',
+      saveFailed: 'Не удалось сохранить профиль.',
+      renamed: 'Профиль переименован в "{name}".',
+      renameFailed: 'Не удалось переименовать профиль.',
+      deleted: 'Профиль "{name}" удалён.',
+      deleteFailed: 'Не удалось удалить профиль.',
+      deleteConfirm: 'Удалить профиль "{name}"?',
+      imported: 'Профиль "{name}" импортирован.',
+      importFailed: 'Не удалось импортировать профиль из файла.',
+      failedToLoad: 'Не удалось получить список профилей.',
+      emptyName: 'Название профиля не может быть пустым.',
+      nameExists: 'Профиль с таким названием уже существует.',
+      uploadSoon: 'Загрузка профиля на сайт пока не реализована.',
+      importFromSiteSoon: 'Импорт профиля с сайта пока не реализован.'
     },
     audio: {
       systemVolume: 'Системная громкость'
@@ -102,6 +136,7 @@ const TRANSLATIONS = Object.freeze({
     },
     menu: {
       tabs: {
+        profiles: 'Profiles',
         plugins: 'Plugins',
         settings: 'Settings',
         account: 'Account'
@@ -173,7 +208,40 @@ const TRANSLATIONS = Object.freeze({
       save: 'Save'
     },
     profile: {
-      autoSaveOnly: 'Profile UI is not implemented yet, use auto-save.'
+      autoSaveOnly: 'The old profile modal was replaced by the profiles panel.'
+    },
+    profiles: {
+      toolbarTitle: 'Quick profile selector',
+      toolbarPlaceholder: 'Profiles',
+      saveCurrent: 'Save current profile',
+      newProfile: 'My profile',
+      emptyTitle: 'No profiles yet',
+      emptyText: 'Save the current layout or import a profile from a file.',
+      showInToolbarTitle: 'Show in toolbar',
+      itemActions: 'Profile actions',
+      revealInFolder: 'Reveal in folder',
+      uploadToSite: 'Upload to site',
+      delete: 'Delete profile',
+      openFolder: 'Open profiles folder',
+      importMenu: 'Add profile',
+      importFromFile: 'From file',
+      importFromSite: 'From site',
+      loaded: 'Profile "{name}" loaded.',
+      loadFailed: 'Failed to load profile "{name}".',
+      saved: 'Profile "{name}" saved.',
+      saveFailed: 'Failed to save profile.',
+      renamed: 'Profile renamed to "{name}".',
+      renameFailed: 'Failed to rename profile.',
+      deleted: 'Profile "{name}" deleted.',
+      deleteFailed: 'Failed to delete profile.',
+      deleteConfirm: 'Delete profile "{name}"?',
+      imported: 'Profile "{name}" imported.',
+      importFailed: 'Failed to import profile from file.',
+      failedToLoad: 'Failed to load profile list.',
+      emptyName: 'Profile name cannot be empty.',
+      nameExists: 'A profile with this name already exists.',
+      uploadSoon: 'Uploading profiles to the site is not implemented yet.',
+      importFromSiteSoon: 'Importing profiles from the site is not implemented yet.'
     },
     audio: {
       systemVolume: 'System volume'

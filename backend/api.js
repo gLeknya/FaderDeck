@@ -1,59 +1,142 @@
-// backend/api.js
-const path = require('path');
 const os = require('os');
+const path = require('path');
 
 const { AudioManager } = require('./audio');
 const { ProfileManager } = require('./profiles');
 
-class MidiMixerAPI {
-  constructor() {
-    this.debug_log = true;
-    this._log = this._log.bind(this);
+const DEFAULT_PROFILES_PATH = path.join(os.homedir(), '.midi_mixer', 'profiles');
 
-    const profilesPath = path.join(os.homedir(), '.midi_mixer', 'profiles');
-    this.profile_mgr = new ProfileManager(profilesPath, this._log);
-    this.audio_mgr = new AudioManager(this._log);
+class FaderDeckAPI {
+  constructor({ debug = true, profilesPath = DEFAULT_PROFILES_PATH } = {}) {
+    this.debugEnabled = debug;
+    this.log = this.log.bind(this);
+
+    this.profileManager = new ProfileManager(profilesPath, this.log);
+    this.audioManager = new AudioManager(this.log);
   }
 
-  _log(...args) {
-    if (this.debug_log) {
+  log(...args) {
+    if (this.debugEnabled) {
       console.log('[FaderDeck]', ...args);
     }
   }
 
-  // Audio
-  get_audio_applications() {
-    return this.audio_mgr.list_applications();
+  getAudioApplications() {
+    return this.audioManager.listApplications();
   }
 
-  set_app_volume(process_name, volume) {
-    return this.audio_mgr.set_volume(process_name, volume);
+  listRunningApplications() {
+    return this.audioManager.getApplicationCatalog();
   }
 
-  toggle_app_mute(process_name) {
-    return this.audio_mgr.toggle_mute(process_name);
+  getAudioStates(processNames) {
+    return this.audioManager.getAudioStates(processNames);
   }
 
-  // Profiles
-  save_profile(name, data) {
-    return this.profile_mgr.save(name, data);
+  setAppVolume(processName, volume) {
+    return this.audioManager.setVolume(processName, volume);
   }
 
-  load_profile(name) {
-    return this.profile_mgr.load(name);
+  toggleAppMute(processName) {
+    return this.audioManager.toggleMute(processName);
   }
 
-  list_profiles() {
-    return this.profile_mgr.list_profiles();
+  saveProfile(name, data) {
+    return this.profileManager.save(name, data);
   }
 
-  delete_profile(name) {
-    return this.profile_mgr.delete(name);
+  loadProfile(name) {
+    return this.profileManager.load(name);
+  }
+
+  listProfiles() {
+    return this.profileManager.listProfiles();
+  }
+
+  deleteProfile(name) {
+    return this.profileManager.deleteProfile(name);
+  }
+
+  renameProfile(fromName, toName) {
+    return this.profileManager.renameProfile(fromName, toName);
+  }
+
+  importProfile(filePath, options) {
+    return this.profileManager.importProfile(filePath, options);
+  }
+
+  getProfileTemplate(options) {
+    return {
+      success: true,
+      profile: this.profileManager.getProfileTemplate(options)
+    };
+  }
+
+  getProfilesDirectory() {
+    return {
+      success: true,
+      path: this.profileManager.getProfilesDirectory()
+    };
   }
 
   shutdown() {
-    // пока ничего
+    // Reserved for future resource cleanup.
+  }
+
+  get_audio_applications() {
+    return this.getAudioApplications();
+  }
+
+  set_app_volume(processName, volume) {
+    return this.setAppVolume(processName, volume);
+  }
+
+  list_running_applications() {
+    return this.listRunningApplications();
+  }
+
+  get_audio_states(processNames) {
+    return this.getAudioStates(processNames);
+  }
+
+  toggle_app_mute(processName) {
+    return this.toggleAppMute(processName);
+  }
+
+  save_profile(name, data) {
+    return this.saveProfile(name, data);
+  }
+
+  load_profile(name) {
+    return this.loadProfile(name);
+  }
+
+  list_profiles() {
+    return this.listProfiles();
+  }
+
+  delete_profile(name) {
+    return this.deleteProfile(name);
+  }
+
+  rename_profile(fromName, toName) {
+    return this.renameProfile(fromName, toName);
+  }
+
+  import_profile(filePath, options) {
+    return this.importProfile(filePath, options);
+  }
+
+  get_profile_template(options) {
+    return this.getProfileTemplate(options);
+  }
+
+  get_profiles_directory() {
+    return this.getProfilesDirectory();
   }
 }
 
-module.exports = { MidiMixerAPI };
+module.exports = {
+  FaderDeckAPI,
+  MidiMixerAPI: FaderDeckAPI
+};

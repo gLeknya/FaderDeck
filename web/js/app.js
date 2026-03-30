@@ -7,12 +7,15 @@ let advancedMode = false;
 let developerMode = false;
 let activeMenuTab = null;
 let menuScrollVisibilitySnapshot = null;
+let trackedAudioSyncIntervalId = null;
+let trackedAudioSyncInFlight = false;
 
 const dom = {};
 const UI_STORAGE_KEYS = {
   advancedMode: 'faderdeck_advanced_mode',
   developerMode: 'faderdeck_developer_mode'
 };
+const TRACKED_AUDIO_SYNC_INTERVAL_MS = 1200;
 const FALLBACK_AUDIO_APPS = [
   { name: 'Chrome', process: 'chrome.exe' },
   { name: 'Spotify', process: 'spotify.exe' },
@@ -41,6 +44,72 @@ function buildAudioAppsList(applications = []) {
     ? applications.filter((app) => app.process !== 'master')
     : [];
   return [localizedMaster, ...externalApps];
+}
+
+function getTrackedChannelProcesses() {
+  return [...new Set(
+    channels
+      .map((channel) => channel?.app || 'master')
+      .filter(Boolean)
+  )];
+}
+
+async function syncTrackedChannelVolumes() {
+  const api = getApi();
+
+  if (!api?.get_audio_states || trackedAudioSyncInFlight || channels.length === 0) {
+    return;
+  }
+
+  const trackedProcesses = getTrackedChannelProcesses();
+
+  if (trackedProcesses.length === 0) {
+    return;
+  }
+
+  trackedAudioSyncInFlight = true;
+
+  try {
+    const response = await api.get_audio_states(trackedProcesses);
+    const applications = Array.isArray(response?.applications) ? response.applications : [];
+    const statesByProcess = new Map(
+      applications.map((application) => [application.process, application])
+    );
+
+    channels.forEach((channel) => {
+      if (!channel || activeFaderDrag?.channelId === channel.id) {
+        return;
+      }
+
+      const state = statesByProcess.get(channel.app || 'master');
+
+      if (!state || typeof state.volume !== 'number') {
+        return;
+      }
+
+      const nextVolume = clampVolume(state.muted ? 0 : state.volume);
+
+      if (channel.volume === nextVolume) {
+        return;
+      }
+
+      channel.volume = nextVolume;
+      updateChannelFaderUi(channel);
+    });
+  } catch (error) {
+    console.error('syncTrackedChannelVolumes error', error);
+  } finally {
+    trackedAudioSyncInFlight = false;
+  }
+}
+
+function startTrackedAudioSync() {
+  if (trackedAudioSyncIntervalId) {
+    clearInterval(trackedAudioSyncIntervalId);
+  }
+
+  syncTrackedChannelVolumes();
+  trackedAudioSyncIntervalId = setInterval(syncTrackedChannelVolumes, TRACKED_AUDIO_SYNC_INTERVAL_MS);
 }
 
 function cacheDomElements() {
@@ -442,6 +511,7 @@ function handleLanguageChanged() {
   audioApps = buildAudioAppsList(audioApps);
   renderMixer();
   renderStandaloneButtons();
+  refreshProfilesLanguage?.();
 
   if (typeof refreshMidiUiLanguage === 'function') {
     refreshMidiUiLanguage();
@@ -475,7 +545,9 @@ function init() {
   setupContentScroller();
   syncMenuTabUi();
   loadProfileFromLocal();
+  initProfilesUi?.();
   loadAudioApps();
+  startTrackedAudioSync();
   initWebMIDI();
   scheduleContentMetricsUpdate();
 }

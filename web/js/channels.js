@@ -55,6 +55,9 @@ function changeChannelApp(channelId, appProcess) {
 
   saveProfileToLocal();
   renderMixer();
+  if (typeof syncTrackedChannelVolumes === 'function') {
+    syncTrackedChannelVolumes();
+  }
 }
 
 function editChannelTitle(channelId) {
