@@ -4,6 +4,7 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
+const SCRIPT_PATH = path.join(__dirname, 'scripts', 'process-list.ps1');
 const WINDOWS_DIRECTORY = (process.env.WINDIR || 'C:\\Windows').toLowerCase();
 const SYSTEM_PATH_PREFIXES = [
   path.join(WINDOWS_DIRECTORY, 'system32'),
@@ -17,20 +18,6 @@ const IGNORED_PROCESS_NAMES = new Set([
   'memory compression',
   'secure system'
 ]);
-
-const WINDOWS_PROCESS_SCRIPT = [
-  "$ErrorActionPreference='SilentlyContinue'",
-  '$items = Get-Process | Where-Object { $_.Id -gt 0 -and $_.ProcessName } | ForEach-Object {',
-  '  [PSCustomObject]@{',
-  "    Process = if ($_.Path) { [System.IO.Path]::GetFileName($_.Path) } else { \"$($_.ProcessName).exe\" }",
-  '    ProcessName = $_.ProcessName',
-  '    Path = $_.Path',
-  '    MainWindowTitle = $_.MainWindowTitle',
-  '    Id = $_.Id',
-  '  }',
-  '}',
-  '$items | ConvertTo-Json -Compress'
-].join('\n');
 
 function parseJsonArray(stdout) {
   if (!stdout || !stdout.trim()) {
@@ -112,7 +99,7 @@ class ProcessCatalog {
     try {
       const { stdout } = await execFileAsync(
         'powershell.exe',
-        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', WINDOWS_PROCESS_SCRIPT],
+        ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT_PATH],
         { windowsHide: true, maxBuffer: 10 * 1024 * 1024 }
       );
 

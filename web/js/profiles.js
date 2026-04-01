@@ -54,6 +54,10 @@ function getToolbarProfileSelect() {
   return document.getElementById('toolbarProfileSelect');
 }
 
+function getToolbarProfilePicker() {
+  return document.querySelector('.toolbar-profile-picker');
+}
+
 function getProfileImportMenu() {
   return document.getElementById('profileImportMenu');
 }
@@ -175,9 +179,7 @@ function captureProfileSnapshot(profileName = '') {
     },
     channels,
     standaloneButtons: standaloneButtonsList,
-    settings: {
-      midiInputId: document.getElementById('midiInput')?.value || null
-    }
+    settings: getCurrentMidiSelectionSettings?.() || {}
   }));
 }
 
@@ -190,7 +192,10 @@ function applyProfileData(profileName, profileData) {
   const midiInput = document.getElementById('midiInput');
 
   if (midiInput) {
-    midiInput.value = profileData?.settings?.midiInputId || '';
+    applySavedMidiInputSelection?.(
+      profileData?.settings?.midiInputId || '',
+      profileData?.settings?.midiInputName || ''
+    );
   }
 
   renderMixer();
@@ -225,6 +230,21 @@ function syncToolbarProfileSelect() {
       </option>
     `).join('')}
   `;
+  enhanceCustomSelects?.(select);
+  syncToolbarProfilePickerVisibility();
+}
+
+function syncToolbarProfilePickerVisibility() {
+  const picker = getToolbarProfilePicker();
+
+  if (!picker) {
+    return;
+  }
+
+  const isEnabled = typeof isToolbarProfilePickerEnabled === 'function'
+    ? isToolbarProfilePickerEnabled()
+    : true;
+  picker.classList.toggle('hidden', !isEnabled);
 }
 
 function renderProfileRow(profile, options = {}) {

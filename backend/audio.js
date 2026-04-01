@@ -10,7 +10,9 @@ const { AudioSessionBridge } = require('./audio-sessions');
 const { ProcessCatalog } = require('./processes');
 
 function clampVolume(volume) {
-  return Math.max(0, Math.min(100, volume));
+  const numericVolume = Number(volume);
+  const clampedVolume = Math.max(0, Math.min(100, Number.isFinite(numericVolume) ? numericVolume : 0));
+  return Math.round(clampedVolume * 1000) / 1000;
 }
 
 class AudioManager {

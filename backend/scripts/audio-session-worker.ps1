@@ -1,13 +1,4 @@
-[CmdletBinding()]
-param(
-  [ValidateSet('GetSessions', 'SetVolume', 'SetMute')]
-  [string]$Action = 'GetSessions',
-  [string]$ProcessName = '',
-  [double]$Volume = 100,
-  [bool]$Mute = $false,
-  [string]$ProcessNamesJson = '[]'
-)
-
+[Console]::InputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $ErrorActionPreference = 'Stop'
 
@@ -436,61 +427,85 @@ function Group-Sessions {
     Sort-Object -Property name
 }
 
-try {
+function Invoke-CommandPayload {
+  param([object]$Command)
+
+  $action = [string]$Command.action
+  $processName = [string]$Command.processName
+  $volume = if ($null -eq $Command.volume) { 100 } else { [double]$Command.volume }
+  $mute = if ($null -eq $Command.mute) { $false } else { [bool]$Command.mute }
   $processNames = @()
 
-  if (-not [string]::IsNullOrWhiteSpace($ProcessNamesJson)) {
-    $parsedNames = ConvertFrom-Json -InputObject $ProcessNamesJson -ErrorAction SilentlyContinue
-
-    if ($parsedNames -is [System.Array]) {
-      $processNames = @($parsedNames)
-    } elseif ($parsedNames) {
-      $processNames = @($parsedNames)
-    }
+  if ($Command.processNames -is [System.Array]) {
+    $processNames = @($Command.processNames)
+  } elseif ($Command.processNames) {
+    $processNames = @($Command.processNames)
   }
 
-  switch ($Action) {
+  switch ($action) {
     'GetSessions' {
-      $sessions = [FaderDeck.Audio.AudioSessionNative]::GetSessions()
-      $applications = @(Group-Sessions -Sessions $sessions -ProcessNames $processNames)
-
-      [PSCustomObject]@{
+      return [PSCustomObject]@{
         success = $true
-        applications = $applications
-      } | ConvertTo-Json -Compress -Depth 6
-      exit 0
+        applications = @(Group-Sessions -Sessions ([FaderDeck.Audio.AudioSessionNative]::GetSessions()) -ProcessNames $processNames)
+      }
     }
 
     'SetVolume' {
-      $updatedCount = [FaderDeck.Audio.AudioSessionNative]::SetVolume($ProcessName, [float]$Volume)
-      $applications = @(Group-Sessions -Sessions ([FaderDeck.Audio.AudioSessionNative]::GetSessions()) -ProcessNames @($ProcessName))
-      $application = if ($applications.Count -gt 0) { $applications[0] } else { $null }
+      $updatedCount = [FaderDeck.Audio.AudioSessionNative]::SetVolume($processName, [float]$volume)
+      $applications = @(Group-Sessions -Sessions ([FaderDeck.Audio.AudioSessionNative]::GetSessions()) -ProcessNames @($processName))
 
-      [PSCustomObject]@{
+      return [PSCustomObject]@{
         success = $true
         updatedCount = $updatedCount
-        application = $application
-      } | ConvertTo-Json -Compress -Depth 6
-      exit 0
+        application = if ($applications.Count -gt 0) { $applications[0] } else { $null }
+      }
     }
 
     'SetMute' {
-      $updatedCount = [FaderDeck.Audio.AudioSessionNative]::SetMute($ProcessName, $Mute)
-      $applications = @(Group-Sessions -Sessions ([FaderDeck.Audio.AudioSessionNative]::GetSessions()) -ProcessNames @($ProcessName))
-      $application = if ($applications.Count -gt 0) { $applications[0] } else { $null }
+      $updatedCount = [FaderDeck.Audio.AudioSessionNative]::SetMute($processName, $mute)
+      $applications = @(Group-Sessions -Sessions ([FaderDeck.Audio.AudioSessionNative]::GetSessions()) -ProcessNames @($processName))
 
-      [PSCustomObject]@{
+      return [PSCustomObject]@{
         success = $true
         updatedCount = $updatedCount
-        application = $application
-      } | ConvertTo-Json -Compress -Depth 6
-      exit 0
+        application = if ($applications.Count -gt 0) { $applications[0] } else { $null }
+      }
+    }
+
+    default {
+      throw "Unknown action: $action"
     }
   }
-} catch {
-  [PSCustomObject]@{
-    success = $false
-    error = $_.Exception.Message
-  } | ConvertTo-Json -Compress -Depth 6
-  exit 1
+}
+
+while ($true) {
+  $line = [Console]::In.ReadLine()
+
+  if ($null -eq $line) {
+    break
+  }
+
+  if ([string]::IsNullOrWhiteSpace($line)) {
+    continue
+  }
+
+  $commandId = $null
+
+  try {
+    $command = ConvertFrom-Json -InputObject $line -ErrorAction Stop
+    $commandId = $command.id
+    $result = Invoke-CommandPayload -Command $command
+
+    [PSCustomObject]@{
+      id = $commandId
+      success = $true
+      result = $result
+    } | ConvertTo-Json -Compress -Depth 8
+  } catch {
+    [PSCustomObject]@{
+      id = $commandId
+      success = $false
+      error = $_.Exception.Message
+    } | ConvertTo-Json -Compress -Depth 8
+  }
 }

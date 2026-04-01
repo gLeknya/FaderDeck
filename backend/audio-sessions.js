@@ -1,9 +1,11 @@
 const path = require('path');
-const { execFile } = require('child_process');
+const { execFile, spawn } = require('child_process');
 const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
 const SCRIPT_PATH = path.join(__dirname, 'scripts', 'audio-session.ps1');
+const WORKER_SCRIPT_PATH = path.join(__dirname, 'scripts', 'audio-session-worker.ps1');
+const WORKER_REQUEST_TIMEOUT_MS = 8000;
 
 function parseJsonOutput(stdout) {
   if (!stdout || !stdout.trim()) {
@@ -16,9 +18,13 @@ function parseJsonOutput(stdout) {
 class AudioSessionBridge {
   constructor(logFunction) {
     this._log = logFunction || (() => {});
+    this._worker = null;
+    this._workerBuffer = '';
+    this._requestId = 0;
+    this._pendingRequests = new Map();
   }
 
-  async run(action, options = {}) {
+  async runWithScript(action, options = {}) {
     const args = [
       '-NoProfile',
       '-ExecutionPolicy',
@@ -51,6 +57,125 @@ class AudioSessionBridge {
     });
 
     return parseJsonOutput(stdout);
+  }
+
+  attachWorkerHandlers(worker) {
+    worker.stdout.setEncoding('utf8');
+    worker.stderr.setEncoding('utf8');
+
+    worker.stdout.on('data', (chunk) => {
+      this._workerBuffer += chunk;
+
+      while (true) {
+        const newlineIndex = this._workerBuffer.indexOf('\n');
+
+        if (newlineIndex === -1) {
+          break;
+        }
+
+        const line = this._workerBuffer.slice(0, newlineIndex).trim();
+        this._workerBuffer = this._workerBuffer.slice(newlineIndex + 1);
+
+        if (!line) {
+          continue;
+        }
+
+        let message = null;
+
+        try {
+          message = JSON.parse(line);
+        } catch (error) {
+          this._log('audio_session_worker_parse error:', error, line);
+          continue;
+        }
+
+        const pendingRequest = this._pendingRequests.get(message.id);
+
+        if (!pendingRequest) {
+          continue;
+        }
+
+        clearTimeout(pendingRequest.timeoutId);
+        this._pendingRequests.delete(message.id);
+
+        if (message.success === false) {
+          pendingRequest.reject(new Error(message.error || 'Audio worker request failed'));
+          continue;
+        }
+
+        pendingRequest.resolve(message.result ?? null);
+      }
+    });
+
+    worker.stderr.on('data', (chunk) => {
+      const text = String(chunk || '').trim();
+
+      if (text) {
+        this._log('audio_session_worker stderr:', text);
+      }
+    });
+
+    worker.on('exit', (code, signal) => {
+      const error = new Error(`Audio worker exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
+
+      for (const pendingRequest of this._pendingRequests.values()) {
+        clearTimeout(pendingRequest.timeoutId);
+        pendingRequest.reject(error);
+      }
+
+      this._pendingRequests.clear();
+      this._worker = null;
+      this._workerBuffer = '';
+    });
+  }
+
+  ensureWorker() {
+    if (this._worker && !this._worker.killed) {
+      return this._worker;
+    }
+
+    const worker = spawn(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', WORKER_SCRIPT_PATH],
+      {
+        windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe']
+      }
+    );
+
+    this._worker = worker;
+    this.attachWorkerHandlers(worker);
+    return worker;
+  }
+
+  async run(action, options = {}) {
+    try {
+      const worker = this.ensureWorker();
+      const requestId = ++this._requestId;
+      const payload = {
+        id: requestId,
+        action,
+        processName: options.processName || '',
+        volume: typeof options.volume === 'number' ? options.volume : null,
+        mute: typeof options.mute === 'boolean' ? options.mute : null,
+        processNames: Array.isArray(options.processNames) ? options.processNames : []
+      };
+
+      const responsePromise = new Promise((resolve, reject) => {
+        const timeoutId = setTimeout(() => {
+          this._pendingRequests.delete(requestId);
+          reject(new Error(`Audio worker request timeout for action "${action}"`));
+        }, WORKER_REQUEST_TIMEOUT_MS);
+
+        this._pendingRequests.set(requestId, { resolve, reject, timeoutId });
+      });
+
+      worker.stdin.write(`${JSON.stringify(payload)}\n`, 'utf8');
+      return await responsePromise;
+    } catch (error) {
+      this._log('audio_session_worker error, fallback to execFile:', error);
+      return this.runWithScript(action, options);
+    }
   }
 
   async listSessions(processNames = []) {

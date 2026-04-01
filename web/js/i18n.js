@@ -2,12 +2,15 @@ const TRANSLATIONS = Object.freeze({
   ru: {
     toolbar: {
       menu: 'Меню',
-      selectMidi: 'Выберите MIDI-устройство'
+      selectMidi: 'Найти устройства',
+      scanningMidi: 'Поиск MIDI-устройств...',
+      disableMidi: 'Выключить'
     },
     status: {
       notConnected: 'не подключено',
       unsupported: 'не поддерживается',
       connectionFailed: 'ошибка подключения',
+      disabled: 'выключено',
       devices: '{count} устр.'
     },
     menu: {
@@ -17,16 +20,25 @@ const TRANSLATIONS = Object.freeze({
         settings: 'Настройки',
         account: 'Аккаунт'
       },
+      comingSoonTitle: 'Скоро будет',
       pluginsPlaceholder: 'Раздел плагинов пока не реализован.',
       accountPlaceholder: 'Раздел аккаунта пока не реализован.'
     },
     settings: {
       developerMode: 'Режим разработчика',
       advancedMode: 'Расширенный режим',
+      profileToolbarSwitcher: 'Смена профилей на toolbar',
+      faderInterpolation: 'Интерполяция фейдеров',
+      faderInterpolationHelp: 'Между начальной и конечной точкой громкости пытается сгладить громкость, чтобы не было резких скачков. Может появиться небольшая задержка.',
+      showFractionalNumbers: 'Показывать дробные числа',
+      showFractionalOnlyLow: 'Только при малых числах',
+      volumeCurve: 'Кривая громкости',
+      volumeCurveHelp: 'Громкость изменяется не линейно, а по кривой, из-за чего можно более детально настраивать громкость.',
+      curveEaseIn: 'Ease in',
+      curveEaseOut: 'Ease out',
+      curveEaseInOut: 'Ease in out',
       startOnBoot: 'Запуск с системой',
       language: 'Язык',
-      incomingMidi: 'Входящие MIDI-сообщения',
-      openDevtools: 'Открыть DevTools',
       on: 'Вкл',
       off: 'Выкл'
     },
@@ -61,7 +73,11 @@ const TRANSLATIONS = Object.freeze({
       unboundWarning: 'Этот фейдер не привязан к MIDI-контроллеру. Он будет работать только через интерфейс.',
       channelNamePrompt: 'Название канала:',
       advancedControlChange: 'control_change (CC {control})',
+      advancedControlChange14Bit: 'control_change_14bit (CC {control})',
+      advancedPitchBend: 'pitch_bend (ch {channel})',
       advancedPitchwheel: 'pitchwheel (ch {channel})',
+      advancedNrpn: 'NRPN ({parameterMsb}:{parameterLsb}, ch {channel})',
+      advancedRpn: 'RPN ({parameterMsb}:{parameterLsb}, ch {channel})',
       addButton: 'Добавить'
     },
     midi: {
@@ -72,6 +88,7 @@ const TRANSLATIONS = Object.freeze({
       failedToDetect: 'Не удалось определить движение фейдера',
       bindCancelled: 'Привязка фейдера отменена',
       bindSuccess: 'Фейдер привязан',
+      selectDeviceFirst: 'Сначала выберите MIDI-устройство.',
       conflict: 'Этот контроллер уже используется каналом "{name}". Всё равно привязать?'
     },
     context: {
@@ -82,9 +99,6 @@ const TRANSLATIONS = Object.freeze({
     common: {
       cancel: 'Отмена',
       save: 'Сохранить'
-    },
-    profile: {
-      autoSaveOnly: 'Интерфейс профилей заменён новым разделом в меню.'
     },
     profiles: {
       toolbarTitle: 'Быстрый выбор профиля',
@@ -126,12 +140,15 @@ const TRANSLATIONS = Object.freeze({
   en: {
     toolbar: {
       menu: 'Menu',
-      selectMidi: 'Select MIDI device'
+      selectMidi: 'Find devices',
+      scanningMidi: 'Scanning MIDI devices...',
+      disableMidi: 'Turn off'
     },
     status: {
       notConnected: 'not connected',
       unsupported: 'unsupported',
       connectionFailed: 'connection failed',
+      disabled: 'disabled',
       devices: '{count} device(s)'
     },
     menu: {
@@ -141,16 +158,25 @@ const TRANSLATIONS = Object.freeze({
         settings: 'Settings',
         account: 'Account'
       },
+      comingSoonTitle: 'Coming soon',
       pluginsPlaceholder: 'Plugins section is not implemented yet.',
       accountPlaceholder: 'Account section is not implemented yet.'
     },
     settings: {
       developerMode: 'Developer mode',
       advancedMode: 'Advanced mode',
+      profileToolbarSwitcher: 'Profile switching in toolbar',
+      faderInterpolation: 'Fader interpolation',
+      faderInterpolationHelp: 'Smooths the change between the starting and ending volume to reduce abrupt jumps, but may add a little latency.',
+      showFractionalNumbers: 'Show fractional values',
+      showFractionalOnlyLow: 'Only for low values',
+      volumeCurve: 'Volume curve',
+      volumeCurveHelp: 'Volume changes along a curve instead of linearly, which gives finer control over perceived loudness.',
+      curveEaseIn: 'Ease in',
+      curveEaseOut: 'Ease out',
+      curveEaseInOut: 'Ease in out',
       startOnBoot: 'Start on boot',
       language: 'Language',
-      incomingMidi: 'Incoming MIDI messages',
-      openDevtools: 'Open DevTools',
       on: 'On',
       off: 'Off'
     },
@@ -185,7 +211,11 @@ const TRANSLATIONS = Object.freeze({
       unboundWarning: 'This fader is not bound to a MIDI control. It will only respond through the interface.',
       channelNamePrompt: 'Channel name:',
       advancedControlChange: 'control_change (CC {control})',
+      advancedControlChange14Bit: 'control_change_14bit (CC {control})',
+      advancedPitchBend: 'pitch_bend (ch {channel})',
       advancedPitchwheel: 'pitchwheel (ch {channel})',
+      advancedNrpn: 'NRPN ({parameterMsb}:{parameterLsb}, ch {channel})',
+      advancedRpn: 'RPN ({parameterMsb}:{parameterLsb}, ch {channel})',
       addButton: 'Add'
     },
     midi: {
@@ -196,6 +226,7 @@ const TRANSLATIONS = Object.freeze({
       failedToDetect: 'Failed to detect fader movement',
       bindCancelled: 'Fader binding cancelled',
       bindSuccess: 'Fader bound',
+      selectDeviceFirst: 'Select a MIDI device first.',
       conflict: 'This controller is already used by channel "{name}". Bind anyway?'
     },
     context: {
@@ -206,9 +237,6 @@ const TRANSLATIONS = Object.freeze({
     common: {
       cancel: 'Cancel',
       save: 'Save'
-    },
-    profile: {
-      autoSaveOnly: 'The old profile modal was replaced by the profiles panel.'
     },
     profiles: {
       toolbarTitle: 'Quick profile selector',
@@ -293,6 +321,11 @@ function applyTranslations(root = document) {
 
   root.querySelectorAll('[data-i18n-title]').forEach((element) => {
     element.title = t(element.dataset.i18nTitle);
+  });
+
+  root.querySelectorAll('[data-i18n-tooltip]').forEach((element) => {
+    element.dataset.tooltip = t(element.dataset.i18nTooltip);
+    element.setAttribute('aria-label', t(element.dataset.i18nTooltip));
   });
 }
 

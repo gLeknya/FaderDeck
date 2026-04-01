@@ -1,12 +1,8 @@
 let activeFaderDrag = null;
-
-function addChannel() {
-  document.getElementById('channelModal')?.classList.add('active');
-}
-
-function closeModal() {
-  document.getElementById('channelModal')?.classList.remove('active');
-}
+const CHANNEL_VOLUME_PUSH_DELAY_MS = 18;
+const CHANNEL_INTERPOLATION_STEPS = 4;
+const CHANNEL_INTERPOLATION_STEP_DELAY_MS = 24;
+const channelVolumePushState = new Map();
 
 function createChannelModel(index) {
   return {
@@ -34,6 +30,7 @@ async function createChannel() {
 
 function removeChannel(channelId) {
   channels = channels.filter((channel) => channel.id !== channelId);
+  resetChannelVolumePushState(channelId);
   renderMixer();
   saveProfileToLocal();
 }
@@ -46,6 +43,7 @@ function changeChannelApp(channelId, appProcess) {
   }
 
   const selectedApp = audioApps.find((app) => app.process === appProcess);
+  resetChannelVolumePushState(channelId);
   channel.app = appProcess;
   channel.appName = selectedApp?.name || appProcess;
 
@@ -55,9 +53,7 @@ function changeChannelApp(channelId, appProcess) {
 
   saveProfileToLocal();
   renderMixer();
-  if (typeof syncTrackedChannelVolumes === 'function') {
-    syncTrackedChannelVolumes();
-  }
+  queueChannelVolumePush(channel);
 }
 
 function editChannelTitle(channelId) {
@@ -94,7 +90,145 @@ function dismissFaderBindHint(channelId) {
 }
 
 function clampVolume(value) {
-  return Math.max(0, Math.min(100, value));
+  const clampedValue = Math.max(0, Math.min(100, Number(value) || 0));
+
+  if (typeof normalizeVolumeValue === 'function') {
+    return normalizeVolumeValue(clampedValue);
+  }
+
+  return Math.round(clampedValue * 1000) / 1000;
+}
+
+function formatChannelVolume(value) {
+  if (typeof formatVolumeValue === 'function') {
+    return formatVolumeValue(value);
+  }
+
+  return `${clampVolume(value)}%`;
+}
+
+function getChannelOutputVolume(channel) {
+  if (!channel) {
+    return 0;
+  }
+
+  if (typeof mapFaderPositionToVolume === 'function') {
+    return clampVolume(mapFaderPositionToVolume(channel.volume));
+  }
+
+  return clampVolume(channel.volume);
+}
+
+function getChannelVolumePushState(channelId) {
+  if (!channelVolumePushState.has(channelId)) {
+    channelVolumePushState.set(channelId, {
+      timerId: null,
+      inFlight: false,
+      pendingVolume: null,
+      lastSentVolume: null
+    });
+  }
+
+  return channelVolumePushState.get(channelId);
+}
+
+function resetChannelVolumePushState(channelId) {
+  const state = channelVolumePushState.get(channelId);
+
+  if (state?.timerId) {
+    clearTimeout(state.timerId);
+  }
+
+  channelVolumePushState.delete(channelId);
+}
+
+async function flushChannelVolumePush(channelId) {
+  const state = channelVolumePushState.get(channelId);
+
+  if (!state) {
+    return;
+  }
+
+  state.timerId = null;
+
+  const channel = findChannel(channelId);
+
+  if (!channel) {
+    resetChannelVolumePushState(channelId);
+    return;
+  }
+
+  const volumeToSend = state.pendingVolume;
+
+  if (volumeToSend === null) {
+    return;
+  }
+
+  state.pendingVolume = null;
+  state.inFlight = true;
+
+  try {
+    const api = typeof getApi === 'function' ? getApi() : window.pywebview?.api ?? null;
+    const shouldInterpolate = (
+      typeof getFaderInterpolationEnabled === 'function'
+      && getFaderInterpolationEnabled()
+      && state.lastSentVolume !== null
+      && Math.abs(volumeToSend - state.lastSentVolume) > 1
+    );
+
+    if (shouldInterpolate) {
+      const startVolume = state.lastSentVolume;
+
+      for (let step = 1; step <= CHANNEL_INTERPOLATION_STEPS; step += 1) {
+        const interpolatedVolume = clampVolume(
+          startVolume + ((volumeToSend - startVolume) * (step / CHANNEL_INTERPOLATION_STEPS))
+        );
+
+        await api?.set_app_volume?.(channel.app || 'master', interpolatedVolume);
+        state.lastSentVolume = interpolatedVolume;
+
+        if (step < CHANNEL_INTERPOLATION_STEPS) {
+          await new Promise((resolve) => setTimeout(resolve, CHANNEL_INTERPOLATION_STEP_DELAY_MS));
+        }
+      }
+    } else {
+      await api?.set_app_volume?.(channel.app || 'master', volumeToSend);
+      state.lastSentVolume = volumeToSend;
+    }
+  } catch (error) {
+    console.error('set_app_volume error', error);
+  } finally {
+    state.inFlight = false;
+
+    if (state.pendingVolume !== null) {
+      state.timerId = setTimeout(() => {
+        flushChannelVolumePush(channelId);
+      }, CHANNEL_VOLUME_PUSH_DELAY_MS);
+    }
+  }
+}
+
+function queueChannelVolumePush(channel) {
+  const state = getChannelVolumePushState(channel.id);
+  const nextVolume = getChannelOutputVolume(channel);
+
+  if (state.pendingVolume === nextVolume) {
+    return;
+  }
+
+  if (!state.inFlight && !state.timerId && state.lastSentVolume === nextVolume) {
+    return;
+  }
+
+  state.pendingVolume = nextVolume;
+
+  if (state.inFlight || state.timerId) {
+    return;
+  }
+
+  state.timerId = setTimeout(() => {
+    flushChannelVolumePush(channel.id);
+  }, CHANNEL_VOLUME_PUSH_DELAY_MS);
 }
 
 function applyVolumeToChannel(channelId, volume) {
@@ -106,13 +240,13 @@ function applyVolumeToChannel(channelId, volume) {
 
   channel.volume = clampVolume(volume);
   updateChannelFaderUi(channel);
-  window.pywebview?.api?.set_app_volume(channel.app || 'master', channel.volume);
+  queueChannelVolumePush(channel);
 }
 
 function getVolumeFromPointer(track, clientY) {
   const rect = track.getBoundingClientRect();
   const offsetY = clientY - rect.top;
-  const volume = Math.round(((rect.height - offsetY) / rect.height) * 100);
+  const volume = ((rect.height - offsetY) / rect.height) * 100;
   return clampVolume(volume);
 }
 
@@ -130,6 +264,7 @@ function startFaderDrag(event) {
     channelId: Number.parseInt(track.dataset.channel, 10),
     track
   };
+  activeFaderDrag.track.classList.add('is-dragging');
 
   applyVolumeToChannel(activeFaderDrag.channelId, getVolumeFromPointer(track, event.clientY));
 }
@@ -150,6 +285,7 @@ function stopFaderDrag() {
     return;
   }
 
+  activeFaderDrag.track?.classList.remove('is-dragging');
   activeFaderDrag = null;
   saveProfileToLocal();
 }
@@ -188,13 +324,21 @@ function updateChannelFaderUi(channel) {
     return;
   }
 
+  const outputVolume = getChannelOutputVolume(channel);
   thumb.style.bottom = `calc(${channel.volume}% - 25px)`;
   fill.style.height = `${channel.volume}%`;
-  value.textContent = `${channel.volume}%`;
+  value.textContent = formatChannelVolume(outputVolume);
 }
 
 function updateFadersFromState() {
   channels.forEach(updateChannelFaderUi);
+}
+
+function refreshChannelOutputVolumes() {
+  channels.forEach((channel) => {
+    updateChannelFaderUi(channel);
+    queueChannelVolumePush(channel);
+  });
 }
 
 function getFaderMappingLabel(mapping) {
@@ -202,11 +346,34 @@ function getFaderMappingLabel(mapping) {
     return '';
   }
 
-  if (mapping.type === 'control_change') {
+  const mappingType = mapping.type === 'pitchwheel' ? 'pitch_bend' : mapping.type;
+  const displayChannel = (Number(mapping.channel) || 0) + 1;
+
+  if (mappingType === 'control_change') {
     return t('channels.advancedControlChange', { control: mapping.control });
   }
 
-  return t('channels.advancedPitchwheel', { channel: mapping.channel });
+  if (mappingType === 'control_change_14bit') {
+    return t('channels.advancedControlChange14Bit', { control: mapping.control });
+  }
+
+  if (mappingType === 'nrpn') {
+    return t('channels.advancedNrpn', {
+      channel: displayChannel,
+      parameterMsb: mapping.parameterMsb,
+      parameterLsb: mapping.parameterLsb
+    });
+  }
+
+  if (mappingType === 'rpn') {
+    return t('channels.advancedRpn', {
+      channel: displayChannel,
+      parameterMsb: mapping.parameterMsb,
+      parameterLsb: mapping.parameterLsb
+    });
+  }
+
+  return t('channels.advancedPitchBend', { channel: displayChannel });
 }
 
 function renderAppOptions(selectedProcess) {
@@ -265,9 +432,27 @@ function renderBindHint(channel) {
   `;
 }
 
+function renderAddChannelStrip() {
+  return `
+    <div class="add-channel-strip" onclick="createChannel()">
+      <div class="add-channel-plus">+</div>
+    </div>
+  `;
+}
+
+function renderEmptyMixerState() {
+  return `
+    <div class="empty-state">
+      <div class="empty-state-icon">Mixer</div>
+      <div class="empty-state-text">${t('empty.message')}</div>
+    </div>
+  `;
+}
+
 function renderChannel(channel) {
   const title = channel.title || channel.appName || t('channels.unnamed');
   const mappingLabel = advancedMode ? getFaderMappingLabel(channel.faderMapping) : '';
+  const outputVolume = getChannelOutputVolume(channel);
 
   return `
     <div class="channel-strip" data-channel-id="${channel.id}">
@@ -292,7 +477,7 @@ function renderChannel(channel) {
               ${renderChannelButtons(channel)}
             </div>
 
-            <div class="volume-value">${channel.volume}%</div>
+            <div class="volume-value">${formatChannelVolume(outputVolume)}</div>
           </div>
         </div>
 
@@ -347,13 +532,8 @@ function renderMixer() {
 
   if (channels.length === 0) {
     container.innerHTML = `
-      <div class="empty-state">
-        <div class="empty-state-icon">Mixer</div>
-        <div class="empty-state-text">${t('empty.message')}</div>
-      </div>
-      <div class="add-channel-strip" onclick="createChannel()">
-        <div class="add-channel-plus">+</div>
-      </div>
+      ${renderEmptyMixerState()}
+      ${renderAddChannelStrip()}
     `;
     scheduleContentMetricsUpdate();
     return;
@@ -361,12 +541,11 @@ function renderMixer() {
 
   container.innerHTML = `
     ${channels.map(renderChannel).join('')}
-    <div class="add-channel-strip" onclick="createChannel()">
-      <div class="add-channel-plus">+</div>
-    </div>
+    ${renderAddChannelStrip()}
   `;
 
   setupFaderDrag();
+  enhanceCustomSelects?.(container);
   triggerNewChannelFlash(container);
   syncAddChannelStripHeight(container);
   scheduleContentMetricsUpdate();
