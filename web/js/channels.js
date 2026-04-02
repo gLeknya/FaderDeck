@@ -476,7 +476,9 @@ function renderEmptyMixerState() {
 
 function renderChannel(channel) {
   const title = channel.title || channel.appName || t('channels.unnamed');
-  const mappingLabel = advancedMode ? getFaderMappingLabel(channel.faderMapping) : '';
+  const mappingLabel = getAdvancedModeEnabled?.()
+    ? getFaderMappingLabel(channel.faderMapping)
+    : '';
   const outputVolume = getChannelOutputVolume(channel);
 
   return `

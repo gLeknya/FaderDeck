@@ -1,40 +1,10 @@
-const PROFILE_NAME_SANITIZE_PATTERN = /[<>:"/\\|?*\u0000-\u001F]/g;
-const PROFILE_UI_STORAGE_KEYS = {
-  currentProfile: 'faderdeck_current_profile',
-  preferences: 'faderdeck_profile_preferences'
-};
-
-let profilesListState = [];
-let profilePreferences = loadProfilePreferences();
 let profileEditingState = null;
 let draggedProfileName = null;
 let profileUiInitialized = false;
-let profileStateSyncInitialized = false;
+let profileRuntimeSyncInitialized = false;
 
-function loadProfilePreferences() {
-  try {
-    const parsed = JSON.parse(localStorage.getItem(PROFILE_UI_STORAGE_KEYS.preferences) || '{}');
-    return {
-      order: Array.isArray(parsed.order) ? parsed.order : [],
-      toolbarVisible: parsed.toolbarVisible && typeof parsed.toolbarVisible === 'object'
-        ? parsed.toolbarVisible
-        : {}
-    };
-  } catch (error) {
-    console.error('loadProfilePreferences error', error);
-    return { order: [], toolbarVisible: {} };
-  }
-}
-
-function saveProfilePreferences() {
-  localStorage.setItem(PROFILE_UI_STORAGE_KEYS.preferences, JSON.stringify(profilePreferences));
-}
-
-function sanitizeProfileName(name = '') {
-  return String(name)
-    .replace(PROFILE_NAME_SANITIZE_PATTERN, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+function getProfileService() {
+  return window.profileService || null;
 }
 
 function escapeHtml(value = '') {
@@ -62,146 +32,44 @@ function getProfileImportMenu() {
   return document.getElementById('profileImportMenu');
 }
 
-function isProfileVisibleInToolbar(name) {
-  return profilePreferences.toolbarVisible[name] !== false;
+function getProfilesList() {
+  return getProfilesListState?.() || [];
 }
 
 function getCurrentProfileName() {
-  return typeof getCurrentProfileState === 'function' ? getCurrentProfileState() : '';
+  return getCurrentProfileNameRuntime?.() || '';
 }
 
-setCurrentProfileState?.(
-  localStorage.getItem(PROFILE_UI_STORAGE_KEYS.currentProfile) || '',
-  { source: 'profiles-init' }
-);
-
-function setCurrentProfile(name) {
-  const nextProfileName = name || '';
-
-  if (nextProfileName) {
-    localStorage.setItem(PROFILE_UI_STORAGE_KEYS.currentProfile, nextProfileName);
-  } else {
-    localStorage.removeItem(PROFILE_UI_STORAGE_KEYS.currentProfile);
-  }
-
-  setCurrentProfileState?.(nextProfileName, { source: 'profiles-ui' });
+function getProfileByName(profileName) {
+  return getProfileByNameState?.(profileName) || null;
 }
 
-function syncProfilePreferenceState(profileNames) {
-  const existingNames = new Set(profileNames);
-
-  profilePreferences.order = [
-    ...profilePreferences.order.filter((name) => existingNames.has(name)),
-    ...profileNames.filter((name) => !profilePreferences.order.includes(name))
-  ];
-
-  Object.keys(profilePreferences.toolbarVisible).forEach((name) => {
-    if (!existingNames.has(name)) {
-      delete profilePreferences.toolbarVisible[name];
-    }
-  });
-
-  profileNames.forEach((name) => {
-    if (!(name in profilePreferences.toolbarVisible)) {
-      profilePreferences.toolbarVisible[name] = true;
-    }
-  });
-
-  saveProfilePreferences();
+function isProfileVisibleInToolbar(profileName) {
+  return isProfileVisibleInToolbarState?.(profileName) ?? true;
 }
 
-function sortProfiles(profiles) {
-  const orderIndex = new Map(profilePreferences.order.map((name, index) => [name, index]));
-
-  return [...profiles].sort((left, right) => {
-    const leftIndex = orderIndex.has(left.name) ? orderIndex.get(left.name) : Number.MAX_SAFE_INTEGER;
-    const rightIndex = orderIndex.has(right.name) ? orderIndex.get(right.name) : Number.MAX_SAFE_INTEGER;
-
-    if (leftIndex !== rightIndex) {
-      return leftIndex - rightIndex;
-    }
-
-    return (right.modified || 0) - (left.modified || 0) || left.name.localeCompare(right.name);
-  });
+function sanitizeProfileName(name = '') {
+  return sanitizeProfileNameState?.(name) || String(name).trim();
 }
 
 function getUniqueDraftProfileName(baseLabel) {
-  const taken = new Set([
-    ...profilesListState.map((profile) => profile.name),
-    profileEditingState?.mode === 'create' ? profileEditingState.originalName : null
-  ].filter(Boolean));
+  return getUniqueProfileDraftNameState?.(
+    baseLabel,
+    profileEditingState?.mode === 'create' ? [profileEditingState.originalName] : []
+  ) || baseLabel;
+}
 
-  const safeBase = sanitizeProfileName(baseLabel) || 'Profile';
+function syncToolbarProfilePickerVisibility() {
+  const picker = getToolbarProfilePicker();
 
-  if (!taken.has(safeBase)) {
-    return safeBase;
+  if (!picker) {
+    return;
   }
 
-  let index = 2;
-
-  while (taken.has(`${safeBase} ${index}`)) {
-    index += 1;
-  }
-
-  return `${safeBase} ${index}`;
-}
-
-function ensureProfileOrder(name, options = {}) {
-  profilePreferences.order = profilePreferences.order.filter((item) => item !== name);
-
-  if (options.prepend) {
-    profilePreferences.order.unshift(name);
-  } else {
-    profilePreferences.order.push(name);
-  }
-
-  profilePreferences.toolbarVisible[name] = options.visibleInToolbar ?? true;
-  saveProfilePreferences();
-}
-
-function renameProfilePreferences(oldName, newName) {
-  profilePreferences.order = profilePreferences.order.map((item) => (
-    item === oldName ? newName : item
-  ));
-
-  if (oldName in profilePreferences.toolbarVisible) {
-    profilePreferences.toolbarVisible[newName] = profilePreferences.toolbarVisible[oldName];
-    delete profilePreferences.toolbarVisible[oldName];
-  } else if (!(newName in profilePreferences.toolbarVisible)) {
-    profilePreferences.toolbarVisible[newName] = true;
-  }
-
-  saveProfilePreferences();
-}
-
-function removeProfilePreferences(name) {
-  profilePreferences.order = profilePreferences.order.filter((item) => item !== name);
-  delete profilePreferences.toolbarVisible[name];
-  saveProfilePreferences();
-}
-
-function captureProfileSnapshot(profileName = '') {
-  return typeof serializeRendererState === 'function'
-    ? serializeRendererState(profileName)
-    : {
-      meta: {
-        name: profileName
-      },
-      channels: [],
-      standaloneButtons: [],
-      settings: {}
-    };
-}
-
-function applyProfileData(profileName, profileData) {
-  hydrateRendererState?.(profileData, { source: 'profile-load', profileName });
-  saveProfileToLocal();
-  setCurrentProfile(profileName);
-  scheduleContentMetricsUpdate();
-}
-
-function getProfileByName(name) {
-  return profilesListState.find((profile) => profile.name === name) || null;
+  const isEnabled = typeof isToolbarProfilePickerEnabled === 'function'
+    ? isToolbarProfilePickerEnabled()
+    : true;
+  picker.classList.toggle('hidden', !isEnabled);
 }
 
 function syncToolbarProfileSelect() {
@@ -211,7 +79,7 @@ function syncToolbarProfileSelect() {
     return;
   }
 
-  const visibleProfiles = profilesListState.filter((profile) => isProfileVisibleInToolbar(profile.name));
+  const visibleProfiles = getProfilesList().filter((profile) => isProfileVisibleInToolbar(profile.name));
   const currentProfileName = getCurrentProfileName();
   const hasCurrentVisible = visibleProfiles.some((profile) => profile.name === currentProfileName);
   const placeholderSelected = !currentProfileName || !hasCurrentVisible;
@@ -226,21 +94,9 @@ function syncToolbarProfileSelect() {
       </option>
     `).join('')}
   `;
+
   enhanceCustomSelects?.(select);
   syncToolbarProfilePickerVisibility();
-}
-
-function syncToolbarProfilePickerVisibility() {
-  const picker = getToolbarProfilePicker();
-
-  if (!picker) {
-    return;
-  }
-
-  const isEnabled = typeof isToolbarProfilePickerEnabled === 'function'
-    ? isToolbarProfilePickerEnabled()
-    : true;
-  picker.classList.toggle('hidden', !isEnabled);
 }
 
 function renderProfileRow(profile, options = {}) {
@@ -339,7 +195,7 @@ function renderProfilesPanel() {
       modified: Date.now()
     }]
     : [];
-  const profileRows = [...draftProfiles, ...profilesListState];
+  const profileRows = [...draftProfiles, ...getProfilesList()];
 
   if (profileRows.length === 0) {
     list.innerHTML = `
@@ -377,63 +233,13 @@ function focusProfileInputIfNeeded() {
   });
 }
 
-async function refreshProfilesData(options = {}) {
-  const api = getApi();
-
-  if (!api?.list_profiles) {
-    return;
-  }
-
-  try {
-    const response = await api.list_profiles();
-
-    if (!response?.success) {
-      throw new Error(response?.error || 'list_profiles_failed');
-    }
-
-    const normalizedProfiles = Array.isArray(response.profiles)
-      ? response.profiles.map((profile) => ({
-        name: profile.name,
-        path: profile.path,
-        modified: profile.modified || 0,
-        meta: profile.meta || {}
-      }))
-      : [];
-
-    syncProfilePreferenceState(normalizedProfiles.map((profile) => profile.name));
-    profilesListState = sortProfiles(normalizedProfiles);
-
-    if (getCurrentProfileName() && !profilesListState.some((profile) => profile.name === getCurrentProfileName())) {
-      setCurrentProfile('');
-    } else {
-      syncToolbarProfileSelect();
-      renderProfilesPanel();
-    }
-
-    if (options.toastKey) {
-      showToast('success', t(options.toastKey, options.toastParams || {}));
-    }
-  } catch (error) {
-    console.error('refreshProfilesData error', error);
-    showToast('error', t('profiles.failedToLoad'));
-  }
-}
-
 async function loadProfileByName(profileName) {
-  const api = getApi();
-
-  if (!api?.load_profile || !profileName) {
+  if (!profileName) {
     return;
   }
 
   try {
-    const response = await api.load_profile(profileName);
-
-    if (!response?.success) {
-      throw new Error(response?.error || 'load_profile_failed');
-    }
-
-    applyProfileData(profileName, response.data);
+    await getProfileService()?.loadProfileByName?.(profileName);
     showToast('success', t('profiles.loaded', { name: profileName }));
   } catch (error) {
     console.error('loadProfileByName error', error);
@@ -470,7 +276,6 @@ async function commitProfileEditing() {
     return;
   }
 
-  const api = getApi();
   const nextName = sanitizeProfileName(profileEditingState.value);
   const originalName = profileEditingState.originalName;
   const isCreate = profileEditingState.mode === 'create';
@@ -486,7 +291,7 @@ async function commitProfileEditing() {
     return;
   }
 
-  const nameCollision = profilesListState.some((profile) => (
+  const nameCollision = getProfilesList().some((profile) => (
     profile.name === nextName && profile.name !== originalName
   ));
 
@@ -498,19 +303,9 @@ async function commitProfileEditing() {
 
   try {
     if (isCreate) {
-      const response = await api.save_profile(nextName, captureProfileSnapshot(nextName));
-
-      if (!response?.success) {
-        throw new Error(response?.error || 'save_profile_failed');
-      }
-
-      ensureProfileOrder(response.name || nextName, { prepend: true, visibleInToolbar: true });
+      const result = await getProfileService()?.saveProfile?.(nextName);
       profileEditingState = null;
-      await refreshProfilesData({
-        toastKey: 'profiles.saved',
-        toastParams: { name: response.name || nextName }
-      });
-      setCurrentProfile(response.name || nextName);
+      showToast('success', t('profiles.saved', { name: result?.name || nextName }));
       return;
     }
 
@@ -519,23 +314,9 @@ async function commitProfileEditing() {
       return;
     }
 
-    const response = await api.rename_profile(originalName, nextName);
-
-    if (!response?.success) {
-      throw new Error(response?.error || 'rename_profile_failed');
-    }
-
-    renameProfilePreferences(originalName, response.name || nextName);
-
-    if (getCurrentProfileName() === originalName) {
-      setCurrentProfile(response.name || nextName);
-    }
-
+    const result = await getProfileService()?.renameProfile?.(originalName, nextName);
     profileEditingState = null;
-    await refreshProfilesData({
-      toastKey: 'profiles.renamed',
-      toastParams: { name: response.name || nextName }
-    });
+    showToast('success', t('profiles.renamed', { name: result?.name || nextName }));
   } catch (error) {
     console.error('commitProfileEditing error', error);
     showToast('error', isCreate ? t('profiles.saveFailed') : t('profiles.renameFailed'));
@@ -544,9 +325,7 @@ async function commitProfileEditing() {
 }
 
 async function deleteProfileByName(profileName) {
-  const api = getApi();
-
-  if (!api?.delete_profile || !profileName) {
+  if (!profileName) {
     return;
   }
 
@@ -557,22 +336,8 @@ async function deleteProfileByName(profileName) {
   }
 
   try {
-    const response = await api.delete_profile(profileName);
-
-    if (!response?.success) {
-      throw new Error(response?.error || 'delete_profile_failed');
-    }
-
-    removeProfilePreferences(profileName);
-
-    if (getCurrentProfileName() === profileName) {
-      setCurrentProfile('');
-    }
-
-    await refreshProfilesData({
-      toastKey: 'profiles.deleted',
-      toastParams: { name: profileName }
-    });
+    await getProfileService()?.deleteProfile?.(profileName);
+    showToast('success', t('profiles.deleted', { name: profileName }));
   } catch (error) {
     console.error('deleteProfileByName error', error);
     showToast('error', t('profiles.deleteFailed'));
@@ -580,52 +345,31 @@ async function deleteProfileByName(profileName) {
 }
 
 async function revealProfileInFolder(profileName) {
-  const api = getApi();
-  const profile = getProfileByName(profileName);
-
-  if (!api?.show_profile_in_folder || !profile?.path) {
-    return;
+  try {
+    await getProfileService()?.revealProfileInFolder?.(profileName);
+  } catch (error) {
+    console.error('revealProfileInFolder error', error);
   }
-
-  await api.show_profile_in_folder(profile.path);
 }
 
 async function openProfilesFolder() {
-  const api = getApi();
-
-  if (!api?.open_profiles_folder) {
-    return;
+  try {
+    await getProfileService()?.openProfilesFolder?.();
+  } catch (error) {
+    console.error('openProfilesFolder error', error);
   }
-
-  await api.open_profiles_folder();
 }
 
 async function importProfileFromFile() {
-  const api = getApi();
-
-  if (!api?.pick_profile_file || !api?.import_profile) {
-    return;
-  }
-
   try {
-    const selection = await api.pick_profile_file();
+    const result = await getProfileService()?.importProfileFromFile?.();
 
-    if (selection?.canceled || !selection?.filePath) {
+    if (!result || result.canceled) {
       return;
     }
 
-    const response = await api.import_profile(selection.filePath);
-
-    if (!response?.success) {
-      throw new Error(response?.error || 'import_profile_failed');
-    }
-
-    ensureProfileOrder(response.name, { prepend: true, visibleInToolbar: true });
     closeProfileImportMenu();
-    await refreshProfilesData({
-      toastKey: 'profiles.imported',
-      toastParams: { name: response.name }
-    });
+    showToast('success', t('profiles.imported', { name: result.name }));
   } catch (error) {
     console.error('importProfileFromFile error', error);
     showToast('error', t('profiles.importFailed'));
@@ -633,31 +377,15 @@ async function importProfileFromFile() {
 }
 
 function toggleProfileToolbarVisibility(profileName, visible) {
-  profilePreferences.toolbarVisible[profileName] = visible;
-  saveProfilePreferences();
-  syncToolbarProfileSelect();
-  renderProfilesPanel();
+  toggleProfileToolbarVisibilityState?.(profileName, visible, {
+    source: 'profiles-ui'
+  });
 }
 
 function reorderProfiles(draggedName, targetName) {
-  if (!draggedName || !targetName || draggedName === targetName) {
-    return;
-  }
-
-  const nextOrder = profilePreferences.order.filter((name) => name !== draggedName);
-  const targetIndex = nextOrder.indexOf(targetName);
-
-  if (targetIndex === -1) {
-    nextOrder.push(draggedName);
-  } else {
-    nextOrder.splice(targetIndex, 0, draggedName);
-  }
-
-  profilePreferences.order = nextOrder;
-  saveProfilePreferences();
-  profilesListState = sortProfiles(profilesListState);
-  syncToolbarProfileSelect();
-  renderProfilesPanel();
+  reorderProfilesState?.(draggedName, targetName, {
+    source: 'profiles-ui'
+  });
 }
 
 function closeProfileImportMenu() {
@@ -869,22 +597,26 @@ function refreshProfilesLanguage() {
 }
 
 async function initProfilesUi() {
-  if (!profileStateSyncInitialized && typeof subscribeAppState === 'function') {
-    subscribeAppState((nextState, previousState) => {
-      if (nextState.profile.currentName === previousState.profile.currentName) {
-        return;
-      }
+  initProfileStore?.();
 
+  if (!profileRuntimeSyncInitialized) {
+    subscribeProfileState?.(() => {
       syncToolbarProfileSelect();
       renderProfilesPanel();
     });
-    profileStateSyncInitialized = true;
+    profileRuntimeSyncInitialized = true;
   }
 
   bindProfilesUi();
   syncToolbarProfileSelect();
   renderProfilesPanel();
-  await refreshProfilesData();
+
+  try {
+    await getProfileService()?.init?.();
+  } catch (error) {
+    console.error('initProfilesUi error', error);
+    showToast('error', t('profiles.failedToLoad'));
+  }
 }
 
 function createFolderIconMarkup() {

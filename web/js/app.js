@@ -1,16 +1,6 @@
 let audioApps = [];
 let currentButtonConfig = null;
 let contextTarget = null;
-let advancedMode = false;
-let developerMode = false;
-let faderInterpolationEnabled = false;
-let showFractionalNumbers = false;
-let showFractionalOnlyLow = false;
-let volumeCurveEnabled = false;
-let volumeCurveType = 'ease-in-out';
-let volumeCurveAmount = 0;
-let profileToolbarSwitcherEnabled = true;
-let activeMenuTab = null;
 let menuScrollVisibilitySnapshot = null;
 let menuPanelMetricsTimeout = null;
 
@@ -29,17 +19,6 @@ const VOLUME_CURVE_DEMO_START_POSITION = 0;
 const VOLUME_CURVE_DEMO_PEAK_POSITION = 100;
 const VOLUME_CURVE_DEMO_END_POSITION = 0;
 const MENU_PANEL_SIZE_SETTLE_DELAY_MS = 260;
-const UI_STORAGE_KEYS = {
-  advancedMode: 'faderdeck_advanced_mode',
-  developerMode: 'faderdeck_developer_mode',
-  faderInterpolationEnabled: 'faderdeck_fader_interpolation_enabled',
-  showFractionalNumbers: 'faderdeck_show_fractional_numbers',
-  showFractionalOnlyLow: 'faderdeck_show_fractional_only_low',
-  volumeCurveEnabled: 'faderdeck_volume_curve_enabled',
-  volumeCurveType: 'faderdeck_volume_curve_type',
-  volumeCurveAmount: 'faderdeck_volume_curve_amount',
-  profileToolbarSwitcherEnabled: 'faderdeck_profile_toolbar_switcher_enabled'
-};
 const FALLBACK_AUDIO_APPS = [
   { name: 'Chrome', process: 'chrome.exe' },
   { name: 'Spotify', process: 'spotify.exe' },
@@ -54,6 +33,7 @@ let volumeCurveDemoTimer = null;
 let volumeCurveDemoFrame = null;
 let volumeCurveDemoDragging = false;
 let menuPanelMetricsFrame = null;
+let uiStateSyncInitialized = false;
 
 function logTest(...args) {
   console.log('[TEST]', ...args);
@@ -108,49 +88,45 @@ function cacheDomElements() {
   dom.contentScrollRange = $('contentScrollRange');
 }
 
-function loadUiSettingsFromLocal() {
-  advancedMode = readUiBooleanSetting(UI_STORAGE_KEYS.advancedMode);
-  developerMode = readUiBooleanSetting(UI_STORAGE_KEYS.developerMode);
-  faderInterpolationEnabled = readUiBooleanSetting(UI_STORAGE_KEYS.faderInterpolationEnabled);
-  profileToolbarSwitcherEnabled = readUiBooleanSetting(
-    UI_STORAGE_KEYS.profileToolbarSwitcherEnabled,
-    true
-  );
-  showFractionalNumbers = readUiBooleanSetting(UI_STORAGE_KEYS.showFractionalNumbers);
-  showFractionalOnlyLow = readUiBooleanSetting(UI_STORAGE_KEYS.showFractionalOnlyLow);
-  volumeCurveEnabled = readUiBooleanSetting(UI_STORAGE_KEYS.volumeCurveEnabled);
-  volumeCurveType = localStorage.getItem(UI_STORAGE_KEYS.volumeCurveType) || 'ease-in-out';
-  if (!['ease-in', 'ease-out', 'ease-in-out'].includes(volumeCurveType)) {
-    volumeCurveType = 'ease-in-out';
-  }
-  volumeCurveAmount = readUiNumberSetting(UI_STORAGE_KEYS.volumeCurveAmount, 0, {
-    min: 0,
-    max: VOLUME_CURVE_MAX
-  });
+function getUiSettings() {
+  return getUiSettingsState?.() || {
+    advancedMode: false,
+    developerMode: false,
+    faderInterpolationEnabled: false,
+    showFractionalNumbers: false,
+    showFractionalOnlyLow: false,
+    volumeCurveEnabled: false,
+    volumeCurveType: 'ease-in-out',
+    volumeCurveAmount: 0,
+    profileToolbarSwitcherEnabled: true
+  };
 }
 
-function saveUiBooleanSetting(key, value) {
-  localStorage.setItem(key, String(Boolean(value)));
+function getUiMenu() {
+  return getUiMenuState?.() || {
+    open: false,
+    activeTab: null
+  };
 }
 
-function saveUiNumberSetting(key, value) {
-  localStorage.setItem(key, String(value));
+function getAdvancedModeEnabled() {
+  return getAdvancedModeEnabledState?.() ?? getUiSettings().advancedMode;
 }
 
-function readUiBooleanSetting(key, fallback = false) {
-  const rawValue = localStorage.getItem(key);
-  return rawValue === null ? fallback : rawValue === 'true';
+function getDeveloperModeEnabled() {
+  return getDeveloperModeEnabledState?.() ?? getUiSettings().developerMode;
 }
 
-function readUiNumberSetting(key, fallback, { min = 0, max = Number.POSITIVE_INFINITY } = {}) {
-  const rawValue = localStorage.getItem(key);
-  const parsedValue = Number.parseInt(rawValue ?? '', 10);
+function getShowFractionalNumbersEnabled() {
+  return getShowFractionalNumbersState?.() ?? getUiSettings().showFractionalNumbers;
+}
 
-  if (!Number.isFinite(parsedValue)) {
-    return fallback;
-  }
+function getShowFractionalOnlyLowEnabled() {
+  return getShowFractionalOnlyLowState?.() ?? getUiSettings().showFractionalOnlyLow;
+}
 
-  return Math.max(min, Math.min(max, parsedValue));
+function getActiveMenuTab() {
+  return getActiveMenuTabState?.() ?? getUiMenu().activeTab;
 }
 
 function clampPercent(value) {
@@ -164,8 +140,8 @@ function normalizeVolumeValue(value) {
 
 function formatVolumeValue(value) {
   const normalizedValue = normalizeVolumeValue(value);
-  const shouldShowFractions = showFractionalNumbers
-    && (!showFractionalOnlyLow || normalizedValue < LOW_FRACTIONAL_VOLUME_THRESHOLD);
+  const shouldShowFractions = getShowFractionalNumbersEnabled()
+    && (!getShowFractionalOnlyLowEnabled() || normalizedValue < LOW_FRACTIONAL_VOLUME_THRESHOLD);
   const formattedValue = shouldShowFractions
     ? normalizedValue.toFixed(1).replace(/\.0$/, '')
     : String(Math.round(normalizedValue));
@@ -174,37 +150,37 @@ function formatVolumeValue(value) {
 }
 
 function getVolumeCurveAmount() {
-  return volumeCurveAmount;
+  return getVolumeCurveAmountState?.() ?? getUiSettings().volumeCurveAmount;
 }
 
 function getVolumeCurveEnabled() {
-  return volumeCurveEnabled;
+  return getVolumeCurveEnabledState?.() ?? getUiSettings().volumeCurveEnabled;
 }
 
 function getVolumeCurveType() {
-  return volumeCurveType;
+  return getVolumeCurveTypeState?.() ?? getUiSettings().volumeCurveType;
 }
 
 function getFaderInterpolationEnabled() {
-  return faderInterpolationEnabled;
+  return getFaderInterpolationEnabledState?.() ?? getUiSettings().faderInterpolationEnabled;
 }
 
 function getVolumeCurveExponent() {
-  return 1 + (volumeCurveAmount / VOLUME_CURVE_MAX) * VOLUME_CURVE_EXPONENT_RANGE;
+  return 1 + (getVolumeCurveAmount() / VOLUME_CURVE_MAX) * VOLUME_CURVE_EXPONENT_RANGE;
 }
 
 function applySelectedVolumeCurve(normalizedPosition) {
   const exponent = getVolumeCurveExponent();
 
-  if (!volumeCurveEnabled) {
+  if (!getVolumeCurveEnabled()) {
     return normalizedPosition;
   }
 
-  if (volumeCurveType === 'ease-in') {
+  if (getVolumeCurveType() === 'ease-in') {
     return normalizedPosition ** exponent;
   }
 
-  if (volumeCurveType === 'ease-out') {
+  if (getVolumeCurveType() === 'ease-out') {
     return 1 - ((1 - normalizedPosition) ** exponent);
   }
 
@@ -226,7 +202,7 @@ function mapFaderPositionToVolume(position) {
     return 100;
   }
 
-  if (!volumeCurveEnabled || volumeCurveAmount <= 0) {
+  if (!getVolumeCurveEnabled() || getVolumeCurveAmount() <= 0) {
     return normalizeVolumeValue(normalizedPosition * 100);
   }
 
@@ -235,7 +211,7 @@ function mapFaderPositionToVolume(position) {
 }
 
 function isMenuOpen() {
-  return dom.menuRail?.classList.contains('open');
+  return getIsMenuOpenState?.() ?? getUiMenu().open;
 }
 
 function transitionMenuView(view, shouldBeActive) {
@@ -269,6 +245,7 @@ function syncMenuPanelCardSize() {
     return;
   }
 
+  const activeMenuTab = getActiveMenuTab();
   const activeView = dom.menuViews?.find((view) => view.dataset.tab === activeMenuTab);
 
   if (!activeView || !activeMenuTab) {
@@ -354,6 +331,7 @@ function scheduleMenuPanelCardSizeSync() {
 }
 
 function syncMenuTabUi() {
+  const activeMenuTab = getActiveMenuTab();
   dom.menuTabs.forEach((tab) => {
     tab.classList.toggle('active', tab.dataset.tab === activeMenuTab);
   });
@@ -367,28 +345,27 @@ function syncMenuTabUi() {
 }
 
 function setActiveMenuTab(tabName) {
-  activeMenuTab = tabName;
-  syncMenuTabUi();
+  setActiveMenuTabState?.(tabName, { source: 'ui' });
+}
+
+function syncMenuShellUi() {
+  const menuOpen = isMenuOpen();
+  dom.menuRail?.classList.toggle('open', menuOpen);
+  document.body.classList.toggle('menu-open', menuOpen);
 }
 
 function openMainMenu() {
   menuScrollVisibilitySnapshot = !dom.contentScrollBar?.classList.contains('hidden');
-  dom.menuRail?.classList.add('open');
-  document.body.classList.add('menu-open');
-  scheduleContentMetricsUpdate();
+  setMenuOpenState?.(true, { source: 'ui' });
 }
 
 function closeMainMenu() {
-  dom.menuRail?.classList.remove('open');
-  document.body.classList.remove('menu-open');
+  setMenuOpenState?.(false, { source: 'ui' });
   setActiveMenuTab(null);
 
   if (menuScrollVisibilitySnapshot === false) {
     dom.contentScrollBar?.classList.add('hidden');
   }
-
-  scheduleContentMetricsUpdate();
-
   requestAnimationFrame(() => {
     if (menuScrollVisibilitySnapshot === false) {
       dom.contentScrollBar?.classList.add('hidden');
@@ -412,6 +389,7 @@ function syncAdvancedModeUi() {
     return;
   }
 
+  const advancedMode = getAdvancedModeEnabled();
   dom.advancedModeToggle.classList.toggle('on', advancedMode);
   dom.advancedModeToggle.textContent = advancedMode ? t('settings.on') : t('settings.off');
   scheduleMenuPanelCardSizeSync();
@@ -422,11 +400,13 @@ function syncDeveloperModeUi() {
     return;
   }
 
+  const developerMode = getDeveloperModeEnabled();
   dom.developerModeToggle.classList.toggle('on', developerMode);
   dom.developerModeToggle.textContent = developerMode ? t('settings.on') : t('settings.off');
 }
 
 function syncFaderInterpolationUi() {
+  const faderInterpolationEnabled = getFaderInterpolationEnabled();
   if (dom.faderInterpolationToggle) {
     dom.faderInterpolationToggle.classList.toggle('on', faderInterpolationEnabled);
     dom.faderInterpolationToggle.textContent = faderInterpolationEnabled
@@ -438,7 +418,7 @@ function syncFaderInterpolationUi() {
 }
 
 function isToolbarProfilePickerEnabled() {
-  return profileToolbarSwitcherEnabled;
+  return getProfileToolbarSwitcherEnabledState?.() ?? getUiSettings().profileToolbarSwitcherEnabled;
 }
 
 function syncProfileToolbarUi() {
@@ -446,6 +426,7 @@ function syncProfileToolbarUi() {
     return;
   }
 
+  const profileToolbarSwitcherEnabled = isToolbarProfilePickerEnabled();
   dom.profileToolbarToggle.classList.toggle('on', profileToolbarSwitcherEnabled);
   dom.profileToolbarToggle.textContent = profileToolbarSwitcherEnabled
     ? t('settings.on')
@@ -454,6 +435,8 @@ function syncProfileToolbarUi() {
 }
 
 function syncFractionalNumberUi() {
+  const showFractionalNumbers = getShowFractionalNumbersEnabled();
+  const showFractionalOnlyLow = getShowFractionalOnlyLowEnabled();
   if (dom.showFractionalNumbersToggle) {
     dom.showFractionalNumbersToggle.classList.toggle('on', showFractionalNumbers);
     dom.showFractionalNumbersToggle.textContent = showFractionalNumbers
@@ -598,7 +581,7 @@ function getVolumeCurveDemoPosition(progress, startPosition = VOLUME_CURVE_DEMO_
 function startVolumeCurveDemo() {
   stopVolumeCurveDemo();
 
-  if (!volumeCurveEnabled || volumeCurveDemoDragging || !dom.volumeCurveDemoTrack) {
+  if (!getVolumeCurveEnabled() || volumeCurveDemoDragging || !dom.volumeCurveDemoTrack) {
     return;
   }
 
@@ -608,7 +591,7 @@ function startVolumeCurveDemo() {
   updateVolumeCurveDemoUi(startPosition, { showPoint: true });
 
   const tick = (timestamp) => {
-    if (!volumeCurveEnabled || volumeCurveDemoDragging) {
+    if (!getVolumeCurveEnabled() || volumeCurveDemoDragging) {
       volumeCurveDemoFrame = null;
       dom.volumeCurveDemoOutput?.classList.remove('is-live');
       setVolumeCurvePointVisible(false);
@@ -636,7 +619,7 @@ function startVolumeCurveDemo() {
 function scheduleVolumeCurveDemo() {
   stopVolumeCurveDemo();
 
-  if (!volumeCurveEnabled || volumeCurveDemoDragging || !dom.volumeCurveDemoTrack) {
+  if (!getVolumeCurveEnabled() || volumeCurveDemoDragging || !dom.volumeCurveDemoTrack) {
     return;
   }
 
@@ -699,6 +682,9 @@ function startVolumeCurveDemoDrag(event) {
 }
 
 function syncVolumeCurveUi() {
+  const volumeCurveEnabled = getVolumeCurveEnabled();
+  const volumeCurveType = getVolumeCurveType();
+  const volumeCurveAmount = getVolumeCurveAmount();
   if (dom.volumeCurveToggle) {
     dom.volumeCurveToggle.classList.toggle('on', volumeCurveEnabled);
     dom.volumeCurveToggle.textContent = volumeCurveEnabled ? t('settings.on') : t('settings.off');
@@ -799,77 +785,41 @@ function setupContentScroller() {
 }
 
 function setupSettings() {
-  syncAdvancedModeUi();
-  syncDeveloperModeUi();
-  syncFaderInterpolationUi();
-  syncProfileToolbarUi();
-  syncFractionalNumberUi();
-  syncVolumeCurveUi();
-  syncLanguageUi();
-
   dom.advancedModeToggle?.addEventListener('click', () => {
-    advancedMode = !advancedMode;
-    saveUiBooleanSetting(UI_STORAGE_KEYS.advancedMode, advancedMode);
-    syncAdvancedModeUi();
-    renderMixer();
+    setAdvancedModeState?.(!getAdvancedModeEnabled(), { source: 'ui' });
   });
 
   dom.developerModeToggle?.addEventListener('click', () => {
-    developerMode = !developerMode;
-    saveUiBooleanSetting(UI_STORAGE_KEYS.developerMode, developerMode);
-    syncDeveloperModeUi();
+    setDeveloperModeState?.(!getDeveloperModeEnabled(), { source: 'ui' });
   });
 
   dom.faderInterpolationToggle?.addEventListener('click', () => {
-    faderInterpolationEnabled = !faderInterpolationEnabled;
-    saveUiBooleanSetting(UI_STORAGE_KEYS.faderInterpolationEnabled, faderInterpolationEnabled);
-    syncFaderInterpolationUi();
+    setFaderInterpolationEnabledState?.(!getFaderInterpolationEnabled(), { source: 'ui' });
   });
 
   dom.profileToolbarToggle?.addEventListener('click', () => {
-    profileToolbarSwitcherEnabled = !profileToolbarSwitcherEnabled;
-    saveUiBooleanSetting(
-      UI_STORAGE_KEYS.profileToolbarSwitcherEnabled,
-      profileToolbarSwitcherEnabled
-    );
-    syncProfileToolbarUi();
+    setProfileToolbarSwitcherEnabledState?.(!isToolbarProfilePickerEnabled(), { source: 'ui' });
   });
 
   dom.showFractionalNumbersToggle?.addEventListener('click', () => {
-    showFractionalNumbers = !showFractionalNumbers;
-    saveUiBooleanSetting(UI_STORAGE_KEYS.showFractionalNumbers, showFractionalNumbers);
-    syncFractionalNumberUi();
-    refreshCurveDrivenUi();
-    updateVolumeCurveDemoUi(volumeCurveDemoPosition, { showPoint: false });
+    setShowFractionalNumbersState?.(!getShowFractionalNumbersEnabled(), { source: 'ui' });
   });
 
   dom.showFractionalOnlyLowToggle?.addEventListener('click', () => {
-    showFractionalOnlyLow = !showFractionalOnlyLow;
-    saveUiBooleanSetting(UI_STORAGE_KEYS.showFractionalOnlyLow, showFractionalOnlyLow);
-    syncFractionalNumberUi();
-    refreshCurveDrivenUi();
-    updateVolumeCurveDemoUi(volumeCurveDemoPosition, { showPoint: false });
+    setShowFractionalOnlyLowState?.(!getShowFractionalOnlyLowEnabled(), { source: 'ui' });
   });
 
   dom.volumeCurveToggle?.addEventListener('click', () => {
-    volumeCurveEnabled = !volumeCurveEnabled;
-    saveUiBooleanSetting(UI_STORAGE_KEYS.volumeCurveEnabled, volumeCurveEnabled);
-    syncVolumeCurveUi();
-    refreshCurveDrivenUi();
-    scheduleVolumeCurveDemo();
+    setVolumeCurveEnabledState?.(!getVolumeCurveEnabled(), { source: 'ui' });
   });
 
   dom.volumeCurveModeButtons?.forEach((button) => {
     button.addEventListener('click', () => {
-      if (button.dataset.curveType === volumeCurveType) {
+      if (button.dataset.curveType === getVolumeCurveType()) {
         return;
       }
 
-      volumeCurveType = button.dataset.curveType;
-      localStorage.setItem(UI_STORAGE_KEYS.volumeCurveType, volumeCurveType);
-      syncVolumeCurveUi();
-      refreshCurveDrivenUi();
-      scheduleVolumeCurveDemo();
+      setVolumeCurveTypeState?.(button.dataset.curveType, { source: 'ui' });
     });
   });
 
@@ -879,15 +829,11 @@ function setupSettings() {
       Math.min(VOLUME_CURVE_MAX, Number.parseInt(event.target.value, 10) || 0)
     );
 
-    if (sliderValue === volumeCurveAmount) {
+    if (sliderValue === getVolumeCurveAmount()) {
       return;
     }
 
-    volumeCurveAmount = sliderValue;
-    saveUiNumberSetting(UI_STORAGE_KEYS.volumeCurveAmount, volumeCurveAmount);
-    syncVolumeCurveUi();
-    refreshCurveDrivenUi();
-    scheduleVolumeCurveDemo();
+    setVolumeCurveAmountState?.(sliderValue, { source: 'ui' });
   });
 
   dom.languageSelect?.addEventListener('change', (event) => {
@@ -1080,7 +1026,7 @@ function setupMenuTabs() {
         openMainMenu();
       }
 
-      if (activeMenuTab === tab.dataset.tab) {
+      if (getActiveMenuTab() === tab.dataset.tab) {
         setActiveMenuTab(null);
         return;
       }
@@ -1088,6 +1034,66 @@ function setupMenuTabs() {
       setActiveMenuTab(tab.dataset.tab);
     });
   });
+}
+
+function initUiStateSync() {
+  if (uiStateSyncInitialized || typeof subscribeUiState !== 'function') {
+    return;
+  }
+
+  subscribeUiState((nextUiState, previousUiState) => {
+    const nextSettings = nextUiState.settings;
+    const previousSettings = previousUiState.settings;
+    const nextMenu = nextUiState.menu;
+    const previousMenu = previousUiState.menu;
+
+    if (nextSettings.advancedMode !== previousSettings.advancedMode) {
+      syncAdvancedModeUi();
+      renderMixer();
+    }
+
+    if (nextSettings.developerMode !== previousSettings.developerMode) {
+      syncDeveloperModeUi();
+    }
+
+    if (nextSettings.faderInterpolationEnabled !== previousSettings.faderInterpolationEnabled) {
+      syncFaderInterpolationUi();
+    }
+
+    if (nextSettings.profileToolbarSwitcherEnabled !== previousSettings.profileToolbarSwitcherEnabled) {
+      syncProfileToolbarUi();
+    }
+
+    if (
+      nextSettings.showFractionalNumbers !== previousSettings.showFractionalNumbers
+      || nextSettings.showFractionalOnlyLow !== previousSettings.showFractionalOnlyLow
+    ) {
+      syncFractionalNumberUi();
+      refreshCurveDrivenUi();
+      updateVolumeCurveDemoUi(volumeCurveDemoPosition, { showPoint: false });
+    }
+
+    if (
+      nextSettings.volumeCurveEnabled !== previousSettings.volumeCurveEnabled
+      || nextSettings.volumeCurveType !== previousSettings.volumeCurveType
+      || nextSettings.volumeCurveAmount !== previousSettings.volumeCurveAmount
+    ) {
+      syncVolumeCurveUi();
+      refreshCurveDrivenUi();
+      scheduleVolumeCurveDemo();
+    }
+
+    if (nextMenu.open !== previousMenu.open) {
+      syncMenuShellUi();
+      scheduleContentMetricsUpdate();
+    }
+
+    if (nextMenu.activeTab !== previousMenu.activeTab) {
+      syncMenuTabUi();
+    }
+  });
+
+  uiStateSyncInitialized = true;
 }
 
 function handleLanguageChanged() {
@@ -1117,7 +1123,7 @@ function bindGlobalUi() {
   }
 
   document.addEventListener('keydown', (event) => {
-    if (event.key !== 'F12' || !developerMode) {
+    if (event.key !== 'F12' || !getDeveloperModeEnabled()) {
       return;
     }
 
@@ -1138,16 +1144,25 @@ function bindGlobalUi() {
 
 function init() {
   cacheDomElements();
-  loadUiSettingsFromLocal();
+  initUiStore?.();
   applyTranslations();
   enhanceCustomSelects?.(document);
   initChannelUiStateSync?.();
   initStandaloneButtonsStateSync?.();
+  initUiStateSync();
   bindGlobalUi();
   setupSettings();
   setupWindowControls();
   setupMenuTabs();
   setupContentScroller();
+  syncMenuShellUi();
+  syncAdvancedModeUi();
+  syncDeveloperModeUi();
+  syncFaderInterpolationUi();
+  syncProfileToolbarUi();
+  syncFractionalNumberUi();
+  syncVolumeCurveUi();
+  syncLanguageUi();
   syncMenuTabUi();
   scheduleMenuPanelCardSizeSync();
   loadProfileFromLocal();

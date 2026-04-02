@@ -45,7 +45,29 @@
     channels: [],
     standaloneButtons: [],
     profile: {
-      currentName: ''
+      currentName: '',
+      list: [],
+      preferences: {
+        order: [],
+        toolbarVisible: {}
+      }
+    },
+    ui: {
+      settings: {
+        advancedMode: false,
+        developerMode: false,
+        faderInterpolationEnabled: false,
+        showFractionalNumbers: false,
+        showFractionalOnlyLow: false,
+        volumeCurveEnabled: false,
+        volumeCurveType: 'ease-in-out',
+        volumeCurveAmount: 0,
+        profileToolbarSwitcherEnabled: true
+      },
+      menu: {
+        open: false,
+        activeTab: null
+      }
     },
     midi: readInitialMidiState()
   };
