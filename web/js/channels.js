@@ -255,7 +255,7 @@ function queueChannelVolumePush(channel) {
   }, CHANNEL_VOLUME_PUSH_DELAY_MS);
 }
 
-function applyVolumeToChannel(channelId, volume) {
+function applyVolumeToChannel(channelId, volume, meta = {}) {
   const channel = getChannelById(channelId);
 
   if (!channel) {
@@ -263,7 +263,7 @@ function applyVolumeToChannel(channelId, volume) {
   }
 
   const updatedChannel = typeof setChannelVolumeState === 'function'
-    ? setChannelVolumeState(channelId, volume, { source: 'ui' })
+    ? setChannelVolumeState(channelId, volume, { source: 'ui', ...meta })
     : null;
   queueChannelVolumePush(updatedChannel || getChannelById(channelId));
 }
@@ -606,3 +606,7 @@ function initChannelUiStateSync() {
 
   channelUiStateSyncInitialized = true;
 }
+
+window.applyChannelVolumeRuntime = function applyChannelVolumeRuntime(channelId, volume, meta = {}) {
+  return applyVolumeToChannel(channelId, volume, { source: 'midi-runtime', ...meta });
+};
