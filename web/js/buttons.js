@@ -1,12 +1,13 @@
 const MAX_CHANNEL_BUTTONS = 4;
 const MAX_STANDALONE_BUTTONS = 24;
+let standaloneButtonsUiStateSyncInitialized = false;
 
 function findChannel(channelId) {
-  return channels.find((channel) => channel.id === channelId) ?? null;
+  return typeof findChannelState === 'function' ? findChannelState(channelId) : null;
 }
 
 function findStandaloneButton(buttonId) {
-  return standaloneButtonsList.find((button) => button.id === buttonId) ?? null;
+  return typeof findStandaloneButtonState === 'function' ? findStandaloneButtonState(buttonId) : null;
 }
 
 function createDefaultButton() {
@@ -32,9 +33,8 @@ function addChannelButton(channelId) {
     return;
   }
 
-  channel.buttons.push(createDefaultButton());
+  addChannelButtonState?.(channelId, createDefaultButton(), { source: 'ui' });
   saveProfileToLocal();
-  renderMixer();
 }
 
 function fillButtonModal(button) {
@@ -62,17 +62,13 @@ function configureButton(channelId, buttonId) {
 }
 
 function toggleButton(channelId, buttonId) {
-  const channel = findChannel(channelId);
-  const button = channel?.buttons.find((item) => item.id === buttonId);
+  const button = toggleChannelButtonState?.(channelId, buttonId, { source: 'ui' });
 
   if (!button) {
     return;
   }
 
-  button.active = !button.active;
   logTest('button_toggle', { channelId, buttonId, active: button.active });
-  renderMixer();
-  renderStandaloneButtons();
   sendButtonAction(button);
 }
 
@@ -81,18 +77,18 @@ async function remapButton() {
 }
 
 function addStandaloneButton() {
-  if (standaloneButtonsList.length >= MAX_STANDALONE_BUTTONS) {
+  if ((getStandaloneButtonsState?.() || []).length >= MAX_STANDALONE_BUTTONS) {
     showToast('warn', t('buttons.standaloneLimit'));
     return;
   }
 
-  standaloneButtonsList.push(createDefaultButton());
-  renderStandaloneButtons();
+  addStandaloneButtonState?.(createDefaultButton(), { source: 'ui' });
   saveProfileToLocal();
 }
 
 function renderStandaloneButtons() {
   const container = document.getElementById('standaloneButtons');
+  const standaloneButtonsList = getStandaloneButtonsState?.() || [];
 
   if (!container) {
     return;
@@ -123,15 +119,19 @@ function renderStandaloneButtons() {
 }
 
 function toggleStandaloneButton(buttonId) {
-  const button = findStandaloneButton(buttonId);
+  const button = updateStandaloneButtonState?.(buttonId, (draftButton) => {
+    draftButton.active = !draftButton.active;
+    return draftButton;
+  }, {
+    type: 'standalone-buttons/toggle',
+    source: 'ui'
+  });
 
   if (!button) {
     return;
   }
 
-  button.active = !button.active;
   logTest('standalone_button_toggle', { buttonId, active: button.active });
-  renderStandaloneButtons();
   sendButtonAction(button);
 }
 
@@ -178,24 +178,26 @@ function saveButtonConfig() {
   const nextConfig = readButtonFormState();
 
   if (currentButtonConfig.standalone) {
-    const standaloneButton = findStandaloneButton(currentButtonConfig.buttonId);
-
-    if (standaloneButton) {
+    updateStandaloneButtonState?.(currentButtonConfig.buttonId, (standaloneButton) => {
       applyButtonConfig(standaloneButton, nextConfig);
-    }
-
-    renderStandaloneButtons();
+      return standaloneButton;
+    }, {
+      type: 'standalone-buttons/configure',
+      source: 'ui'
+    });
   } else {
-    const channel = findChannel(currentButtonConfig.channelId);
-    const channelButton = channel?.buttons.find(
-      (button) => button.id === currentButtonConfig.buttonId
+    updateChannelButtonState?.(
+      currentButtonConfig.channelId,
+      currentButtonConfig.buttonId,
+      (channelButton) => {
+        applyButtonConfig(channelButton, nextConfig);
+        return channelButton;
+      },
+      {
+        type: 'channels/button-configure',
+        source: 'ui'
+      }
     );
-
-    if (channelButton) {
-      applyButtonConfig(channelButton, nextConfig);
-    }
-
-    renderMixer();
   }
 
   saveProfileToLocal();
@@ -213,4 +215,20 @@ function sendButtonAction(button) {
     active: button.active,
     text: button.text
   });
+}
+
+function initStandaloneButtonsStateSync() {
+  if (standaloneButtonsUiStateSyncInitialized || typeof subscribeAppState !== 'function') {
+    return;
+  }
+
+  subscribeAppState((nextState, previousState) => {
+    if (nextState.standaloneButtons === previousState.standaloneButtons) {
+      return;
+    }
+
+    renderStandaloneButtons();
+  });
+
+  standaloneButtonsUiStateSyncInitialized = true;
 }

@@ -5,11 +5,11 @@ const PROFILE_UI_STORAGE_KEYS = {
 };
 
 let profilesListState = [];
-let currentProfileName = localStorage.getItem(PROFILE_UI_STORAGE_KEYS.currentProfile) || '';
 let profilePreferences = loadProfilePreferences();
 let profileEditingState = null;
 let draggedProfileName = null;
 let profileUiInitialized = false;
+let profileStateSyncInitialized = false;
 
 function loadProfilePreferences() {
   try {
@@ -66,17 +66,25 @@ function isProfileVisibleInToolbar(name) {
   return profilePreferences.toolbarVisible[name] !== false;
 }
 
-function setCurrentProfile(name) {
-  currentProfileName = name || '';
+function getCurrentProfileName() {
+  return typeof getCurrentProfileState === 'function' ? getCurrentProfileState() : '';
+}
 
-  if (currentProfileName) {
-    localStorage.setItem(PROFILE_UI_STORAGE_KEYS.currentProfile, currentProfileName);
+setCurrentProfileState?.(
+  localStorage.getItem(PROFILE_UI_STORAGE_KEYS.currentProfile) || '',
+  { source: 'profiles-init' }
+);
+
+function setCurrentProfile(name) {
+  const nextProfileName = name || '';
+
+  if (nextProfileName) {
+    localStorage.setItem(PROFILE_UI_STORAGE_KEYS.currentProfile, nextProfileName);
   } else {
     localStorage.removeItem(PROFILE_UI_STORAGE_KEYS.currentProfile);
   }
 
-  syncToolbarProfileSelect();
-  renderProfilesPanel();
+  setCurrentProfileState?.(nextProfileName, { source: 'profiles-ui' });
 }
 
 function syncProfilePreferenceState(profileNames) {
@@ -173,33 +181,20 @@ function removeProfilePreferences(name) {
 }
 
 function captureProfileSnapshot(profileName = '') {
-  return JSON.parse(JSON.stringify({
-    meta: {
-      name: profileName
-    },
-    channels,
-    standaloneButtons: standaloneButtonsList,
-    settings: getCurrentMidiSelectionSettings?.() || {}
-  }));
+  return typeof serializeRendererState === 'function'
+    ? serializeRendererState(profileName)
+    : {
+      meta: {
+        name: profileName
+      },
+      channels: [],
+      standaloneButtons: [],
+      settings: {}
+    };
 }
 
 function applyProfileData(profileName, profileData) {
-  channels = Array.isArray(profileData?.channels) ? profileData.channels : [];
-  standaloneButtonsList = Array.isArray(profileData?.standaloneButtons)
-    ? profileData.standaloneButtons
-    : [];
-
-  const midiInput = document.getElementById('midiInput');
-
-  if (midiInput) {
-    applySavedMidiInputSelection?.(
-      profileData?.settings?.midiInputId || '',
-      profileData?.settings?.midiInputName || ''
-    );
-  }
-
-  renderMixer();
-  renderStandaloneButtons();
+  hydrateRendererState?.(profileData, { source: 'profile-load', profileName });
   saveProfileToLocal();
   setCurrentProfile(profileName);
   scheduleContentMetricsUpdate();
@@ -217,6 +212,7 @@ function syncToolbarProfileSelect() {
   }
 
   const visibleProfiles = profilesListState.filter((profile) => isProfileVisibleInToolbar(profile.name));
+  const currentProfileName = getCurrentProfileName();
   const hasCurrentVisible = visibleProfiles.some((profile) => profile.name === currentProfileName);
   const placeholderSelected = !currentProfileName || !hasCurrentVisible;
 
@@ -253,7 +249,7 @@ function renderProfileRow(profile, options = {}) {
       (profileEditingState.mode === 'rename' && profileEditingState.originalName === profile.name)
       || (profileEditingState.mode === 'create' && profileEditingState.originalName === profile.name)
     );
-  const isCurrent = currentProfileName === profile.name;
+  const isCurrent = getCurrentProfileName() === profile.name;
   const nameMarkup = isEditing
     ? `
       <input
@@ -407,7 +403,7 @@ async function refreshProfilesData(options = {}) {
     syncProfilePreferenceState(normalizedProfiles.map((profile) => profile.name));
     profilesListState = sortProfiles(normalizedProfiles);
 
-    if (currentProfileName && !profilesListState.some((profile) => profile.name === currentProfileName)) {
+    if (getCurrentProfileName() && !profilesListState.some((profile) => profile.name === getCurrentProfileName())) {
       setCurrentProfile('');
     } else {
       syncToolbarProfileSelect();
@@ -531,7 +527,7 @@ async function commitProfileEditing() {
 
     renameProfilePreferences(originalName, response.name || nextName);
 
-    if (currentProfileName === originalName) {
+    if (getCurrentProfileName() === originalName) {
       setCurrentProfile(response.name || nextName);
     }
 
@@ -569,7 +565,7 @@ async function deleteProfileByName(profileName) {
 
     removeProfilePreferences(profileName);
 
-    if (currentProfileName === profileName) {
+    if (getCurrentProfileName() === profileName) {
       setCurrentProfile('');
     }
 
@@ -873,6 +869,18 @@ function refreshProfilesLanguage() {
 }
 
 async function initProfilesUi() {
+  if (!profileStateSyncInitialized && typeof subscribeAppState === 'function') {
+    subscribeAppState((nextState, previousState) => {
+      if (nextState.profile.currentName === previousState.profile.currentName) {
+        return;
+      }
+
+      syncToolbarProfileSelect();
+      renderProfilesPanel();
+    });
+    profileStateSyncInitialized = true;
+  }
+
   bindProfilesUi();
   syncToolbarProfileSelect();
   renderProfilesPanel();

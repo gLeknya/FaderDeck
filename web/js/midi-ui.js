@@ -1,8 +1,6 @@
 let midiAccess = null;
-let midiInputCount = 0;
 let midiScanPromise = null;
-let selectedMidiInputId = localStorage.getItem('faderdeck_selected_midi_input_id') || '';
-let selectedMidiInputName = localStorage.getItem('faderdeck_selected_midi_input_name') || '';
+let midiStateSyncInitialized = false;
 
 const MIDI_FADER_LEARN_TIMEOUT_MS = 8000;
 const MIDI_HIGH_RES_COMBINE_DELAY_MS = 12;
@@ -10,6 +8,10 @@ const MIDI_CONTROL_LSB_OFFSET = 32;
 const MIDI_MESSAGE_LISTENERS = new Set();
 const midiParserStates = new Map();
 const MIDI_DISABLED_OPTION_VALUE = '__disabled__';
+const MIDI_SELECTION_STORAGE_KEYS = Object.freeze({
+  id: 'faderdeck_selected_midi_input_id',
+  name: 'faderdeck_selected_midi_input_name'
+});
 
 const MIDI_STATUS = Object.freeze({
   noteOff: 0x80,
@@ -42,43 +44,57 @@ function getMidiSelect() {
   return document.getElementById('midiInput');
 }
 
+function getSelectedMidiState() {
+  return typeof getMidiSelectionState === 'function'
+    ? getMidiSelectionState()
+    : { selectedInputId: '', selectedInputName: '' };
+}
+
+function getSelectedMidiInputId() {
+  return getSelectedMidiState().selectedInputId || '';
+}
+
+function getSelectedMidiInputName() {
+  return getSelectedMidiState().selectedInputName || '';
+}
+
 function isMidiDisabledSelection() {
-  return selectedMidiInputId === MIDI_DISABLED_OPTION_VALUE;
+  return getSelectedMidiInputId() === MIDI_DISABLED_OPTION_VALUE;
 }
 
-function persistMidiSelection() {
-  if (selectedMidiInputId) {
-    localStorage.setItem('faderdeck_selected_midi_input_id', selectedMidiInputId);
+function persistMidiSelection(midiState = getSelectedMidiState()) {
+  if (midiState.selectedInputId) {
+    localStorage.setItem(MIDI_SELECTION_STORAGE_KEYS.id, midiState.selectedInputId);
   } else {
-    localStorage.removeItem('faderdeck_selected_midi_input_id');
+    localStorage.removeItem(MIDI_SELECTION_STORAGE_KEYS.id);
   }
 
-  if (selectedMidiInputName) {
-    localStorage.setItem('faderdeck_selected_midi_input_name', selectedMidiInputName);
+  if (midiState.selectedInputName) {
+    localStorage.setItem(MIDI_SELECTION_STORAGE_KEYS.name, midiState.selectedInputName);
   } else {
-    localStorage.removeItem('faderdeck_selected_midi_input_name');
+    localStorage.removeItem(MIDI_SELECTION_STORAGE_KEYS.name);
   }
-}
-
-function getCurrentMidiSelectionSettings() {
-  return {
-    midiInputId: selectedMidiInputId || null,
-    midiInputName: selectedMidiInputName || ''
-  };
 }
 
 function setMidiSelection(nextId = '', nextName = '') {
-  selectedMidiInputId = nextId || '';
-  selectedMidiInputName = (
-    selectedMidiInputId
-    && selectedMidiInputId !== MIDI_DISABLED_OPTION_VALUE
-  ) ? (nextName || selectedMidiInputName || selectedMidiInputId) : '';
-  persistMidiSelection();
-}
+  const currentMidiState = getSelectedMidiState();
+  const nextInputId = nextId || '';
+  const nextInputName = (
+    nextInputId
+    && nextInputId !== MIDI_DISABLED_OPTION_VALUE
+  ) ? (nextName || currentMidiState.selectedInputName || nextInputId) : '';
+  const nextMidiState = typeof setMidiSelectionState === 'function'
+    ? setMidiSelectionState({
+      selectedInputId: nextInputId,
+      selectedInputName: nextInputName
+    }, { source: 'midi-ui' })
+    : {
+      selectedInputId: nextInputId,
+      selectedInputName: nextInputName
+    };
 
-function applySavedMidiInputSelection(nextId = '', nextName = '') {
-  setMidiSelection(nextId, nextName);
-  populateMidiInputs();
+  persistMidiSelection(nextMidiState);
+  return nextMidiState;
 }
 
 function setMidiSelectLoadingState(isLoading) {
@@ -112,6 +128,8 @@ function updateMidiStatusText(inputs = []) {
 }
 
 function buildMidiOptions(inputs) {
+  const selectedMidiInputId = getSelectedMidiInputId();
+  const selectedMidiInputName = getSelectedMidiInputName();
   const items = Array.isArray(inputs)
     ? inputs.map((input) => ({ id: input.id, name: input.name || input.id }))
     : [];
@@ -138,14 +156,18 @@ function populateMidiInputs() {
     return;
   }
 
+  const selectedMidiInputId = getSelectedMidiInputId();
+  const selectedMidiInputName = getSelectedMidiInputName();
   const inputs = midiAccess ? Array.from(midiAccess.inputs.values()) : [];
   const optionItems = buildMidiOptions(inputs);
   const matchedSelectedInput = optionItems.find((input) => input.id === selectedMidiInputId);
-  midiInputCount = inputs.length;
 
-  if (matchedSelectedInput && !isMidiDisabledSelection()) {
-    selectedMidiInputName = matchedSelectedInput.name;
-    persistMidiSelection();
+  if (
+    matchedSelectedInput
+    && !isMidiDisabledSelection()
+    && matchedSelectedInput.name !== selectedMidiInputName
+  ) {
+    setMidiSelection(selectedMidiInputId, matchedSelectedInput.name);
   }
 
   if (
@@ -255,12 +277,30 @@ function handleMidiSelectChange(event) {
 }
 
 function isSelectedMidiMessage(message) {
-  return Boolean(selectedMidiInputId)
+  return Boolean(getSelectedMidiInputId())
     && !isMidiDisabledSelection()
-    && message?.inputId === selectedMidiInputId;
+    && message?.inputId === getSelectedMidiInputId();
+}
+
+function initMidiStateSync() {
+  if (midiStateSyncInitialized || typeof subscribeAppState !== 'function') {
+    return;
+  }
+
+  subscribeAppState((nextState, previousState) => {
+    if (nextState.midi === previousState.midi) {
+      return;
+    }
+
+    populateMidiInputs();
+  });
+
+  midiStateSyncInitialized = true;
 }
 
 function initWebMIDI() {
+  initMidiStateSync();
+
   if (!navigator.requestMIDIAccess) {
     updateMidiStatus(false, t('status.unsupported'));
     getMidiSelect()?.setAttribute('disabled', 'true');
@@ -752,7 +792,7 @@ window.__onMidiFromPython = function handleMidiMessage(message) {
     return;
   }
 
-  channels.forEach((channel) => {
+  (getChannelsState?.() || []).forEach((channel) => {
     if (!isMidiMappingMatch(channel.faderMapping, message)) {
       return;
     }
@@ -786,7 +826,7 @@ async function learnFaderMessage() {
 async function startBindFader(event, channelId) {
   event.stopPropagation();
 
-  const channel = findChannel(channelId);
+  const channel = findChannelState?.(channelId);
 
   if (!channel) {
     return;
@@ -794,7 +834,7 @@ async function startBindFader(event, channelId) {
 
   showToast('pending', t('midi.moveFader', { name: channel.title || channel.appName }));
 
-  if (!selectedMidiInputId || isMidiDisabledSelection()) {
+  if (!getSelectedMidiInputId() || isMidiDisabledSelection()) {
     showToast('error', t('midi.selectDeviceFirst'), { updatePending: true });
     return;
   }
@@ -816,7 +856,7 @@ async function startBindFader(event, channelId) {
     return;
   }
 
-  const conflict = channels.find((item) => (
+  const conflict = (getChannelsState?.() || []).find((item) => (
     item.id !== channelId && isSameFaderMapping(item.faderMapping, learned)
   ));
 
@@ -831,13 +871,9 @@ async function startBindFader(event, channelId) {
     }
   }
 
-  channel.faderMapping = learned;
-  channel.faderCC = learned.control ?? null;
-  channel.showBindHint = false;
-  channel.skipBinding = false;
+  setChannelFaderMappingState?.(channelId, learned, { source: 'midi-learn' });
 
   saveProfileToLocal();
-  renderMixer();
   showToast('success', t('midi.bindSuccess'), { updatePending: true });
 }
 

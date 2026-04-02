@@ -1,5 +1,3 @@
-let channels = [];
-let standaloneButtonsList = [];
 let audioApps = [];
 let currentButtonConfig = null;
 let contextTarget = null;
@@ -1000,16 +998,15 @@ function handleContextAction(action) {
 
   if (contextTarget.type === 'button') {
     const { channelId, buttonId } = contextTarget;
-    const channel = channels.find((item) => item.id === channelId);
+    const channel = findChannelState?.(channelId);
 
     if (!channel) {
       return;
     }
 
     if (action === 'delete') {
-      channel.buttons = channel.buttons.filter((button) => button.id !== buttonId);
+      removeChannelButtonState?.(channelId, buttonId, { source: 'context-menu' });
       saveProfileToLocal();
-      renderMixer();
     }
 
     if (action === 'remap') remapButton(channelId, buttonId);
@@ -1021,9 +1018,8 @@ function handleContextAction(action) {
     const { buttonId } = contextTarget;
 
     if (action === 'delete') {
-      standaloneButtonsList = standaloneButtonsList.filter((button) => button.id !== buttonId);
+      removeStandaloneButtonState?.(buttonId, { source: 'context-menu' });
       saveProfileToLocal();
-      renderStandaloneButtons();
     }
 
     if (action === 'remap') remapStandaloneButton(buttonId);
@@ -1032,11 +1028,16 @@ function handleContextAction(action) {
 }
 
 function saveProfileToLocal() {
-  const profile = {
-    channels,
-    standaloneButtons: standaloneButtonsList,
-    settings: getCurrentMidiSelectionSettings?.() || {}
-  };
+  const profile = typeof serializeRendererState === 'function'
+    ? serializeRendererState()
+    : {
+      channels: [],
+      standaloneButtons: [],
+      settings: {
+        midiInputId: getMidiSelectionState?.()?.selectedInputId || null,
+        midiInputName: getMidiSelectionState?.()?.selectedInputName || ''
+      }
+    };
   localStorage.setItem('mixer_profile', JSON.stringify(profile));
 }
 
@@ -1044,27 +1045,23 @@ function loadProfileFromLocal() {
   const savedProfile = localStorage.getItem('mixer_profile');
 
   if (!savedProfile) {
-    renderMixer();
-    renderStandaloneButtons();
+    hydrateRendererState?.({
+      channels: [],
+      standaloneButtons: [],
+      settings: {
+        midiInputId: getMidiSelectionState?.()?.selectedInputId || null,
+        midiInputName: getMidiSelectionState?.()?.selectedInputName || ''
+      }
+    }, { source: 'local-storage' });
     return;
   }
 
   try {
     const profile = JSON.parse(savedProfile);
-    channels = Array.isArray(profile.channels) ? profile.channels : [];
-    standaloneButtonsList = Array.isArray(profile.standaloneButtons)
-      ? profile.standaloneButtons
-      : [];
-    applySavedMidiInputSelection?.(
-      profile.settings?.midiInputId || '',
-      profile.settings?.midiInputName || ''
-    );
+    hydrateRendererState?.(profile, { source: 'local-storage' });
   } catch (error) {
     console.error('loadProfile error', error);
   }
-
-  renderMixer();
-  renderStandaloneButtons();
 }
 
 function setupWindowControls() {
@@ -1144,6 +1141,8 @@ function init() {
   loadUiSettingsFromLocal();
   applyTranslations();
   enhanceCustomSelects?.(document);
+  initChannelUiStateSync?.();
+  initStandaloneButtonsStateSync?.();
   bindGlobalUi();
   setupSettings();
   setupWindowControls();

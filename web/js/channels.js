@@ -3,8 +3,21 @@ const CHANNEL_VOLUME_PUSH_DELAY_MS = 18;
 const CHANNEL_INTERPOLATION_STEPS = 4;
 const CHANNEL_INTERPOLATION_STEP_DELAY_MS = 24;
 const channelVolumePushState = new Map();
+let channelUiStateSyncInitialized = false;
+
+function getChannels() {
+  return typeof getChannelsState === 'function' ? getChannelsState() : [];
+}
+
+function getChannelById(channelId) {
+  return typeof findChannelState === 'function' ? findChannelState(channelId) : null;
+}
 
 function createChannelModel(index) {
+  if (typeof createChannelStateModel === 'function') {
+    return createChannelStateModel(index);
+  }
+
   return {
     id: Date.now(),
     app: 'master',
@@ -21,22 +34,29 @@ function createChannelModel(index) {
 }
 
 async function createChannel() {
-  const channel = createChannelModel(channels.length + 1);
-  channels.push(channel);
-  renderMixer();
+  const channel = typeof createChannelState === 'function'
+    ? createChannelState({}, { source: 'ui' })
+    : createChannelModel(getChannels().length + 1);
+
+  if (!channel) {
+    return;
+  }
+
   saveProfileToLocal();
   logTest('createChannel', { channelId: channel.id, title: channel.title });
 }
 
 function removeChannel(channelId) {
-  channels = channels.filter((channel) => channel.id !== channelId);
+  if (typeof removeChannelState === 'function') {
+    removeChannelState(channelId, { source: 'ui' });
+  }
+
   resetChannelVolumePushState(channelId);
-  renderMixer();
   saveProfileToLocal();
 }
 
 function changeChannelApp(channelId, appProcess) {
-  const channel = findChannel(channelId);
+  const channel = getChannelById(channelId);
 
   if (!channel) {
     return;
@@ -44,20 +64,21 @@ function changeChannelApp(channelId, appProcess) {
 
   const selectedApp = audioApps.find((app) => app.process === appProcess);
   resetChannelVolumePushState(channelId);
-  channel.app = appProcess;
-  channel.appName = selectedApp?.name || appProcess;
-
-  if (!channel.title) {
-    channel.title = channel.appName;
-  }
+  const updatedChannel = typeof assignChannelAppState === 'function'
+    ? assignChannelAppState(
+      channelId,
+      appProcess,
+      selectedApp?.name || appProcess,
+      { source: 'ui' }
+    )
+    : null;
 
   saveProfileToLocal();
-  renderMixer();
-  queueChannelVolumePush(channel);
+  queueChannelVolumePush(updatedChannel || getChannelById(channelId));
 }
 
 function editChannelTitle(channelId) {
-  const channel = findChannel(channelId);
+  const channel = getChannelById(channelId);
 
   if (!channel) {
     return;
@@ -70,23 +91,26 @@ function editChannelTitle(channelId) {
     return;
   }
 
-  channel.title = name.trim() || channel.appName;
+  if (typeof renameChannelState === 'function') {
+    renameChannelState(channelId, name, channel.appName, { source: 'ui' });
+  }
+
   saveProfileToLocal();
-  renderMixer();
 }
 
 function dismissFaderBindHint(channelId) {
-  const channel = findChannel(channelId);
+  const channel = getChannelById(channelId);
 
   if (!channel) {
     return;
   }
 
-  channel.showBindHint = false;
-  channel.skipBinding = true;
+  if (typeof dismissChannelBindHintState === 'function') {
+    dismissChannelBindHintState(channelId, { source: 'ui' });
+  }
+
   saveProfileToLocal();
   showToast('warn', t('channels.unboundWarning'));
-  renderMixer();
 }
 
 function clampVolume(value) {
@@ -151,7 +175,7 @@ async function flushChannelVolumePush(channelId) {
 
   state.timerId = null;
 
-  const channel = findChannel(channelId);
+  const channel = getChannelById(channelId);
 
   if (!channel) {
     resetChannelVolumePushState(channelId);
@@ -232,15 +256,16 @@ function queueChannelVolumePush(channel) {
 }
 
 function applyVolumeToChannel(channelId, volume) {
-  const channel = findChannel(channelId);
+  const channel = getChannelById(channelId);
 
   if (!channel) {
     return;
   }
 
-  channel.volume = clampVolume(volume);
-  updateChannelFaderUi(channel);
-  queueChannelVolumePush(channel);
+  const updatedChannel = typeof setChannelVolumeState === 'function'
+    ? setChannelVolumeState(channelId, volume, { source: 'ui' })
+    : null;
+  queueChannelVolumePush(updatedChannel || getChannelById(channelId));
 }
 
 function getVolumeFromPointer(track, clientY) {
@@ -331,11 +356,11 @@ function updateChannelFaderUi(channel) {
 }
 
 function updateFadersFromState() {
-  channels.forEach(updateChannelFaderUi);
+  getChannels().forEach(updateChannelFaderUi);
 }
 
 function refreshChannelOutputVolumes() {
-  channels.forEach((channel) => {
+  getChannels().forEach((channel) => {
     updateChannelFaderUi(channel);
     queueChannelVolumePush(channel);
   });
@@ -501,7 +526,7 @@ function syncAddChannelStripHeight(container) {
 }
 
 function triggerNewChannelFlash(container) {
-  channels.forEach((channel) => {
+  getChannels().forEach((channel) => {
     if (!channel.flashOnCreate) {
       return;
     }
@@ -515,7 +540,7 @@ function triggerNewChannelFlash(container) {
     }
 
     channelElement.classList.add('flash');
-    channel.flashOnCreate = false;
+    clearChannelFlashState?.(channel.id, { source: 'render' });
 
     setTimeout(() => {
       channelElement.classList.remove('flash');
@@ -525,6 +550,7 @@ function triggerNewChannelFlash(container) {
 
 function renderMixer() {
   const container = document.getElementById('mixerContainer');
+  const channels = getChannels();
 
   if (!container) {
     return;
@@ -549,4 +575,34 @@ function renderMixer() {
   triggerNewChannelFlash(container);
   syncAddChannelStripHeight(container);
   scheduleContentMetricsUpdate();
+}
+
+function initChannelUiStateSync() {
+  if (channelUiStateSyncInitialized || typeof subscribeAppState !== 'function') {
+    return;
+  }
+
+  subscribeAppState((nextState, previousState, meta = {}) => {
+    if (nextState.channels === previousState.channels) {
+      return;
+    }
+
+    if (meta.type === 'channels/set-volume') {
+      const channel = getChannelById(meta.channelId);
+
+      if (channel) {
+        updateChannelFaderUi(channel);
+      }
+
+      return;
+    }
+
+    if (meta.type === 'channels/clear-flash') {
+      return;
+    }
+
+    renderMixer();
+  });
+
+  channelUiStateSyncInitialized = true;
 }

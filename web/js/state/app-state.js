@@ -1,0 +1,274 @@
+(function initAppState(window) {
+  function cloneButtonEntity(button = {}) {
+    return {
+      ...button
+    };
+  }
+
+  function cloneChannelEntity(channel = {}) {
+    return {
+      ...channel,
+      buttons: Array.isArray(channel.buttons)
+        ? channel.buttons.map(cloneButtonEntity)
+        : []
+    };
+  }
+
+  function normalizeChannels(channels) {
+    return Array.isArray(channels) ? channels.map(cloneChannelEntity) : [];
+  }
+
+  function normalizeStandaloneButtons(buttons) {
+    return Array.isArray(buttons) ? buttons.map(cloneButtonEntity) : [];
+  }
+
+  function normalizeMidiState(midiState = {}) {
+    return {
+      selectedInputId: midiState.selectedInputId || '',
+      selectedInputName: midiState.selectedInputName || ''
+    };
+  }
+
+  function readInitialMidiState() {
+    try {
+      return normalizeMidiState({
+        selectedInputId: localStorage.getItem('faderdeck_selected_midi_input_id') || '',
+        selectedInputName: localStorage.getItem('faderdeck_selected_midi_input_name') || ''
+      });
+    } catch (error) {
+      console.warn('readInitialMidiState error', error);
+      return normalizeMidiState();
+    }
+  }
+
+  const initialState = {
+    channels: [],
+    standaloneButtons: [],
+    profile: {
+      currentName: ''
+    },
+    midi: readInitialMidiState()
+  };
+
+  const store = window.createRendererStore(initialState);
+
+  function getAppState() {
+    return store.getState();
+  }
+
+  function subscribeAppState(listener) {
+    return store.subscribe(listener);
+  }
+
+  function setAppState(nextStateOrUpdater, meta = {}) {
+    return store.setState(nextStateOrUpdater, meta);
+  }
+
+  function getChannelsState() {
+    return getAppState().channels;
+  }
+
+  function getStandaloneButtonsState() {
+    return getAppState().standaloneButtons;
+  }
+
+  function findChannelState(channelId) {
+    return getChannelsState().find((channel) => channel.id === channelId) ?? null;
+  }
+
+  function findStandaloneButtonState(buttonId) {
+    return getStandaloneButtonsState().find((button) => button.id === buttonId) ?? null;
+  }
+
+  function getCurrentProfileState() {
+    return getAppState().profile.currentName || '';
+  }
+
+  function setCurrentProfileState(profileName, meta = {}) {
+    const nextProfileName = profileName || '';
+
+    setAppState((previousState) => {
+      if (previousState.profile.currentName === nextProfileName) {
+        return previousState;
+      }
+
+      return {
+        ...previousState,
+        profile: {
+          ...previousState.profile,
+          currentName: nextProfileName
+        }
+      };
+    }, {
+      type: 'profile/set-current',
+      profileName: nextProfileName,
+      ...meta
+    });
+
+    return nextProfileName;
+  }
+
+  function getMidiSelectionState() {
+    return getAppState().midi;
+  }
+
+  function setMidiSelectionState(midiState, meta = {}) {
+    const nextMidiState = normalizeMidiState(midiState);
+
+    setAppState((previousState) => {
+      if (
+        previousState.midi.selectedInputId === nextMidiState.selectedInputId
+        && previousState.midi.selectedInputName === nextMidiState.selectedInputName
+      ) {
+        return previousState;
+      }
+
+      return {
+        ...previousState,
+        midi: nextMidiState
+      };
+    }, {
+      type: 'midi/set-selection',
+      ...meta
+    });
+
+    return nextMidiState;
+  }
+
+  function hydrateRendererState(payload = {}, meta = {}) {
+    const nextChannels = normalizeChannels(payload.channels);
+    const nextStandaloneButtons = normalizeStandaloneButtons(payload.standaloneButtons);
+    const nextMidiState = payload.settings
+      ? normalizeMidiState({
+        selectedInputId: payload.settings.midiInputId || '',
+        selectedInputName: payload.settings.midiInputName || ''
+      })
+      : getMidiSelectionState();
+
+    setAppState((previousState) => ({
+      ...previousState,
+      channels: nextChannels,
+      standaloneButtons: nextStandaloneButtons,
+      midi: nextMidiState
+    }), {
+      type: 'renderer/hydrate',
+      ...meta
+    });
+  }
+
+  function serializeRendererState(profileName = '') {
+    const state = getAppState();
+    return JSON.parse(JSON.stringify({
+      meta: {
+        name: profileName
+      },
+      channels: state.channels,
+      standaloneButtons: state.standaloneButtons,
+      settings: {
+        midiInputId: state.midi.selectedInputId || null,
+        midiInputName: state.midi.selectedInputName || ''
+      }
+    }));
+  }
+
+  function addStandaloneButtonState(button, meta = {}) {
+    const nextButton = cloneButtonEntity(button);
+
+    setAppState((previousState) => ({
+      ...previousState,
+      standaloneButtons: [...previousState.standaloneButtons, nextButton]
+    }), {
+      type: 'standalone-buttons/add',
+      buttonId: nextButton.id,
+      ...meta
+    });
+
+    return nextButton;
+  }
+
+  function updateStandaloneButtonState(buttonId, updater, meta = {}) {
+    let updatedButton = null;
+
+    setAppState((previousState) => {
+      const buttonIndex = previousState.standaloneButtons.findIndex((button) => button.id === buttonId);
+
+      if (buttonIndex === -1) {
+        return previousState;
+      }
+
+      const currentButton = previousState.standaloneButtons[buttonIndex];
+      const draftButton = cloneButtonEntity(currentButton);
+      const nextButton = typeof updater === 'function'
+        ? updater(draftButton) || draftButton
+        : {
+          ...draftButton,
+          ...(updater || {})
+        };
+
+      updatedButton = cloneButtonEntity(nextButton);
+
+      const nextButtons = previousState.standaloneButtons.slice();
+      nextButtons[buttonIndex] = updatedButton;
+
+      return {
+        ...previousState,
+        standaloneButtons: nextButtons
+      };
+    }, {
+      type: 'standalone-buttons/update',
+      buttonId,
+      ...meta
+    });
+
+    return updatedButton;
+  }
+
+  function removeStandaloneButtonState(buttonId, meta = {}) {
+    let removedButton = null;
+
+    setAppState((previousState) => {
+      const nextButtons = previousState.standaloneButtons.filter((button) => {
+        const isTargetButton = button.id === buttonId;
+
+        if (isTargetButton) {
+          removedButton = button;
+        }
+
+        return !isTargetButton;
+      });
+
+      if (!removedButton) {
+        return previousState;
+      }
+
+      return {
+        ...previousState,
+        standaloneButtons: nextButtons
+      };
+    }, {
+      type: 'standalone-buttons/remove',
+      buttonId,
+      ...meta
+    });
+
+    return removedButton;
+  }
+
+  window.appStateStore = store;
+  window.getAppState = getAppState;
+  window.subscribeAppState = subscribeAppState;
+  window.setAppState = setAppState;
+  window.getChannelsState = getChannelsState;
+  window.getStandaloneButtonsState = getStandaloneButtonsState;
+  window.findChannelState = findChannelState;
+  window.findStandaloneButtonState = findStandaloneButtonState;
+  window.getCurrentProfileState = getCurrentProfileState;
+  window.setCurrentProfileState = setCurrentProfileState;
+  window.getMidiSelectionState = getMidiSelectionState;
+  window.setMidiSelectionState = setMidiSelectionState;
+  window.hydrateRendererState = hydrateRendererState;
+  window.serializeRendererState = serializeRendererState;
+  window.addStandaloneButtonState = addStandaloneButtonState;
+  window.updateStandaloneButtonState = updateStandaloneButtonState;
+  window.removeStandaloneButtonState = removeStandaloneButtonState;
+})(window);
