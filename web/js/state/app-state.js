@@ -57,6 +57,8 @@
         advancedMode: false,
         developerMode: false,
         faderInterpolationEnabled: false,
+        softTakeoverEnabled: false,
+        softTakeoverThreshold: 5,
         showFractionalNumbers: false,
         showFractionalOnlyLow: false,
         volumeCurveEnabled: false,

@@ -2,8 +2,11 @@ let activeFaderDrag = null;
 const CHANNEL_VOLUME_PUSH_DELAY_MS = 18;
 const CHANNEL_INTERPOLATION_STEPS = 4;
 const CHANNEL_INTERPOLATION_STEP_DELAY_MS = 24;
+const CHANNEL_PICKUP_FLASH_DURATION_MS = 380;
 const channelVolumePushState = new Map();
+const channelPickupFlashTimers = new Map();
 let channelUiStateSyncInitialized = false;
+let channelPickupUiInitialized = false;
 
 function getChannels() {
   return typeof getChannelsState === 'function' ? getChannelsState() : [];
@@ -366,6 +369,43 @@ function refreshChannelOutputVolumes() {
   });
 }
 
+function triggerChannelPickupFlash(channelId) {
+  const channelElement = document.querySelector(`.channel-strip[data-channel-id="${channelId}"]`);
+
+  if (!channelElement) {
+    return;
+  }
+
+  const previousTimerId = channelPickupFlashTimers.get(channelId);
+
+  if (previousTimerId) {
+    clearTimeout(previousTimerId);
+  }
+
+  channelElement.classList.remove('pickup-success');
+  void channelElement.offsetWidth;
+  channelElement.classList.add('pickup-success');
+
+  const timerId = setTimeout(() => {
+    channelElement.classList.remove('pickup-success');
+    channelPickupFlashTimers.delete(channelId);
+  }, CHANNEL_PICKUP_FLASH_DURATION_MS);
+
+  channelPickupFlashTimers.set(channelId, timerId);
+}
+
+function setupChannelPickupUi() {
+  if (channelPickupUiInitialized) {
+    return;
+  }
+
+  window.addEventListener('midi:pickup', (event) => {
+    triggerChannelPickupFlash(event.detail?.channelId);
+  });
+
+  channelPickupUiInitialized = true;
+}
+
 function getFaderMappingLabel(mapping) {
   if (!mapping) {
     return '';
@@ -573,6 +613,7 @@ function renderMixer() {
   `;
 
   setupFaderDrag();
+  setupChannelPickupUi();
   enhanceCustomSelects?.(container);
   triggerNewChannelFlash(container);
   syncAddChannelStripHeight(container);

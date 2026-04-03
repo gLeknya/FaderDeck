@@ -27,8 +27,10 @@
   let midiAccess = null;
   let midiScanPromise = null;
   let midiStoreSyncInitialized = false;
+  let midiRuntimeResetSyncInitialized = false;
 
   const midiParserStates = new Map();
+  const pickupRuntimeState = new Map();
   const runtimeListeners = new Set();
   const messageListeners = new Set();
   const runtimeState = {
@@ -92,6 +94,24 @@
 
   function getSelectedMidiInputName() {
     return getSelectedMidiState().selectedInputName || '';
+  }
+
+  function getSoftTakeoverEnabled() {
+    return typeof window.getSoftTakeoverEnabledState === 'function'
+      ? window.getSoftTakeoverEnabledState()
+      : false;
+  }
+
+  function getSoftTakeoverThreshold() {
+    const rawThreshold = typeof window.getSoftTakeoverThresholdState === 'function'
+      ? window.getSoftTakeoverThresholdState()
+      : 0;
+
+    return Math.max(0, Math.min(15, Number(rawThreshold) || 0));
+  }
+
+  function clampRuntimeVolume(value) {
+    return Math.max(0, Math.min(100, Number(value) || 0));
   }
 
   function isMidiDisabledSelection() {
@@ -277,8 +297,160 @@
     midiStoreSyncInitialized = true;
   }
 
+  function resetPickupRuntime(channelId = null) {
+    if (channelId === null || channelId === undefined) {
+      pickupRuntimeState.clear();
+      return;
+    }
+
+    pickupRuntimeState.delete(channelId);
+  }
+
+  function getChannelPickupRuntime(channelId) {
+    if (!pickupRuntimeState.has(channelId)) {
+      pickupRuntimeState.set(channelId, {
+        engaged: false,
+        lastPhysicalValue: null
+      });
+    }
+
+    return pickupRuntimeState.get(channelId);
+  }
+
+  function emitPickupEvent(channelId, message) {
+    window.dispatchEvent?.(new CustomEvent('midi:pickup', {
+      detail: {
+        channelId,
+        inputId: message?.inputId || '',
+        timestamp: Date.now()
+      }
+    }));
+  }
+
+  function shouldPickupChannel(runtime, channelValue, incomingValue, threshold) {
+    if (Math.abs(incomingValue - channelValue) <= threshold) {
+      return true;
+    }
+
+    if (!Number.isFinite(runtime.lastPhysicalValue)) {
+      return false;
+    }
+
+    const minValue = Math.min(runtime.lastPhysicalValue, incomingValue);
+    const maxValue = Math.max(runtime.lastPhysicalValue, incomingValue);
+    return channelValue >= minValue && channelValue <= maxValue;
+  }
+
+  function resolveMidiVolumeForChannel(channel, message) {
+    const incomingValue = clampRuntimeVolume((message.normalizedValue || 0) * 100);
+
+    if (!getSoftTakeoverEnabled()) {
+      resetPickupRuntime(channel.id);
+      return {
+        shouldApply: true,
+        volume: incomingValue
+      };
+    }
+
+    const runtime = getChannelPickupRuntime(channel.id);
+
+    if (runtime.engaged) {
+      runtime.lastPhysicalValue = incomingValue;
+      return {
+        shouldApply: true,
+        volume: incomingValue
+      };
+    }
+
+    const channelValue = clampRuntimeVolume(channel.volume);
+    const shouldPickup = shouldPickupChannel(
+      runtime,
+      channelValue,
+      incomingValue,
+      getSoftTakeoverThreshold()
+    );
+
+    runtime.lastPhysicalValue = incomingValue;
+
+    if (!shouldPickup) {
+      return {
+        shouldApply: false,
+        volume: channelValue
+      };
+    }
+
+    runtime.engaged = true;
+    emitPickupEvent(channel.id, message);
+
+    return {
+      shouldApply: false,
+      volume: channelValue
+    };
+  }
+
+  function initMidiRuntimeResetSync() {
+    if (midiRuntimeResetSyncInitialized || typeof window.subscribeAppState !== 'function') {
+      return;
+    }
+
+    window.subscribeAppState((nextState, previousState, meta = {}) => {
+      if (nextState.ui !== previousState.ui) {
+        const nextSettings = nextState.ui?.settings || {};
+        const previousSettings = previousState.ui?.settings || {};
+
+        if (
+          nextSettings.softTakeoverEnabled !== previousSettings.softTakeoverEnabled
+          || nextSettings.softTakeoverThreshold !== previousSettings.softTakeoverThreshold
+        ) {
+          resetPickupRuntime();
+        }
+      }
+
+      if (nextState.midi !== previousState.midi) {
+        resetPickupRuntime();
+      }
+
+      if (nextState.profile !== previousState.profile) {
+        if ((nextState.profile?.currentName || '') !== (previousState.profile?.currentName || '')) {
+          resetPickupRuntime();
+        }
+      }
+
+      if (nextState.channels === previousState.channels) {
+        return;
+      }
+
+      if (meta.type === 'renderer/hydrate') {
+        resetPickupRuntime();
+        return;
+      }
+
+      if (meta.type === 'channels/remove') {
+        resetPickupRuntime(meta.channelId);
+        return;
+      }
+
+      if (meta.type === 'channels/set-fader-mapping') {
+        resetPickupRuntime(meta.channelId);
+        return;
+      }
+
+      if (meta.type === 'channels/set-volume') {
+        if (meta.source !== 'midi-runtime') {
+          resetPickupRuntime(meta.channelId);
+        }
+        return;
+      }
+
+      resetPickupRuntime();
+    });
+
+    midiRuntimeResetSyncInitialized = true;
+  }
+
   function initMidiService() {
     initMidiStoreSync();
+    initMidiRuntimeResetSync();
     emitRuntimeChange({ type: 'init' });
     return getMidiServiceState();
   }
@@ -766,14 +938,20 @@
         return;
       }
 
+      const resolvedVolume = resolveMidiVolumeForChannel(channel, message);
+
+      if (!resolvedVolume.shouldApply) {
+        return;
+      }
+
       if (typeof window.applyChannelVolumeRuntime === 'function') {
-        window.applyChannelVolumeRuntime(channel.id, (message.normalizedValue || 0) * 100, {
+        window.applyChannelVolumeRuntime(channel.id, resolvedVolume.volume, {
           type: 'channels/set-volume'
         });
         return;
       }
 
-      window.setChannelVolumeState?.(channel.id, (message.normalizedValue || 0) * 100, {
+      window.setChannelVolumeState?.(channel.id, resolvedVolume.volume, {
         source: 'midi-runtime',
         type: 'channels/set-volume'
       });
@@ -809,6 +987,7 @@
   }
 
   function applyChannelFaderMapping(channelId, mapping, meta = {}) {
+    resetPickupRuntime(channelId);
     return window.setChannelFaderMappingState?.(channelId, mapping, {
       source: 'midi-service',
       ...meta
@@ -836,6 +1015,7 @@
     buildFaderMapping,
     isSameFaderMapping,
     findFaderMappingConflict,
-    applyChannelFaderMapping
+    applyChannelFaderMapping,
+    resetPickupRuntime
   };
 })(window);

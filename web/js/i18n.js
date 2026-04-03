@@ -25,11 +25,20 @@ const TRANSLATIONS = Object.freeze({
       accountPlaceholder: 'Раздел аккаунта пока не реализован.'
     },
     settings: {
+      sections: {
+        faders: 'Фейдеры',
+        visual: 'Визуал',
+        system: 'Система',
+        advanced: 'Дополнительно'
+      },
       developerMode: 'Режим разработчика',
       advancedMode: 'Расширенный режим',
       profileToolbarSwitcher: 'Смена профилей на toolbar',
       faderInterpolation: 'Интерполяция фейдеров',
       faderInterpolationHelp: 'Между начальной и конечной точкой громкости пытается сгладить громкость, чтобы не было резких скачков. Может появиться небольшая задержка.',
+      softTakeover: 'Soft takeover',
+      softTakeoverHelp: 'Пока физический фейдер не подойдёт к текущему значению канала, входящие MIDI-движения игнорируются. Это помогает избежать резких скачков громкости при переключении профилей и раскладок.',
+      softTakeoverThreshold: 'Порог pickup',
       showFractionalNumbers: 'Показывать дробные числа',
       showFractionalOnlyLow: 'Только при малых числах',
       volumeCurve: 'Кривая громкости',
@@ -163,11 +172,20 @@ const TRANSLATIONS = Object.freeze({
       accountPlaceholder: 'Account section is not implemented yet.'
     },
     settings: {
+      sections: {
+        faders: 'Faders',
+        visual: 'Visual',
+        system: 'System',
+        advanced: 'Advanced'
+      },
       developerMode: 'Developer mode',
       advancedMode: 'Advanced mode',
       profileToolbarSwitcher: 'Profile switching in toolbar',
       faderInterpolation: 'Fader interpolation',
       faderInterpolationHelp: 'Smooths the change between the starting and ending volume to reduce abrupt jumps, but may add a little latency.',
+      softTakeover: 'Soft takeover',
+      softTakeoverHelp: 'Incoming MIDI fader movement is ignored until the physical control reaches the current channel value. This helps prevent abrupt jumps after profile changes or layout switches.',
+      softTakeoverThreshold: 'Pickup threshold',
       showFractionalNumbers: 'Show fractional values',
       showFractionalOnlyLow: 'Only for low values',
       volumeCurve: 'Volume curve',

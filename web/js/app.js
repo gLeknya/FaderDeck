@@ -13,12 +13,17 @@ const VOLUME_CURVE_GRAPH_MIN_X = 20;
 const VOLUME_CURVE_GRAPH_MAX_X = 200;
 const VOLUME_CURVE_GRAPH_MIN_Y = 20;
 const VOLUME_CURVE_GRAPH_MAX_Y = 120;
+const SOFT_TAKEOVER_MAX_THRESHOLD = 15;
 const VOLUME_CURVE_DEMO_DELAY_MS = 1000;
 const VOLUME_CURVE_DEMO_DURATION_MS = 2200;
 const VOLUME_CURVE_DEMO_START_POSITION = 0;
 const VOLUME_CURVE_DEMO_PEAK_POSITION = 100;
 const VOLUME_CURVE_DEMO_END_POSITION = 0;
 const MENU_PANEL_SIZE_SETTLE_DELAY_MS = 260;
+const SETTINGS_SCROLLBAR_HIDE_DELAY_MS = 2000;
+const SETTINGS_SECTION_HIDE_THRESHOLD = 2 / 3;
+const SETTINGS_SECTION_MIN_SCALE = 0.86;
+const SETTINGS_SECTION_MAX_SHIFT = 8;
 const FALLBACK_AUDIO_APPS = [
   { name: 'Chrome', process: 'chrome.exe' },
   { name: 'Spotify', process: 'spotify.exe' },
@@ -33,6 +38,10 @@ let volumeCurveDemoTimer = null;
 let volumeCurveDemoFrame = null;
 let volumeCurveDemoDragging = false;
 let menuPanelMetricsFrame = null;
+let settingsScrollSyncFrame = null;
+let activeSettingsScrollDrag = null;
+let activeSettingsTooltipTarget = null;
+let settingsScrollbarHideTimeout = null;
 let uiStateSyncInitialized = false;
 
 function logTest(...args) {
@@ -60,9 +69,14 @@ function cacheDomElements() {
   dom.menuRail = $('menuRail');
   dom.menuPanelOverlay = $('menuPanelOverlay');
   dom.menuPanelCard = document.querySelector('.menu-panel-card');
+  dom.settingsScrollShell = document.querySelector('.settings-scroll-shell');
   dom.advancedModeToggle = $('advancedModeToggle');
   dom.developerModeToggle = $('developerModeToggle');
   dom.faderInterpolationToggle = $('faderInterpolationToggle');
+  dom.softTakeoverToggle = $('softTakeoverToggle');
+  dom.softTakeoverAdvanced = $('softTakeoverAdvanced');
+  dom.softTakeoverThresholdRange = $('softTakeoverThresholdRange');
+  dom.softTakeoverThresholdValue = $('softTakeoverThresholdValue');
   dom.profileToolbarToggle = $('profileToolbarToggle');
   dom.showFractionalNumbersToggle = $('showFractionalNumbersToggle');
   dom.showFractionalOnlyLowToggle = $('showFractionalOnlyLowToggle');
@@ -83,6 +97,13 @@ function cacheDomElements() {
   dom.menuTabs = Array.from(document.querySelectorAll('.menu-icon-tab'));
   dom.menuViews = Array.from(document.querySelectorAll('.menu-panel-view'));
   dom.languageSelect = $('languageSelect');
+  dom.settingsContent = $('settingsContent');
+  dom.settingsScrollBar = $('settingsScrollBar');
+  dom.settingsScrollTrack = $('settingsScrollTrack');
+  dom.settingsScrollThumb = $('settingsScrollThumb');
+  dom.settingsSections = Array.from(document.querySelectorAll('.settings-section'));
+  dom.settingsTooltipLayer = $('settingsTooltipLayer');
+  dom.settingsTooltipBubble = $('settingsTooltipBubble');
   dom.mainContentViewport = $('mainContentViewport');
   dom.contentScrollBar = $('contentScrollBar');
   dom.contentScrollRange = $('contentScrollRange');
@@ -93,6 +114,8 @@ function getUiSettings() {
     advancedMode: false,
     developerMode: false,
     faderInterpolationEnabled: false,
+    softTakeoverEnabled: false,
+    softTakeoverThreshold: 5,
     showFractionalNumbers: false,
     showFractionalOnlyLow: false,
     volumeCurveEnabled: false,
@@ -119,6 +142,14 @@ function getDeveloperModeEnabled() {
 
 function getShowFractionalNumbersEnabled() {
   return getShowFractionalNumbersState?.() ?? getUiSettings().showFractionalNumbers;
+}
+
+function getSoftTakeoverEnabled() {
+  return getSoftTakeoverEnabledState?.() ?? getUiSettings().softTakeoverEnabled;
+}
+
+function getSoftTakeoverThreshold() {
+  return getSoftTakeoverThresholdState?.() ?? getUiSettings().softTakeoverThreshold;
 }
 
 function getShowFractionalOnlyLowEnabled() {
@@ -261,6 +292,7 @@ function syncMenuPanelCardSize() {
   const verticalPadding = (
     Number.parseFloat(computedStyle.paddingTop) + Number.parseFloat(computedStyle.paddingBottom)
   );
+  const maxHeight = Number.parseFloat(computedStyle.maxHeight) || window.innerHeight;
   const maxWidth = Math.max(280, Math.min(420, window.innerWidth - 140));
   const nextWidth = activeMenuTab === 'settings'
     ? maxWidth
@@ -269,7 +301,10 @@ function syncMenuPanelCardSize() {
   const nextContentHeight = activeMenuTab === 'settings'
     ? measureMenuViewContentHeight(activeView, nextContentWidth)
     : activeView.scrollHeight;
-  const nextHeight = Math.ceil(nextContentHeight + verticalPadding);
+  const nextHeight = Math.min(
+    maxHeight,
+    Math.ceil(nextContentHeight + verticalPadding)
+  );
 
   dom.menuPanelCard.style.width = `${nextWidth}px`;
   dom.menuPanelCard.style.height = `${nextHeight}px`;
@@ -322,16 +357,19 @@ function scheduleMenuPanelCardSizeSync() {
   menuPanelMetricsFrame = requestAnimationFrame(() => {
     menuPanelMetricsFrame = null;
     syncMenuPanelCardSize();
+    scheduleSettingsScrollSync();
   });
 
   menuPanelMetricsTimeout = window.setTimeout(() => {
     menuPanelMetricsTimeout = null;
     syncMenuPanelCardSize();
+    scheduleSettingsScrollSync();
   }, MENU_PANEL_SIZE_SETTLE_DELAY_MS);
 }
 
 function syncMenuTabUi() {
   const activeMenuTab = getActiveMenuTab();
+  hideSettingsTooltip();
   dom.menuTabs.forEach((tab) => {
     tab.classList.toggle('active', tab.dataset.tab === activeMenuTab);
   });
@@ -415,6 +453,35 @@ function syncFaderInterpolationUi() {
   }
 
   document.body.classList.toggle('fader-interpolation-enabled', faderInterpolationEnabled);
+}
+
+function syncSoftTakeoverUi() {
+  const softTakeoverEnabled = getSoftTakeoverEnabled();
+  const softTakeoverThreshold = getSoftTakeoverThreshold();
+
+  if (dom.softTakeoverToggle) {
+    dom.softTakeoverToggle.classList.toggle('on', softTakeoverEnabled);
+    dom.softTakeoverToggle.textContent = softTakeoverEnabled
+      ? t('settings.on')
+      : t('settings.off');
+  }
+
+  if (dom.softTakeoverAdvanced) {
+    dom.softTakeoverAdvanced.classList.toggle('open', softTakeoverEnabled);
+    dom.softTakeoverAdvanced.setAttribute('aria-hidden', String(!softTakeoverEnabled));
+  }
+
+  if (dom.softTakeoverThresholdRange) {
+    dom.softTakeoverThresholdRange.value = String(softTakeoverThreshold);
+    dom.softTakeoverThresholdRange.disabled = !softTakeoverEnabled;
+    updateSettingsRangeFill(dom.softTakeoverThresholdRange);
+  }
+
+  if (dom.softTakeoverThresholdValue) {
+    dom.softTakeoverThresholdValue.textContent = `${softTakeoverThreshold}%`;
+  }
+
+  scheduleMenuPanelCardSizeSync();
 }
 
 function isToolbarProfilePickerEnabled() {
@@ -760,6 +827,272 @@ function syncContentScrollUi() {
   );
 }
 
+function syncSettingsScrollUi() {
+  if (!dom.settingsContent || !dom.settingsScrollBar || !dom.settingsScrollTrack || !dom.settingsScrollThumb) {
+    return;
+  }
+
+  const isSettingsTabActive = isMenuOpen() && getActiveMenuTab() === 'settings';
+  const maxScrollTop = Math.max(
+    0,
+    dom.settingsContent.scrollHeight - dom.settingsContent.clientHeight
+  );
+  const shouldShowScroll = isSettingsTabActive && maxScrollTop > 0;
+
+  dom.settingsScrollShell?.classList.toggle('has-overflow', shouldShowScroll);
+  dom.settingsScrollShell?.classList.toggle('at-top', dom.settingsContent.scrollTop <= 1);
+  dom.settingsScrollShell?.classList.toggle(
+    'at-bottom',
+    !shouldShowScroll || dom.settingsContent.scrollTop >= (maxScrollTop - 1)
+  );
+  dom.menuPanelCard?.classList.toggle('settings-fade-active', shouldShowScroll && isSettingsTabActive);
+  dom.menuPanelCard?.classList.toggle('settings-at-top', dom.settingsContent.scrollTop <= 1);
+  dom.menuPanelCard?.classList.toggle(
+    'settings-at-bottom',
+    !shouldShowScroll || dom.settingsContent.scrollTop >= (maxScrollTop - 1)
+  );
+  dom.settingsScrollBar.classList.toggle('hidden', !shouldShowScroll);
+
+  if (!shouldShowScroll) {
+    window.clearTimeout(settingsScrollbarHideTimeout);
+    settingsScrollbarHideTimeout = null;
+    dom.settingsScrollBar.classList.remove('is-active');
+    dom.menuPanelCard?.classList.remove('settings-fade-active', 'settings-at-top', 'settings-at-bottom');
+    dom.settingsScrollThumb.style.removeProperty('height');
+    dom.settingsScrollThumb.style.removeProperty('transform');
+    resetSettingsSectionEffects();
+    return;
+  }
+
+  if (dom.settingsContent.scrollTop > maxScrollTop) {
+    dom.settingsContent.scrollTop = maxScrollTop;
+  }
+
+  const trackHeight = dom.settingsScrollTrack.clientHeight || 0;
+  const visibleRatio = dom.settingsContent.clientHeight / Math.max(dom.settingsContent.scrollHeight, 1);
+  const thumbHeight = Math.max(34, Math.round(trackHeight * visibleRatio));
+  const thumbTravel = Math.max(0, trackHeight - thumbHeight);
+  const scrollProgress = maxScrollTop > 0
+    ? dom.settingsContent.scrollTop / maxScrollTop
+    : 0;
+  const thumbOffset = thumbTravel * scrollProgress;
+
+  dom.settingsScrollThumb.style.height = `${thumbHeight}px`;
+  dom.settingsScrollThumb.style.transform = `translate(-50%, ${thumbOffset}px)`;
+  syncSettingsSectionEffects();
+}
+
+function scheduleSettingsScrollSync() {
+  if (settingsScrollSyncFrame) {
+    cancelAnimationFrame(settingsScrollSyncFrame);
+  }
+
+  settingsScrollSyncFrame = requestAnimationFrame(() => {
+    settingsScrollSyncFrame = null;
+    syncSettingsScrollUi();
+  });
+}
+
+function showSettingsScrollbarForActivity() {
+  if (!dom.settingsScrollBar || dom.settingsScrollBar.classList.contains('hidden')) {
+    return;
+  }
+
+  dom.settingsScrollBar.classList.add('is-active');
+
+  if (settingsScrollbarHideTimeout) {
+    clearTimeout(settingsScrollbarHideTimeout);
+  }
+
+  settingsScrollbarHideTimeout = window.setTimeout(() => {
+    settingsScrollbarHideTimeout = null;
+    dom.settingsScrollBar?.classList.remove('is-active');
+  }, SETTINGS_SCROLLBAR_HIDE_DELAY_MS);
+}
+
+function resetSettingsSectionEffects() {
+  dom.settingsSections?.forEach((section) => {
+    section.style.removeProperty('transform');
+    section.style.removeProperty('opacity');
+    section.style.removeProperty('transform-origin');
+  });
+}
+
+function syncSettingsSectionEffects() {
+  if (!dom.settingsContent || !dom.settingsSections?.length) {
+    return;
+  }
+
+  const viewportTop = dom.settingsContent.scrollTop;
+  const viewportBottom = viewportTop + dom.settingsContent.clientHeight;
+
+  dom.settingsSections.forEach((section) => {
+    const sectionTop = section.offsetTop;
+    const sectionHeight = section.offsetHeight;
+    const sectionBottom = sectionTop + sectionHeight;
+    const visibleHeight = Math.max(
+      0,
+      Math.min(sectionBottom, viewportBottom) - Math.max(sectionTop, viewportTop)
+    );
+    const visibleRatio = sectionHeight > 0 ? (visibleHeight / sectionHeight) : 1;
+
+    if (visibleRatio >= SETTINGS_SECTION_HIDE_THRESHOLD) {
+      section.style.transform = 'translateY(0) scale(1)';
+      section.style.opacity = '1';
+      section.style.transformOrigin = 'center center';
+      return;
+    }
+
+    const progress = Math.max(
+      0,
+      Math.min(
+        1,
+        (SETTINGS_SECTION_HIDE_THRESHOLD - visibleRatio) / SETTINGS_SECTION_HIDE_THRESHOLD
+      )
+    );
+    const scale = SETTINGS_SECTION_MIN_SCALE + ((1 - progress) * (1 - SETTINGS_SECTION_MIN_SCALE));
+    const opacity = 0.72 + ((1 - progress) * 0.28);
+    const isLeavingTop = sectionTop < viewportTop;
+    const isLeavingBottom = sectionBottom > viewportBottom;
+    const shift = isLeavingTop
+      ? -(SETTINGS_SECTION_MAX_SHIFT * progress)
+      : (isLeavingBottom ? (SETTINGS_SECTION_MAX_SHIFT * progress) : 0);
+
+    section.style.transformOrigin = isLeavingTop
+      ? 'center top'
+      : (isLeavingBottom ? 'center bottom' : 'center center');
+    section.style.transform = `translateY(${shift.toFixed(2)}px) scale(${scale.toFixed(4)})`;
+    section.style.opacity = opacity.toFixed(4);
+  });
+}
+
+function hideSettingsTooltip() {
+  activeSettingsTooltipTarget = null;
+
+  if (!dom.settingsTooltipLayer || !dom.settingsTooltipBubble) {
+    return;
+  }
+
+  dom.settingsTooltipLayer.classList.add('hidden');
+  dom.settingsTooltipLayer.setAttribute('aria-hidden', 'true');
+  dom.settingsTooltipBubble.textContent = '';
+  dom.settingsTooltipBubble.style.removeProperty('left');
+  dom.settingsTooltipBubble.style.removeProperty('top');
+}
+
+function positionSettingsTooltip(target) {
+  if (!target || !dom.settingsTooltipLayer || !dom.settingsTooltipBubble || !dom.menuPanelOverlay) {
+    return;
+  }
+
+  const tooltipText = target.dataset.tooltip || target.getAttribute('aria-label') || '';
+
+  if (!tooltipText) {
+    hideSettingsTooltip();
+    return;
+  }
+
+  activeSettingsTooltipTarget = target;
+  dom.settingsTooltipBubble.textContent = tooltipText;
+  dom.settingsTooltipLayer.classList.remove('hidden');
+  dom.settingsTooltipLayer.setAttribute('aria-hidden', 'false');
+
+  requestAnimationFrame(() => {
+    if (activeSettingsTooltipTarget !== target) {
+      return;
+    }
+
+    const overlayRect = dom.menuPanelOverlay.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const bubbleRect = dom.settingsTooltipBubble.getBoundingClientRect();
+    const horizontalPadding = 10;
+    const preferredLeft = (
+      targetRect.left
+      - overlayRect.left
+      + (targetRect.width / 2)
+      - (bubbleRect.width / 2)
+    );
+    const maxLeft = Math.max(horizontalPadding, overlayRect.width - bubbleRect.width - horizontalPadding);
+    const clampedLeft = Math.max(horizontalPadding, Math.min(preferredLeft, maxLeft));
+    const top = (
+      targetRect.top
+      - overlayRect.top
+      - bubbleRect.height
+      - 14
+    );
+
+    dom.settingsTooltipBubble.style.left = `${clampedLeft}px`;
+    dom.settingsTooltipBubble.style.top = `${top}px`;
+  });
+}
+
+function getSettingsScrollTopFromPointer(clientY) {
+  if (!dom.settingsContent || !dom.settingsScrollTrack || !dom.settingsScrollThumb) {
+    return 0;
+  }
+
+  const rect = dom.settingsScrollTrack.getBoundingClientRect();
+  const thumbHeight = dom.settingsScrollThumb.offsetHeight || 34;
+  const maxScrollTop = Math.max(
+    0,
+    dom.settingsContent.scrollHeight - dom.settingsContent.clientHeight
+  );
+  const thumbTravel = Math.max(0, rect.height - thumbHeight);
+  const normalizedOffset = Math.max(
+    0,
+    Math.min(
+      thumbTravel,
+      clientY - rect.top - (thumbHeight / 2)
+    )
+  );
+
+  if (thumbTravel <= 0 || maxScrollTop <= 0) {
+    return 0;
+  }
+
+  return (normalizedOffset / thumbTravel) * maxScrollTop;
+}
+
+function handleSettingsScrollDrag(event) {
+  if (!activeSettingsScrollDrag || !dom.settingsContent) {
+    return;
+  }
+
+  dom.settingsContent.scrollTop = getSettingsScrollTopFromPointer(event.clientY);
+  showSettingsScrollbarForActivity();
+  scheduleSettingsScrollSync();
+}
+
+function stopSettingsScrollDrag() {
+  if (!activeSettingsScrollDrag) {
+    return;
+  }
+
+  activeSettingsScrollDrag = null;
+  dom.settingsScrollThumb?.classList.remove('is-dragging');
+  document.removeEventListener('pointermove', handleSettingsScrollDrag);
+  document.removeEventListener('pointerup', stopSettingsScrollDrag);
+  document.removeEventListener('pointercancel', stopSettingsScrollDrag);
+}
+
+function startSettingsScrollDrag(event) {
+  if (!dom.settingsContent || !dom.settingsScrollBar || dom.settingsScrollBar.classList.contains('hidden')) {
+    return;
+  }
+
+  event.preventDefault();
+  activeSettingsScrollDrag = {
+    pointerId: event.pointerId
+  };
+  dom.settingsScrollThumb?.classList.add('is-dragging');
+  dom.settingsContent.scrollTop = getSettingsScrollTopFromPointer(event.clientY);
+  showSettingsScrollbarForActivity();
+  scheduleSettingsScrollSync();
+  document.addEventListener('pointermove', handleSettingsScrollDrag);
+  document.addEventListener('pointerup', stopSettingsScrollDrag);
+  document.addEventListener('pointercancel', stopSettingsScrollDrag);
+}
+
 function scheduleContentMetricsUpdate() {
   if (contentMetricsFrame) {
     cancelAnimationFrame(contentMetricsFrame);
@@ -781,7 +1114,75 @@ function setupContentScroller() {
   });
 
   dom.mainContentViewport.addEventListener('scroll', syncContentScrollUi);
+  dom.mainContentViewport.addEventListener('wheel', (event) => {
+    const maxScrollLeft = Math.max(
+      0,
+      dom.mainContentViewport.scrollWidth - dom.mainContentViewport.clientWidth
+    );
+
+    if (maxScrollLeft <= 0) {
+      return;
+    }
+
+    const dominantDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
+      ? event.deltaY
+      : event.deltaX;
+
+    if (!dominantDelta) {
+      return;
+    }
+
+    const nextScrollLeft = Math.max(
+      0,
+      Math.min(maxScrollLeft, dom.mainContentViewport.scrollLeft + dominantDelta)
+    );
+
+    if (nextScrollLeft === dom.mainContentViewport.scrollLeft) {
+      return;
+    }
+
+    event.preventDefault();
+    dom.mainContentViewport.scrollLeft = nextScrollLeft;
+  }, { passive: false });
   window.addEventListener('resize', scheduleContentMetricsUpdate);
+}
+
+function setupSettingsScroller() {
+  if (!dom.settingsContent || !dom.settingsScrollTrack) {
+    return;
+  }
+
+  dom.settingsContent.addEventListener('scroll', () => {
+    showSettingsScrollbarForActivity();
+    scheduleSettingsScrollSync();
+    hideSettingsTooltip();
+  });
+  dom.settingsContent.addEventListener('wheel', () => {
+    showSettingsScrollbarForActivity();
+  }, { passive: true });
+  dom.settingsScrollTrack.addEventListener('pointerdown', startSettingsScrollDrag);
+  window.addEventListener('resize', scheduleSettingsScrollSync);
+  window.addEventListener('resize', hideSettingsTooltip);
+}
+
+function setupSettingsTooltips() {
+  document.querySelectorAll('.settings-help').forEach((button) => {
+    button.addEventListener('mouseenter', () => {
+      positionSettingsTooltip(button);
+    });
+
+    button.addEventListener('mouseleave', () => {
+      hideSettingsTooltip();
+    });
+
+    button.addEventListener('focus', () => {
+      positionSettingsTooltip(button);
+    });
+
+    button.addEventListener('blur', () => {
+      hideSettingsTooltip();
+    });
+  });
 }
 
 function setupSettings() {
@@ -795,6 +1196,23 @@ function setupSettings() {
 
   dom.faderInterpolationToggle?.addEventListener('click', () => {
     setFaderInterpolationEnabledState?.(!getFaderInterpolationEnabled(), { source: 'ui' });
+  });
+
+  dom.softTakeoverToggle?.addEventListener('click', () => {
+    setSoftTakeoverEnabledState?.(!getSoftTakeoverEnabled(), { source: 'ui' });
+  });
+
+  dom.softTakeoverThresholdRange?.addEventListener('input', (event) => {
+    const sliderValue = Math.max(
+      0,
+      Math.min(SOFT_TAKEOVER_MAX_THRESHOLD, Number.parseInt(event.target.value, 10) || 0)
+    );
+
+    if (sliderValue === getSoftTakeoverThreshold()) {
+      return;
+    }
+
+    setSoftTakeoverThresholdState?.(sliderValue, { source: 'ui' });
   });
 
   dom.profileToolbarToggle?.addEventListener('click', () => {
@@ -1060,6 +1478,13 @@ function initUiStateSync() {
       syncFaderInterpolationUi();
     }
 
+    if (
+      nextSettings.softTakeoverEnabled !== previousSettings.softTakeoverEnabled
+      || nextSettings.softTakeoverThreshold !== previousSettings.softTakeoverThreshold
+    ) {
+      syncSoftTakeoverUi();
+    }
+
     if (nextSettings.profileToolbarSwitcherEnabled !== previousSettings.profileToolbarSwitcherEnabled) {
       syncProfileToolbarUi();
     }
@@ -1086,10 +1511,12 @@ function initUiStateSync() {
     if (nextMenu.open !== previousMenu.open) {
       syncMenuShellUi();
       scheduleContentMetricsUpdate();
+      scheduleSettingsScrollSync();
     }
 
     if (nextMenu.activeTab !== previousMenu.activeTab) {
       syncMenuTabUi();
+      scheduleSettingsScrollSync();
     }
   });
 
@@ -1101,6 +1528,7 @@ function handleLanguageChanged() {
   syncAdvancedModeUi();
   syncDeveloperModeUi();
   syncFaderInterpolationUi();
+  syncSoftTakeoverUi();
   syncProfileToolbarUi();
   syncFractionalNumberUi();
   syncVolumeCurveUi();
@@ -1136,6 +1564,11 @@ function bindGlobalUi() {
   window.addEventListener('app:language-changed', handleLanguageChanged);
   window.addEventListener('beforeunload', stopVolumeCurveDemo);
   window.addEventListener('resize', scheduleMenuPanelCardSizeSync);
+  document.addEventListener('click', (event) => {
+    if (!event.target.closest('.settings-help')) {
+      hideSettingsTooltip();
+    }
+  });
 
   document.querySelectorAll('#contextMenu .context-item').forEach((item) => {
     item.addEventListener('click', onContextItemClick);
@@ -1152,6 +1585,8 @@ function init() {
   initUiStateSync();
   bindGlobalUi();
   setupSettings();
+  setupSettingsScroller();
+  setupSettingsTooltips();
   setupWindowControls();
   setupMenuTabs();
   setupContentScroller();
@@ -1159,12 +1594,14 @@ function init() {
   syncAdvancedModeUi();
   syncDeveloperModeUi();
   syncFaderInterpolationUi();
+  syncSoftTakeoverUi();
   syncProfileToolbarUi();
   syncFractionalNumberUi();
   syncVolumeCurveUi();
   syncLanguageUi();
   syncMenuTabUi();
   scheduleMenuPanelCardSizeSync();
+  scheduleSettingsScrollSync();
   loadProfileFromLocal();
   initProfilesUi?.();
   loadAudioApps();

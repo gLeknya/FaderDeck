@@ -3,6 +3,8 @@
     advancedMode: 'faderdeck_advanced_mode',
     developerMode: 'faderdeck_developer_mode',
     faderInterpolationEnabled: 'faderdeck_fader_interpolation_enabled',
+    softTakeoverEnabled: 'faderdeck_soft_takeover_enabled',
+    softTakeoverThreshold: 'faderdeck_soft_takeover_threshold',
     showFractionalNumbers: 'faderdeck_show_fractional_numbers',
     showFractionalOnlyLow: 'faderdeck_show_fractional_only_low',
     volumeCurveEnabled: 'faderdeck_volume_curve_enabled',
@@ -15,6 +17,8 @@
     advancedMode: false,
     developerMode: false,
     faderInterpolationEnabled: false,
+    softTakeoverEnabled: false,
+    softTakeoverThreshold: 5,
     showFractionalNumbers: false,
     showFractionalOnlyLow: false,
     volumeCurveEnabled: false,
@@ -71,6 +75,11 @@
     return {
       ...DEFAULT_UI_SETTINGS,
       ...settings,
+      softTakeoverEnabled: Boolean(settings.softTakeoverEnabled),
+      softTakeoverThreshold: Math.max(
+        0,
+        Math.min(15, Number.parseInt(settings.softTakeoverThreshold, 10) || 0)
+      ),
       volumeCurveType: nextType,
       volumeCurveAmount: Math.max(
         0,
@@ -165,6 +174,14 @@
       );
     }
 
+    if ('softTakeoverEnabled' in (patch || {})) {
+      saveUiBooleanSetting(UI_STORAGE_KEYS.softTakeoverEnabled, nextSettings.softTakeoverEnabled);
+    }
+
+    if ('softTakeoverThreshold' in (patch || {})) {
+      saveUiNumberSetting(UI_STORAGE_KEYS.softTakeoverThreshold, nextSettings.softTakeoverThreshold);
+    }
+
     if ('showFractionalNumbers' in (patch || {})) {
       saveUiBooleanSetting(UI_STORAGE_KEYS.showFractionalNumbers, nextSettings.showFractionalNumbers);
     }
@@ -252,6 +269,11 @@
       advancedMode: readUiBooleanSetting(UI_STORAGE_KEYS.advancedMode),
       developerMode: readUiBooleanSetting(UI_STORAGE_KEYS.developerMode),
       faderInterpolationEnabled: readUiBooleanSetting(UI_STORAGE_KEYS.faderInterpolationEnabled),
+      softTakeoverEnabled: readUiBooleanSetting(UI_STORAGE_KEYS.softTakeoverEnabled),
+      softTakeoverThreshold: readUiNumberSetting(UI_STORAGE_KEYS.softTakeoverThreshold, 5, {
+        min: 0,
+        max: 15
+      }),
       showFractionalNumbers: readUiBooleanSetting(UI_STORAGE_KEYS.showFractionalNumbers),
       showFractionalOnlyLow: readUiBooleanSetting(UI_STORAGE_KEYS.showFractionalOnlyLow),
       volumeCurveEnabled: readUiBooleanSetting(UI_STORAGE_KEYS.volumeCurveEnabled),
@@ -288,6 +310,14 @@
 
   function getFaderInterpolationEnabledState() {
     return getUiSettingsState().faderInterpolationEnabled;
+  }
+
+  function getSoftTakeoverEnabledState() {
+    return getUiSettingsState().softTakeoverEnabled;
+  }
+
+  function getSoftTakeoverThresholdState() {
+    return getUiSettingsState().softTakeoverThreshold;
   }
 
   function getShowFractionalNumbersState() {
@@ -339,6 +369,20 @@
   function setFaderInterpolationEnabledState(value, meta = {}) {
     return patchUiSettingsState({ faderInterpolationEnabled: Boolean(value) }, {
       type: 'ui/settings/fader-interpolation',
+      ...meta
+    });
+  }
+
+  function setSoftTakeoverEnabledState(value, meta = {}) {
+    return patchUiSettingsState({ softTakeoverEnabled: Boolean(value) }, {
+      type: 'ui/settings/soft-takeover-enabled',
+      ...meta
+    });
+  }
+
+  function setSoftTakeoverThresholdState(value, meta = {}) {
+    return patchUiSettingsState({ softTakeoverThreshold: value }, {
+      type: 'ui/settings/soft-takeover-threshold',
       ...meta
     });
   }
@@ -407,6 +451,8 @@
   window.getAdvancedModeEnabledState = getAdvancedModeEnabledState;
   window.getDeveloperModeEnabledState = getDeveloperModeEnabledState;
   window.getFaderInterpolationEnabledState = getFaderInterpolationEnabledState;
+  window.getSoftTakeoverEnabledState = getSoftTakeoverEnabledState;
+  window.getSoftTakeoverThresholdState = getSoftTakeoverThresholdState;
   window.getShowFractionalNumbersState = getShowFractionalNumbersState;
   window.getShowFractionalOnlyLowState = getShowFractionalOnlyLowState;
   window.getVolumeCurveEnabledState = getVolumeCurveEnabledState;
@@ -418,6 +464,8 @@
   window.setAdvancedModeState = setAdvancedModeState;
   window.setDeveloperModeState = setDeveloperModeState;
   window.setFaderInterpolationEnabledState = setFaderInterpolationEnabledState;
+  window.setSoftTakeoverEnabledState = setSoftTakeoverEnabledState;
+  window.setSoftTakeoverThresholdState = setSoftTakeoverThresholdState;
   window.setShowFractionalNumbersState = setShowFractionalNumbersState;
   window.setShowFractionalOnlyLowState = setShowFractionalOnlyLowState;
   window.setVolumeCurveEnabledState = setVolumeCurveEnabledState;
