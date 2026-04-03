@@ -1,5 +1,4 @@
 let audioApps = [];
-let currentButtonConfig = null;
 let contextTarget = null;
 let menuScrollVisibilitySnapshot = null;
 let menuPanelMetricsTimeout = null;
@@ -1583,6 +1582,7 @@ function init() {
   initChannelUiStateSync?.();
   initStandaloneButtonsStateSync?.();
   initUiStateSync();
+  initButtonModal?.();
   bindGlobalUi();
   setupSettings();
   setupSettingsScroller();

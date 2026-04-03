@@ -34,6 +34,10 @@ body {
   flex-direction: column;
 }
 
+body.modal-open {
+  overflow: hidden;
+}
+
 .toolbar select,
 .toolbar button,
 .menu-rail,
@@ -1217,6 +1221,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   padding: 24px;
   max-width: 400px;
   width: 90%;
+}
+
+.modal-content:focus {
+  outline: none;
 }
 
 .modal-header {

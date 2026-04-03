@@ -1,6 +1,8 @@
 const MAX_CHANNEL_BUTTONS = 4;
 const MAX_STANDALONE_BUTTONS = 24;
 let standaloneButtonsUiStateSyncInitialized = false;
+let buttonModalInitialized = false;
+let currentButtonConfig = null;
 
 function findChannel(channelId) {
   return typeof findChannelState === 'function' ? findChannelState(channelId) : null;
@@ -42,12 +44,10 @@ function fillButtonModal(button) {
   document.getElementById('buttonIcon').value = button.icon;
   document.getElementById('buttonNote').value = button.note;
   document.getElementById('buttonKey').value = button.key || '';
-  document.getElementById('buttonModal').classList.add('active');
 }
 
 function openButtonEditor(config, button) {
-  currentButtonConfig = config;
-  fillButtonModal(button);
+  openModal?.('button', { config, button }, { source: 'buttons-ui' });
 }
 
 function configureButton(channelId, buttonId) {
@@ -150,8 +150,7 @@ async function remapStandaloneButton() {
 }
 
 function closeButtonModal() {
-  document.getElementById('buttonModal').classList.remove('active');
-  currentButtonConfig = null;
+  closeModal?.('button', { source: 'buttons-ui' });
 }
 
 function readButtonFormState() {
@@ -202,6 +201,34 @@ function saveButtonConfig() {
 
   saveProfileToLocal();
   closeButtonModal();
+}
+
+function initButtonModal() {
+  if (buttonModalInitialized) {
+    return;
+  }
+
+  const buttonModal = document.getElementById('buttonModal');
+  const saveButton = document.getElementById('buttonModalSaveButton');
+
+  if (!buttonModal || !window.modalManager || !saveButton) {
+    return;
+  }
+
+  registerModal('button', {
+    element: buttonModal,
+    initialFocusSelector: '#buttonText',
+    onOpen(payload) {
+      currentButtonConfig = payload?.config || null;
+      fillButtonModal(payload?.button || createDefaultButton());
+    },
+    onClose() {
+      currentButtonConfig = null;
+    }
+  });
+
+  saveButton.addEventListener('click', saveButtonConfig);
+  buttonModalInitialized = true;
 }
 
 function captureKey(event) {
