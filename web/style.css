@@ -2155,6 +2155,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   flex-direction: column;
 }
 
+.settings-group:has(#volumeHudToggle) {
+  display: none !important;
+}
+
 .settings-label-line {
   display: inline-flex;
   align-items: center;
@@ -2359,13 +2363,25 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .settings-section--volume-hud .settings-expandable.open {
   max-height: 1200px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-section--volume-hud .settings-item-nested {
+  padding-left: 8px;
+}
+
+.settings-section--volume-hud .settings-subsection-title {
+  margin-top: 4px;
+  padding-left: 8px;
 }
 
 .settings-hud-preview-stage {
   position: relative;
   width: 100%;
-  min-height: 188px;
-  margin-top: 4px;
+  min-height: 236px;
+  margin-top: 6px;
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
@@ -2376,9 +2392,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .settings-hud-preview-anchor {
   position: absolute;
-  inset: 12px;
+  inset: 14px;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   pointer-events: none;
 }
@@ -2420,8 +2436,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .settings-hud-preview--horizontal {
-  width: 244px;
-  min-height: 74px;
+  width: 252px;
+  min-height: 78px;
   padding: 10px 12px;
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -2430,9 +2446,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .settings-hud-preview--vertical {
-  width: 136px;
-  min-height: 174px;
-  padding: 10px 10px 12px;
+  width: 148px;
+  min-height: 204px;
+  padding: 12px 10px 14px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2485,7 +2501,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 .settings-hud-preview--vertical .settings-hud-preview__content {
   width: 100%;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
 }
 
 .settings-hud-preview__header {
@@ -2555,7 +2571,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .settings-hud-preview--vertical .settings-hud-preview__meter {
   width: 8px;
-  height: 104px;
+  height: 118px;
 }
 
 .settings-hud-preview__meter-fill {

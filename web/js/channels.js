@@ -37,54 +37,18 @@ function createChannelModel(index) {
 }
 
 async function createChannel() {
-  const channel = typeof createChannelState === 'function'
-    ? createChannelState({}, { source: 'ui' })
-    : createChannelModel(getChannels().length + 1);
-
-  if (!channel) {
-    return;
-  }
-
-  saveProfileToLocal();
-  logTest('createChannel', { channelId: channel.id, title: channel.title });
+  return window.channelActions?.createChannel({}, { source: 'ui' })
+    || (typeof createChannelState === 'function'
+      ? createChannelState({}, { source: 'ui' })
+      : createChannelModel(getChannels().length + 1));
 }
 
 function removeChannel(channelId) {
-  if (typeof removeChannelState === 'function') {
-    removeChannelState(channelId, { source: 'ui' });
-  }
-
-  resetChannelVolumePushState(channelId);
-  saveProfileToLocal();
+  return window.channelActions?.removeChannel(channelId, { source: 'ui' }) || null;
 }
 
 function changeChannelApp(channelId, appProcess) {
-  const channel = getChannelById(channelId);
-
-  if (!channel) {
-    return;
-  }
-
-  if (!appProcess) {
-    resetChannelVolumePushState(channelId);
-    clearChannelAppTargetState?.(channelId, { source: 'ui' });
-    saveProfileToLocal();
-    return;
-  }
-
-  const selectedApp = audioApps.find((app) => app.process === appProcess);
-  resetChannelVolumePushState(channelId);
-  const updatedChannel = typeof assignChannelAppState === 'function'
-    ? assignChannelAppState(
-      channelId,
-      appProcess,
-      selectedApp?.name || appProcess,
-      { source: 'ui' }
-    )
-    : null;
-
-  saveProfileToLocal();
-  queueChannelVolumePush(updatedChannel || getChannelById(channelId));
+  return window.channelActions?.setChannelApp(channelId, appProcess, { source: 'ui' }) || null;
 }
 
 function editChannelTitle(channelId) {
@@ -92,18 +56,7 @@ function editChannelTitle(channelId) {
 }
 
 function dismissFaderBindHint(channelId) {
-  const channel = getChannelById(channelId);
-
-  if (!channel) {
-    return;
-  }
-
-  if (typeof dismissChannelBindHintState === 'function') {
-    dismissChannelBindHintState(channelId, { source: 'ui' });
-  }
-
-  saveProfileToLocal();
-  showToast('warn', t('channels.unboundWarning'));
+  return window.channelActions?.dismissChannelBindHint(channelId, { source: 'ui' }) || null;
 }
 
 function clampVolume(value) {
@@ -160,6 +113,16 @@ function getHudAvailableAudioApps() {
   return Array.isArray(audioApps) ? audioApps : [];
 }
 
+function isVolumeHudSelfTarget(target = {}) {
+  const processName = String(target?.process || '').trim().toLowerCase();
+  const displayName = String(target?.name || '').trim().toLowerCase();
+  const applicationPath = String(target?.path || '').trim().toLowerCase();
+  const matchesFaderDeck = [processName, displayName, applicationPath].some((value) => value.includes('faderdeck'));
+  const matchesDevElectron = processName === 'electron.exe' && displayName.includes('faderdeck');
+
+  return matchesFaderDeck || matchesDevElectron;
+}
+
 function getResolvedChannelHudTargets(channel) {
   const availableApps = getHudAvailableAudioApps();
   const explicitTargets = Array.isArray(channel?.targets)
@@ -175,10 +138,12 @@ function getResolvedChannelHudTargets(channel) {
           return {
             process,
             name: String(target?.name || matchedApp?.name || process).trim() || process,
+            path: String(matchedApp?.path || '').trim(),
             iconDataUrl: String(matchedApp?.iconDataUrl || '').trim()
           };
         })
         .filter(Boolean)
+        .filter((target) => !isVolumeHudSelfTarget(target))
     : [];
 
   if (explicitTargets.length > 0) {
@@ -192,11 +157,14 @@ function getResolvedChannelHudTargets(channel) {
   }
 
   const matchedApp = availableApps.find((application) => application.process === fallbackProcess);
-  return [{
+  const fallbackTargets = [{
     process: fallbackProcess,
     name: String(channel?.appName || matchedApp?.name || fallbackProcess).trim() || fallbackProcess,
+    path: String(matchedApp?.path || '').trim(),
     iconDataUrl: String(matchedApp?.iconDataUrl || '').trim()
   }];
+
+  return fallbackTargets.filter((target) => !isVolumeHudSelfTarget(target));
 }
 
 function getChannelHudPrimaryLabel(channel, targets) {
@@ -253,6 +221,12 @@ function buildChannelVolumeHudPayload(channel, meta = {}) {
   }
 
   const targets = getResolvedChannelHudTargets(channel);
+  if (!targets.length && isVolumeHudSelfTarget({
+    process: channel?.app,
+    name: channel?.appName
+  })) {
+    return null;
+  }
   const primaryLabel = getChannelHudPrimaryLabel(channel, targets);
   const channelTitle = String(channel?.title || '').trim();
   const outputVolume = getChannelOutputVolume(channel);
@@ -423,18 +397,7 @@ function queueChannelVolumePush(channel) {
 }
 
 function applyVolumeToChannel(channelId, volume, meta = {}) {
-  const channel = getChannelById(channelId);
-
-  if (!channel) {
-    return;
-  }
-
-  const updatedChannel = typeof setChannelVolumeState === 'function'
-    ? setChannelVolumeState(channelId, volume, { source: 'ui', ...meta })
-    : null;
-  const nextChannel = updatedChannel || getChannelById(channelId);
-  queueChannelVolumePush(nextChannel);
-  emitChannelVolumeHud(nextChannel, meta);
+  return window.channelActions?.setChannelVolume(channelId, volume, { source: 'ui', ...meta }) || null;
 }
 
 function getVolumeFromPointer(track, clientY) {
@@ -481,7 +444,7 @@ function stopFaderDrag() {
 
   activeFaderDrag.track?.classList.remove('is-dragging');
   activeFaderDrag = null;
-  saveProfileToLocal();
+  window.profileActions?.saveRendererProfileToLocal?.();
 }
 
 function setupFaderDrag() {
@@ -824,3 +787,6 @@ function initChannelUiStateSync() {
 window.applyChannelVolumeRuntime = function applyChannelVolumeRuntime(channelId, volume, meta = {}) {
   return applyVolumeToChannel(channelId, volume, { source: 'midi-runtime', ...meta });
 };
+window.queueChannelVolumePushRuntime = queueChannelVolumePush;
+window.resetChannelVolumePushRuntime = resetChannelVolumePushState;
+window.emitChannelVolumeHudRuntime = emitChannelVolumeHud;

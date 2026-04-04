@@ -632,6 +632,10 @@
   window.getUiSettingsState = getUiSettingsState;
   window.getUiMenuState = getUiMenuState;
   window.subscribeUiState = subscribeUiState;
+  window.setUiSettingsState = setUiSettingsState;
+  window.patchUiSettingsState = patchUiSettingsState;
+  window.setUiMenuState = setUiMenuState;
+  window.patchUiMenuState = patchUiMenuState;
   window.getAdvancedModeEnabledState = getAdvancedModeEnabledState;
   window.getDeveloperModeEnabledState = getDeveloperModeEnabledState;
   window.getFaderInterpolationEnabledState = getFaderInterpolationEnabledState;

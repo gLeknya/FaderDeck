@@ -359,16 +359,21 @@
                   <div class="settings-hud-preview-anchor" id="volumeHudPreviewAnchor">
                     <div class="settings-hud-preview settings-hud-preview--horizontal" id="volumeHudPreview">
                       <div class="settings-hud-preview__icon-shell" id="volumeHudPreviewIconShell" aria-hidden="true">
-                        <span class="settings-hud-preview__icon-letter">FD</span>
+                        <img
+                          class="settings-hud-preview__icon-image"
+                          id="volumeHudPreviewIcon"
+                          src="../assets/favicon.png"
+                          alt="FaderDeck"
+                        >
                       </div>
 
                       <div class="settings-hud-preview__content" id="volumeHudPreviewContent">
                         <div class="settings-hud-preview__header" id="volumeHudPreviewHeader">
                           <div class="settings-hud-preview__titles" id="volumeHudPreviewTitles">
-                            <div class="settings-hud-preview__title" id="volumeHudPreviewTitle">System volume</div>
-                            <div class="settings-hud-preview__subtitle" id="volumeHudPreviewSubtitle">Channel 2</div>
+                            <div class="settings-hud-preview__title" id="volumeHudPreviewTitle">FaderDeck</div>
+                            <div class="settings-hud-preview__subtitle" id="volumeHudPreviewSubtitle">Channel 1</div>
                           </div>
-                          <div class="settings-hud-preview__value" id="volumeHudPreviewValue">72%</div>
+                          <div class="settings-hud-preview__value" id="volumeHudPreviewValue">42%</div>
                         </div>
 
                         <div class="settings-hud-preview__meter" id="volumeHudPreviewMeter">
@@ -534,6 +539,10 @@
   <script src="js/state/app-state.js"></script>
   <script src="js/state/ui-store.js"></script>
   <script src="js/state/channel-store.js"></script>
+  <script src="js/actions/profile-actions.js"></script>
+  <script src="js/actions/channel-actions.js"></script>
+  <script src="js/actions/ui-actions.js"></script>
+  <script src="js/actions/midi-actions.js"></script>
   <script src="js/ui/modal-manager.js"></script>
   <script src="js/ui/entity-editor.js"></script>
   <script src="js/channels.js"></script>

@@ -139,14 +139,12 @@ function refreshMidiUiLanguage() {
 }
 
 async function handleMidiSelectOpen() {
-  const midiService = getMidiService();
-
-  if (!midiService?.scanInputs) {
+  if (!window.midiActions?.scanMidiInputs) {
     return;
   }
 
   try {
-    await midiService.scanInputs();
+    await window.midiActions.scanMidiInputs({ source: 'midi-ui' });
   } catch (error) {
     if (error?.code === 'midi_unsupported') {
       updateMidiStatus(false, t('status.unsupported'));
@@ -167,16 +165,15 @@ function handleMidiSelectChange(event) {
   const disabledOptionValue = midiService?.getDisabledOptionValue?.() || '__disabled__';
 
   if (nextValue === disabledOptionValue) {
-    midiService?.selectInput?.(disabledOptionValue, '', { source: 'midi-ui' });
+    window.midiActions?.disableMidiInputSelection?.({ source: 'midi-ui' });
   } else {
-    midiService?.selectInput?.(
+    window.midiActions?.selectMidiInput?.(
       nextValue,
       selectedOption?.textContent?.trim() || '',
       { source: 'midi-ui' }
     );
   }
 
-  saveProfileToLocal?.();
   syncMidiUiFromService();
 }
 
@@ -220,57 +217,7 @@ function initWebMIDI() {
 
 async function startBindFader(event, channelId) {
   event.stopPropagation();
-
-  const channel = findChannelState?.(channelId);
-  const midiService = getMidiService();
-
-  if (!channel || !midiService) {
-    return;
-  }
-
-  showToast('pending', t('midi.moveFader', { name: channel.title || channel.appName }));
-
-  if (!midiService.getSelectedInputId?.() || midiService.isDisabledSelection?.()) {
-    showToast('error', t('midi.selectDeviceFirst'), { updatePending: true });
-    return;
-  }
-
-  try {
-    await midiService.ensureAccess?.();
-  } catch (error) {
-    if (error?.code === 'midi_unsupported') {
-      showToast('error', t('midi.unsupported'), { updatePending: true });
-      return;
-    }
-
-    showToast('error', t('midi.initFailed'), { updatePending: true });
-    return;
-  }
-
-  const learned = await midiService.learnFaderMapping?.();
-
-  if (!learned) {
-    showToast('error', t('midi.failedToDetect'), { updatePending: true });
-    logTest('startBindFader: NO LEARNED MESSAGE');
-    return;
-  }
-
-  const conflict = midiService.findFaderMappingConflict?.(channelId, learned);
-
-  if (conflict) {
-    const conflictName = conflict.title || conflict.appName;
-    const confirmed = confirm(t('midi.conflict', { name: conflictName }));
-
-    if (!confirmed) {
-      showToast('warn', t('midi.bindCancelled'), { updatePending: true });
-      logTest('startBindFader: USER CANCELED ON CONFLICT');
-      return;
-    }
-  }
-
-  midiService.applyChannelFaderMapping?.(channelId, learned, { source: 'midi-learn' });
-  saveProfileToLocal();
-  showToast('success', t('midi.bindSuccess'), { updatePending: true });
+  await window.midiActions?.learnChannelFaderMapping?.(channelId, { source: 'midi-ui' });
 }
 
 async function remapChannelFader(channelId) {

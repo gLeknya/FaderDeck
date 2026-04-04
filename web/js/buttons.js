@@ -35,8 +35,7 @@ function addChannelButton(channelId) {
     return;
   }
 
-  addChannelButtonState?.(channelId, createDefaultButton(), { source: 'ui' });
-  saveProfileToLocal();
+  window.channelActions?.addChannelButton(channelId, createDefaultButton(), { source: 'ui' });
 }
 
 function fillButtonModal(button) {
@@ -62,7 +61,7 @@ function configureButton(channelId, buttonId) {
 }
 
 function toggleButton(channelId, buttonId) {
-  const button = toggleChannelButtonState?.(channelId, buttonId, { source: 'ui' });
+  const button = window.channelActions?.toggleChannelButton(channelId, buttonId, { source: 'ui' });
 
   if (!button) {
     return;
@@ -83,7 +82,7 @@ function addStandaloneButton() {
   }
 
   addStandaloneButtonState?.(createDefaultButton(), { source: 'ui' });
-  saveProfileToLocal();
+  window.profileActions?.saveRendererProfileToLocal?.();
 }
 
 function renderStandaloneButtons() {
@@ -185,7 +184,7 @@ function saveButtonConfig() {
       source: 'ui'
     });
   } else {
-    updateChannelButtonState?.(
+    window.channelActions?.updateChannelButton(
       currentButtonConfig.channelId,
       currentButtonConfig.buttonId,
       (channelButton) => {
@@ -199,7 +198,7 @@ function saveButtonConfig() {
     );
   }
 
-  saveProfileToLocal();
+  window.profileActions?.saveRendererProfileToLocal?.();
   closeButtonModal();
 }
 

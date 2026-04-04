@@ -20,7 +20,7 @@ const VOLUME_CURVE_DEMO_PEAK_POSITION = 100;
 const VOLUME_CURVE_DEMO_END_POSITION = 0;
 const MENU_PANEL_SIZE_SETTLE_DELAY_MS = 260;
 const AUDIO_APPS_REFRESH_MIN_INTERVAL_MS = 1500;
-const SETTINGS_SECTION_HIDE_THRESHOLD = 2 / 3;
+const SETTINGS_SECTION_HIDE_THRESHOLD = 1 / 3;
 const SETTINGS_SECTION_MIN_SCALE = 0.86;
 const SETTINGS_SECTION_MAX_SHIFT = 8;
 const FALLBACK_AUDIO_APPS = [
@@ -603,7 +603,7 @@ function syncMenuTabUi() {
 }
 
 function setActiveMenuTab(tabName) {
-  setActiveMenuTabState?.(tabName, { source: 'ui' });
+  window.uiActions?.setActiveMenuTab(tabName, { source: 'ui' });
 }
 
 function syncMenuShellUi() {
@@ -613,13 +613,12 @@ function syncMenuShellUi() {
 }
 
 function openMainMenu() {
-  setMenuOpenState?.(true, { source: 'ui' });
+  window.uiActions?.openMainMenu({ source: 'ui' });
 }
 
 function closeMainMenu() {
   hideSettingsTooltip();
-  setMenuOpenState?.(false, { source: 'ui' });
-  setActiveMenuTab(null);
+  window.uiActions?.closeMainMenu({ source: 'ui' });
 
   dom.menuPanelOverlay?.classList.add('hidden');
   dom.menuViews?.forEach((view) => {
@@ -639,7 +638,7 @@ function toggleMainMenu() {
     return;
   }
 
-  openMainMenu();
+  window.uiActions?.toggleMainMenu({ source: 'ui' });
 }
 
 function syncAdvancedModeUi() {
@@ -733,8 +732,8 @@ function syncVolumeHudPreviewUi(settings = getVolumeHudPresentationSettings()) {
   }
 
   const isVertical = settings.orientation === 'vertical';
-  const previewVolume = 72;
-  const previewTitle = t('settings.volumeHudPreviewTitle');
+  const previewVolume = 42;
+  const previewTitle = 'FaderDeck';
   const previewSubtitle = t('settings.volumeHudPreviewSubtitle');
 
   dom.volumeHudPreview.classList.toggle('settings-hud-preview--vertical', isVertical);
@@ -747,7 +746,6 @@ function syncVolumeHudPreviewUi(settings = getVolumeHudPresentationSettings()) {
     'is-top-left',
     'is-top-right'
   );
-  dom.volumeHudPreviewAnchor?.classList.add(`is-${settings.position}`);
 
   if (dom.volumeHudPreviewTitle) {
     dom.volumeHudPreviewTitle.textContent = previewTitle;
@@ -1328,19 +1326,19 @@ function setupSettingsTooltips() {
 
 function setupSettings() {
   dom.advancedModeToggle?.addEventListener('click', () => {
-    setAdvancedModeState?.(!getAdvancedModeEnabled(), { source: 'ui' });
+    window.uiActions?.toggleAdvancedMode({ source: 'ui' });
   });
 
   dom.developerModeToggle?.addEventListener('click', () => {
-    setDeveloperModeState?.(!getDeveloperModeEnabled(), { source: 'ui' });
+    window.uiActions?.toggleDeveloperMode({ source: 'ui' });
   });
 
   dom.faderInterpolationToggle?.addEventListener('click', () => {
-    setFaderInterpolationEnabledState?.(!getFaderInterpolationEnabled(), { source: 'ui' });
+    window.uiActions?.toggleFaderInterpolation({ source: 'ui' });
   });
 
   dom.softTakeoverToggle?.addEventListener('click', () => {
-    setSoftTakeoverEnabledState?.(!getSoftTakeoverEnabled(), { source: 'ui' });
+    window.uiActions?.toggleSoftTakeover({ source: 'ui' });
   });
 
   dom.softTakeoverThresholdRange?.addEventListener('input', (event) => {
@@ -1353,58 +1351,55 @@ function setupSettings() {
       return;
     }
 
-    setSoftTakeoverThresholdState?.(sliderValue, { source: 'ui' });
+    window.uiActions?.setSoftTakeoverThreshold(sliderValue, { source: 'ui' });
   });
 
   dom.profileToolbarToggle?.addEventListener('click', () => {
-    setProfileToolbarSwitcherEnabledState?.(!isToolbarProfilePickerEnabled(), { source: 'ui' });
+    window.uiActions?.toggleProfileToolbarSwitcher({ source: 'ui' });
   });
 
   dom.volumeHudToggle?.addEventListener('click', () => {
-    setVolumeHudEnabledState?.(!getVolumeHudEnabled(), { source: 'ui' });
+    window.uiActions?.toggleVolumeHud({ source: 'ui' });
   });
 
   dom.volumeHudPositionSelect?.addEventListener('change', (event) => {
-    setVolumeHudPositionState?.(event.target.value, { source: 'ui' });
+    window.uiActions?.setVolumeHudPosition(event.target.value, { source: 'ui' });
   });
 
   dom.volumeHudOrientationToggle?.addEventListener('click', () => {
-    setVolumeHudOrientationState?.(
-      getVolumeHudOrientation() === 'vertical' ? 'horizontal' : 'vertical',
-      { source: 'ui' }
-    );
+    window.uiActions?.toggleVolumeHudOrientation({ source: 'ui' });
   });
 
   dom.volumeHudShowIconToggle?.addEventListener('click', () => {
-    setVolumeHudShowIconState?.(!getVolumeHudShowIcon(), { source: 'ui' });
+    window.uiActions?.toggleVolumeHudShowIcon({ source: 'ui' });
   });
 
   dom.volumeHudShowTitleToggle?.addEventListener('click', () => {
-    setVolumeHudShowTitleState?.(!getVolumeHudShowTitle(), { source: 'ui' });
+    window.uiActions?.toggleVolumeHudShowTitle({ source: 'ui' });
   });
 
   dom.volumeHudShowSubtitleToggle?.addEventListener('click', () => {
-    setVolumeHudShowSubtitleState?.(!getVolumeHudShowSubtitle(), { source: 'ui' });
+    window.uiActions?.toggleVolumeHudShowSubtitle({ source: 'ui' });
   });
 
   dom.volumeHudShowPercentToggle?.addEventListener('click', () => {
-    setVolumeHudShowPercentState?.(!getVolumeHudShowPercent(), { source: 'ui' });
+    window.uiActions?.toggleVolumeHudShowPercent({ source: 'ui' });
   });
 
   dom.volumeHudShowMeterToggle?.addEventListener('click', () => {
-    setVolumeHudShowMeterState?.(!getVolumeHudShowMeter(), { source: 'ui' });
+    window.uiActions?.toggleVolumeHudShowMeter({ source: 'ui' });
   });
 
   dom.showFractionalNumbersToggle?.addEventListener('click', () => {
-    setShowFractionalNumbersState?.(!getShowFractionalNumbersEnabled(), { source: 'ui' });
+    window.uiActions?.toggleShowFractionalNumbers({ source: 'ui' });
   });
 
   dom.showFractionalOnlyLowToggle?.addEventListener('click', () => {
-    setShowFractionalOnlyLowState?.(!getShowFractionalOnlyLowEnabled(), { source: 'ui' });
+    window.uiActions?.toggleShowFractionalOnlyLow({ source: 'ui' });
   });
 
   dom.volumeCurveToggle?.addEventListener('click', () => {
-    setVolumeCurveEnabledState?.(!getVolumeCurveEnabled(), { source: 'ui' });
+    window.uiActions?.toggleVolumeCurve({ source: 'ui' });
   });
 
   dom.volumeCurveModeButtons?.forEach((button) => {
@@ -1413,7 +1408,7 @@ function setupSettings() {
         return;
       }
 
-      setVolumeCurveTypeState?.(button.dataset.curveType, { source: 'ui' });
+      window.uiActions?.setVolumeCurveType(button.dataset.curveType, { source: 'ui' });
     });
   });
 
@@ -1427,7 +1422,7 @@ function setupSettings() {
       return;
     }
 
-    setVolumeCurveAmountState?.(sliderValue, { source: 'ui' });
+    window.uiActions?.setVolumeCurveAmount(sliderValue, { source: 'ui' });
   });
 
   dom.languageSelect?.addEventListener('change', (event) => {
@@ -1593,8 +1588,7 @@ function handleContextAction(action) {
     }
 
     if (action === 'delete') {
-      removeChannelButtonState?.(channelId, buttonId, { source: 'context-menu' });
-      saveProfileToLocal();
+      window.channelActions?.removeChannelButton(channelId, buttonId, { source: 'context-menu' });
     }
 
     if (action === 'remap') remapButton(channelId, buttonId);
@@ -1607,48 +1601,11 @@ function handleContextAction(action) {
 
     if (action === 'delete') {
       removeStandaloneButtonState?.(buttonId, { source: 'context-menu' });
-      saveProfileToLocal();
+      window.profileActions?.saveRendererProfileToLocal?.();
     }
 
     if (action === 'remap') remapStandaloneButton(buttonId);
     if (action === 'edit') configureStandaloneButton(buttonId);
-  }
-}
-
-function saveProfileToLocal() {
-  const profile = typeof serializeRendererState === 'function'
-    ? serializeRendererState()
-    : {
-      channels: [],
-      standaloneButtons: [],
-      settings: {
-        midiInputId: getMidiSelectionState?.()?.selectedInputId || null,
-        midiInputName: getMidiSelectionState?.()?.selectedInputName || ''
-      }
-    };
-  localStorage.setItem('mixer_profile', JSON.stringify(profile));
-}
-
-function loadProfileFromLocal() {
-  const savedProfile = localStorage.getItem('mixer_profile');
-
-  if (!savedProfile) {
-    hydrateRendererState?.({
-      channels: [],
-      standaloneButtons: [],
-      settings: {
-        midiInputId: getMidiSelectionState?.()?.selectedInputId || null,
-        midiInputName: getMidiSelectionState?.()?.selectedInputName || ''
-      }
-    }, { source: 'local-storage' });
-    return;
-  }
-
-  try {
-    const profile = JSON.parse(savedProfile);
-    hydrateRendererState?.(profile, { source: 'local-storage' });
-  } catch (error) {
-    console.error('loadProfile error', error);
   }
 }
 
@@ -1664,16 +1621,7 @@ function setupWindowControls() {
 function setupMenuTabs() {
   dom.menuTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
-      if (!isMenuOpen()) {
-        openMainMenu();
-      }
-
-      if (getActiveMenuTab() === tab.dataset.tab) {
-        setActiveMenuTab(null);
-        return;
-      }
-
-      setActiveMenuTab(tab.dataset.tab);
+      window.uiActions?.toggleMainMenuTab(tab.dataset.tab, { source: 'ui' });
     });
   });
 }
@@ -1863,7 +1811,7 @@ function init() {
   syncMenuTabUi();
   scheduleMenuPanelCardSizeSync();
   syncSettingsViewportUi();
-  loadProfileFromLocal();
+  window.profileActions?.loadRendererProfileFromLocal?.();
   initProfilesUi?.();
   requestAudioAppsRefresh('init', { force: true });
   initWebMIDI();
@@ -1872,6 +1820,8 @@ function init() {
 
 window.requestAudioAppsRefresh = requestAudioAppsRefresh;
 window.getVolumeHudPresentationSettings = getVolumeHudPresentationSettings;
+window.getApi = getApi;
+window.logTest = logTest;
 
 function safeInit() {
   try {

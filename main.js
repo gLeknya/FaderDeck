@@ -12,12 +12,12 @@ const VOLUME_HUD_HIDE_ANIMATION_MS = 180;
 const VOLUME_HUD_WINDOW_MARGIN = 32;
 const VOLUME_HUD_WINDOW_SIZES = Object.freeze({
   horizontal: Object.freeze({
-    width: 286,
-    height: 104
+    width: 340,
+    height: 132
   }),
   vertical: Object.freeze({
-    width: 170,
-    height: 216
+    width: 210,
+    height: 258
   })
 });
 const VOLUME_HUD_POSITIONS = new Set([
