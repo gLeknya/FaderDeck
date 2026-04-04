@@ -111,6 +111,33 @@ function buildCustomDropdownOptions(select, dropdown) {
   dropdown.classList.toggle('has-panel-options', Boolean(statusLabel) || options.length > 0);
 }
 
+function updateDropdownPlacement(dropdown) {
+  if (!dropdown?.classList.contains('custom-select')) {
+    return;
+  }
+
+  const panel = dropdown.querySelector('.custom-select-panel');
+
+  if (!panel) {
+    return;
+  }
+
+  dropdown.classList.remove('open-upward');
+  panel.style.removeProperty('--custom-select-panel-max-height');
+
+  const rect = dropdown.getBoundingClientRect();
+  const panelHeight = Math.min(Math.max(panel.scrollHeight, 0), 240) || 180;
+  const viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+  const spaceBelow = Math.max(0, viewportHeight - rect.bottom - 12);
+  const spaceAbove = Math.max(0, rect.top - 12);
+  const shouldOpenUpward = spaceBelow < panelHeight && spaceAbove > spaceBelow;
+  const availableHeight = shouldOpenUpward ? spaceAbove : spaceBelow;
+  const maxHeight = Math.max(96, Math.min(240, Math.floor(availableHeight || panelHeight)));
+
+  dropdown.classList.toggle('open-upward', shouldOpenUpward);
+  panel.style.setProperty('--custom-select-panel-max-height', `${maxHeight}px`);
+}
+
 function syncCustomDropdown(select) {
   const dropdown = select.nextElementSibling;
 
@@ -128,6 +155,7 @@ function syncCustomDropdown(select) {
   dropdown.classList.toggle('is-disabled', select.disabled);
   dropdown.classList.toggle('is-loading', select.dataset.dropdownLoading === 'true');
   buildCustomDropdownOptions(select, dropdown);
+  updateDropdownPlacement(dropdown);
 }
 
 function createCustomDropdown(select) {
@@ -159,6 +187,7 @@ function createCustomDropdown(select) {
         detail: { dropdown }
       }));
       syncCustomDropdown(select);
+      updateDropdownPlacement(dropdown);
     }
 
     if (!dropdown.classList.contains('has-panel-options')) {
@@ -184,6 +213,10 @@ function createCustomDropdown(select) {
     syncCustomDropdown(select);
     setDropdownOpen(dropdown, false);
   });
+
+  panel.addEventListener('wheel', (event) => {
+    event.stopPropagation();
+  }, { passive: true });
 
   select.classList.add('native-select-hidden');
   select.setAttribute('tabindex', '-1');

@@ -136,6 +136,62 @@
 
               <div class="settings-group">
                 <div class="settings-item">
+                  <span data-i18n="settings.volumeHudEnabled">Volume HUD</span>
+                  <button class="settings-toggle" id="volumeHudToggle" type="button" data-i18n="settings.on">Вкл</button>
+                </div>
+
+                <div class="settings-expandable" id="volumeHudAdvanced" aria-hidden="true">
+                  <label class="settings-item settings-item-nested">
+                    <span data-i18n="settings.volumeHudPosition">Положение HUD</span>
+                    <select id="volumeHudPositionSelect" class="settings-select">
+                      <option value="bottom-center" data-i18n="settings.volumeHudPositions.bottomCenter">Снизу по центру</option>
+                      <option value="bottom-left" data-i18n="settings.volumeHudPositions.bottomLeft">Снизу слева</option>
+                      <option value="bottom-right" data-i18n="settings.volumeHudPositions.bottomRight">Снизу справа</option>
+                      <option value="top-center" data-i18n="settings.volumeHudPositions.topCenter">Сверху по центру</option>
+                      <option value="top-left" data-i18n="settings.volumeHudPositions.topLeft">Сверху слева</option>
+                      <option value="top-right" data-i18n="settings.volumeHudPositions.topRight">Сверху справа</option>
+                    </select>
+                  </label>
+
+                  <label class="settings-item settings-item-nested">
+                    <span data-i18n="settings.volumeHudOrientation">Ориентация HUD</span>
+                    <select id="volumeHudOrientationSelect" class="settings-select">
+                      <option value="horizontal" data-i18n="settings.volumeHudOrientations.horizontal">Горизонтально</option>
+                      <option value="vertical" data-i18n="settings.volumeHudOrientations.vertical">Вертикально</option>
+                    </select>
+                  </label>
+
+                  <div class="settings-subsection-title" data-i18n="settings.volumeHudVisibleElements">Видимые элементы</div>
+
+                  <div class="settings-item settings-item-nested">
+                    <span data-i18n="settings.volumeHudShowIcon">Иконка приложения</span>
+                    <button class="settings-toggle" id="volumeHudShowIconToggle" type="button" data-i18n="settings.on">Вкл</button>
+                  </div>
+
+                  <div class="settings-item settings-item-nested">
+                    <span data-i18n="settings.volumeHudShowTitle">Название цели</span>
+                    <button class="settings-toggle" id="volumeHudShowTitleToggle" type="button" data-i18n="settings.on">Вкл</button>
+                  </div>
+
+                  <div class="settings-item settings-item-nested">
+                    <span data-i18n="settings.volumeHudShowSubtitle">Подпись канала</span>
+                    <button class="settings-toggle" id="volumeHudShowSubtitleToggle" type="button" data-i18n="settings.on">Вкл</button>
+                  </div>
+
+                  <div class="settings-item settings-item-nested">
+                    <span data-i18n="settings.volumeHudShowPercent">Процент громкости</span>
+                    <button class="settings-toggle" id="volumeHudShowPercentToggle" type="button" data-i18n="settings.on">Вкл</button>
+                  </div>
+
+                  <div class="settings-item settings-item-nested">
+                    <span data-i18n="settings.volumeHudShowMeter">Индикатор громкости</span>
+                    <button class="settings-toggle" id="volumeHudShowMeterToggle" type="button" data-i18n="settings.on">Вкл</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-group">
+                <div class="settings-item">
                   <span class="settings-label-line">
                     <span data-i18n="settings.softTakeover">Soft takeover</span>
                     <button class="settings-help" type="button" data-i18n-tooltip="settings.softTakeoverHelp" aria-label="Help">?</button>
@@ -239,6 +295,88 @@
                   <div class="settings-item settings-item-nested">
                     <span data-i18n="settings.showFractionalOnlyLow">Только при малых числах</span>
                     <button class="settings-toggle" id="showFractionalOnlyLowToggle" type="button" data-i18n="settings.off">Выкл</button>
+                  </div>
+                </div>
+              </div>
+              </section>
+
+              <section class="settings-section settings-section--volume-hud">
+              <div class="settings-section-title" data-i18n="settings.sections.volumeHud">Volume HUD</div>
+
+              <div class="settings-item">
+                <span data-i18n="settings.volumeHudEnabled">Volume HUD</span>
+                <button class="settings-toggle" id="volumeHudSettingsToggle" type="button" data-i18n="settings.on">Вкл</button>
+              </div>
+
+              <div class="settings-expandable" id="volumeHudSettingsAdvanced" aria-hidden="true">
+                <label class="settings-item settings-item-nested">
+                  <span data-i18n="settings.volumeHudPosition">Положение HUD</span>
+                  <select id="volumeHudSettingsPositionSelect" class="settings-select">
+                    <option value="bottom-center" data-i18n="settings.volumeHudPositions.bottomCenter">Снизу по центру</option>
+                    <option value="bottom-left" data-i18n="settings.volumeHudPositions.bottomLeft">Снизу слева</option>
+                    <option value="bottom-right" data-i18n="settings.volumeHudPositions.bottomRight">Снизу справа</option>
+                    <option value="top-center" data-i18n="settings.volumeHudPositions.topCenter">Сверху по центру</option>
+                    <option value="top-left" data-i18n="settings.volumeHudPositions.topLeft">Сверху слева</option>
+                    <option value="top-right" data-i18n="settings.volumeHudPositions.topRight">Сверху справа</option>
+                  </select>
+                </label>
+
+                <div class="settings-item settings-item-nested">
+                  <span data-i18n="settings.volumeHudOrientation">Ориентация HUD</span>
+                  <button class="settings-toggle settings-toggle-mode" id="volumeHudOrientationToggle" type="button">Horizontal</button>
+                </div>
+
+                <div class="settings-subsection-title" data-i18n="settings.volumeHudVisibleElements">Видимые элементы</div>
+
+                <div class="settings-item settings-item-nested">
+                  <span data-i18n="settings.volumeHudShowIcon">Иконка приложения</span>
+                  <button class="settings-toggle" id="volumeHudSettingsShowIconToggle" type="button" data-i18n="settings.on">Вкл</button>
+                </div>
+
+                <div class="settings-item settings-item-nested">
+                  <span data-i18n="settings.volumeHudShowTitle">Название цели</span>
+                  <button class="settings-toggle" id="volumeHudSettingsShowTitleToggle" type="button" data-i18n="settings.on">Вкл</button>
+                </div>
+
+                <div class="settings-item settings-item-nested">
+                  <span data-i18n="settings.volumeHudShowSubtitle">Подпись канала</span>
+                  <button class="settings-toggle" id="volumeHudSettingsShowSubtitleToggle" type="button" data-i18n="settings.on">Вкл</button>
+                </div>
+
+                <div class="settings-item settings-item-nested">
+                  <span data-i18n="settings.volumeHudShowPercent">Процент громкости</span>
+                  <button class="settings-toggle" id="volumeHudSettingsShowPercentToggle" type="button" data-i18n="settings.on">Вкл</button>
+                </div>
+
+                <div class="settings-item settings-item-nested">
+                  <span data-i18n="settings.volumeHudShowMeter">Индикатор громкости</span>
+                  <button class="settings-toggle" id="volumeHudSettingsShowMeterToggle" type="button" data-i18n="settings.on">Вкл</button>
+                </div>
+
+                <div class="settings-subsection-title" data-i18n="settings.volumeHudPreview">Предпросмотр</div>
+
+                <div class="settings-hud-preview-stage" id="volumeHudPreviewStage">
+                  <div class="settings-hud-preview-anchor" id="volumeHudPreviewAnchor">
+                    <div class="settings-hud-preview settings-hud-preview--horizontal" id="volumeHudPreview">
+                      <div class="settings-hud-preview__icon-shell" id="volumeHudPreviewIconShell" aria-hidden="true">
+                        <span class="settings-hud-preview__icon-letter">FD</span>
+                      </div>
+
+                      <div class="settings-hud-preview__content" id="volumeHudPreviewContent">
+                        <div class="settings-hud-preview__header" id="volumeHudPreviewHeader">
+                          <div class="settings-hud-preview__titles" id="volumeHudPreviewTitles">
+                            <div class="settings-hud-preview__title" id="volumeHudPreviewTitle">System volume</div>
+                            <div class="settings-hud-preview__subtitle" id="volumeHudPreviewSubtitle">Channel 2</div>
+                          </div>
+                          <div class="settings-hud-preview__value" id="volumeHudPreviewValue">72%</div>
+                        </div>
+
+                        <div class="settings-hud-preview__meter" id="volumeHudPreviewMeter">
+                          <div class="settings-hud-preview__meter-fill" id="volumeHudPreviewMeterFill"></div>
+                          <div class="settings-hud-preview__meter-thumb" id="volumeHudPreviewMeterThumb"></div>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

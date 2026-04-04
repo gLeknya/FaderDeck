@@ -9,11 +9,32 @@ const VOLUME_HUD_UPDATE_CHANNEL = 'volume-hud:update';
 const VOLUME_HUD_VISIBILITY_CHANNEL = 'volume-hud:visibility';
 const VOLUME_HUD_HIDE_DELAY_MS = 1350;
 const VOLUME_HUD_HIDE_ANIMATION_MS = 180;
-const VOLUME_HUD_WINDOW_WIDTH = 320;
-const VOLUME_HUD_WINDOW_HEIGHT = 132;
+const VOLUME_HUD_WINDOW_MARGIN = 32;
+const VOLUME_HUD_WINDOW_SIZES = Object.freeze({
+  horizontal: Object.freeze({
+    width: 286,
+    height: 104
+  }),
+  vertical: Object.freeze({
+    width: 170,
+    height: 216
+  })
+});
+const VOLUME_HUD_POSITIONS = new Set([
+  'bottom-center',
+  'bottom-left',
+  'bottom-right',
+  'top-center',
+  'top-left',
+  'top-right'
+]);
+const VOLUME_HUD_ORIENTATIONS = new Set([
+  'horizontal',
+  'vertical'
+]);
 const WINDOW_OPTIONS = {
   width: 1400,
-  height: 760,
+  height: 800,
   minWidth: 980,
   minHeight: 640,
   resizable: true,
@@ -79,6 +100,8 @@ function destroyVolumeHudWindow() {
 }
 
 function normalizeVolumeHudPayload(payload = {}) {
+  const presentation = normalizeVolumeHudPresentation(payload?.presentation);
+
   return {
     channelId: Number.parseInt(payload?.channelId, 10) || null,
     title: String(payload?.title || '').trim().slice(0, 120),
@@ -86,11 +109,36 @@ function normalizeVolumeHudPayload(payload = {}) {
     valueText: String(payload?.valueText || '').trim().slice(0, 32),
     iconDataUrl: typeof payload?.iconDataUrl === 'string' ? payload.iconDataUrl : '',
     source: String(payload?.source || '').trim(),
-    volume: Math.max(0, Math.min(100, Number(payload?.volume) || 0))
+    volume: Math.max(0, Math.min(100, Number(payload?.volume) || 0)),
+    presentation
   };
 }
 
-function getVolumeHudBounds() {
+function normalizeVolumeHudPresentation(presentation = {}) {
+  const position = VOLUME_HUD_POSITIONS.has(presentation?.position)
+    ? presentation.position
+    : 'bottom-center';
+  const orientation = VOLUME_HUD_ORIENTATIONS.has(presentation?.orientation)
+    ? presentation.orientation
+    : 'horizontal';
+
+  return {
+    enabled: presentation?.enabled !== false,
+    position,
+    orientation,
+    showIcon: presentation?.showIcon !== false,
+    showTitle: presentation?.showTitle !== false,
+    showSubtitle: presentation?.showSubtitle !== false,
+    showPercent: presentation?.showPercent !== false,
+    showMeter: presentation?.showMeter !== false
+  };
+}
+
+function getVolumeHudWindowSize(presentation = {}) {
+  return VOLUME_HUD_WINDOW_SIZES[presentation.orientation] || VOLUME_HUD_WINDOW_SIZES.horizontal;
+}
+
+function getVolumeHudBounds(presentation = {}) {
   const fallbackDisplay = screen.getPrimaryDisplay();
   const referenceDisplay = (
     mainWindow && !mainWindow.isDestroyed()
@@ -98,12 +146,26 @@ function getVolumeHudBounds() {
       : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
   ) || fallbackDisplay;
   const workArea = referenceDisplay.workArea;
+  const size = getVolumeHudWindowSize(presentation);
+  const isTopAligned = presentation.position.startsWith('top-');
+  const isLeftAligned = presentation.position.endsWith('-left');
+  const isRightAligned = presentation.position.endsWith('-right');
+  let x = Math.round(workArea.x + ((workArea.width - size.width) / 2));
+  let y = isTopAligned
+    ? workArea.y + VOLUME_HUD_WINDOW_MARGIN
+    : workArea.y + workArea.height - size.height - VOLUME_HUD_WINDOW_MARGIN;
+
+  if (isLeftAligned) {
+    x = workArea.x + VOLUME_HUD_WINDOW_MARGIN;
+  } else if (isRightAligned) {
+    x = workArea.x + workArea.width - size.width - VOLUME_HUD_WINDOW_MARGIN;
+  }
 
   return {
-    width: VOLUME_HUD_WINDOW_WIDTH,
-    height: VOLUME_HUD_WINDOW_HEIGHT,
-    x: Math.round(workArea.x + ((workArea.width - VOLUME_HUD_WINDOW_WIDTH) / 2)),
-    y: Math.round(workArea.y + workArea.height - VOLUME_HUD_WINDOW_HEIGHT - 52)
+    width: size.width,
+    height: size.height,
+    x: Math.round(x),
+    y: Math.round(y)
   };
 }
 
@@ -113,8 +175,8 @@ function createVolumeHudWindow() {
   }
 
   volumeHudWindow = new BrowserWindow({
-    width: VOLUME_HUD_WINDOW_WIDTH,
-    height: VOLUME_HUD_WINDOW_HEIGHT,
+    width: VOLUME_HUD_WINDOW_SIZES.horizontal.width,
+    height: VOLUME_HUD_WINDOW_SIZES.horizontal.height,
     show: false,
     frame: false,
     transparent: true,
@@ -186,8 +248,19 @@ function scheduleVolumeHudHide() {
 
 async function showVolumeHud(payload = {}) {
   const normalizedPayload = normalizeVolumeHudPayload(payload);
+  const presentation = normalizedPayload.presentation;
 
-  if (!normalizedPayload.title && !normalizedPayload.valueText) {
+  if (
+    !presentation.enabled
+    || (
+      !presentation.showIcon
+      && !presentation.showTitle
+      && !presentation.showSubtitle
+      && !presentation.showPercent
+      && !presentation.showMeter
+    )
+    || (!normalizedPayload.title && !normalizedPayload.valueText)
+  ) {
     return { success: false };
   }
 
@@ -198,7 +271,7 @@ async function showVolumeHud(payload = {}) {
   }
 
   clearVolumeHudTimers();
-  window.setBounds(getVolumeHudBounds(), false);
+  window.setBounds(getVolumeHudBounds(presentation), false);
   window.webContents.send(VOLUME_HUD_UPDATE_CHANNEL, normalizedPayload);
 
   if (!window.isVisible()) {

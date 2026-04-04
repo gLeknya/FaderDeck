@@ -123,7 +123,15 @@
         volumeCurveEnabled: false,
         volumeCurveType: 'ease-in-out',
         volumeCurveAmount: 0,
-        profileToolbarSwitcherEnabled: true
+        profileToolbarSwitcherEnabled: true,
+        volumeHudEnabled: true,
+        volumeHudPosition: 'bottom-center',
+        volumeHudOrientation: 'horizontal',
+        volumeHudShowIcon: true,
+        volumeHudShowTitle: true,
+        volumeHudShowSubtitle: true,
+        volumeHudShowPercent: true,
+        volumeHudShowMeter: true
       },
       menu: {
         open: false,

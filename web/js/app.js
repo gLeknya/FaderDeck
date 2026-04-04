@@ -192,6 +192,29 @@ function cacheDomElements() {
   dom.softTakeoverThresholdRange = $('softTakeoverThresholdRange');
   dom.softTakeoverThresholdValue = $('softTakeoverThresholdValue');
   dom.profileToolbarToggle = $('profileToolbarToggle');
+  dom.legacyVolumeHudGroup = $('volumeHudToggle')?.closest('.settings-group') || null;
+  dom.volumeHudToggle = $('volumeHudSettingsToggle');
+  dom.volumeHudAdvanced = $('volumeHudSettingsAdvanced');
+  dom.volumeHudPositionSelect = $('volumeHudSettingsPositionSelect');
+  dom.volumeHudOrientationToggle = $('volumeHudOrientationToggle');
+  dom.volumeHudShowIconToggle = $('volumeHudSettingsShowIconToggle');
+  dom.volumeHudShowTitleToggle = $('volumeHudSettingsShowTitleToggle');
+  dom.volumeHudShowSubtitleToggle = $('volumeHudSettingsShowSubtitleToggle');
+  dom.volumeHudShowPercentToggle = $('volumeHudSettingsShowPercentToggle');
+  dom.volumeHudShowMeterToggle = $('volumeHudSettingsShowMeterToggle');
+  dom.volumeHudPreviewStage = $('volumeHudPreviewStage');
+  dom.volumeHudPreviewAnchor = $('volumeHudPreviewAnchor');
+  dom.volumeHudPreview = $('volumeHudPreview');
+  dom.volumeHudPreviewIconShell = $('volumeHudPreviewIconShell');
+  dom.volumeHudPreviewContent = $('volumeHudPreviewContent');
+  dom.volumeHudPreviewHeader = $('volumeHudPreviewHeader');
+  dom.volumeHudPreviewTitles = $('volumeHudPreviewTitles');
+  dom.volumeHudPreviewTitle = $('volumeHudPreviewTitle');
+  dom.volumeHudPreviewSubtitle = $('volumeHudPreviewSubtitle');
+  dom.volumeHudPreviewValue = $('volumeHudPreviewValue');
+  dom.volumeHudPreviewMeter = $('volumeHudPreviewMeter');
+  dom.volumeHudPreviewMeterFill = $('volumeHudPreviewMeterFill');
+  dom.volumeHudPreviewMeterThumb = $('volumeHudPreviewMeterThumb');
   dom.showFractionalNumbersToggle = $('showFractionalNumbersToggle');
   dom.showFractionalOnlyLowToggle = $('showFractionalOnlyLowToggle');
   dom.fractionalNumbersAdvanced = $('fractionalNumbersAdvanced');
@@ -230,7 +253,15 @@ function getUiSettings() {
     volumeCurveEnabled: false,
     volumeCurveType: 'ease-in-out',
     volumeCurveAmount: 0,
-    profileToolbarSwitcherEnabled: true
+    profileToolbarSwitcherEnabled: true,
+    volumeHudEnabled: true,
+    volumeHudPosition: 'bottom-center',
+    volumeHudOrientation: 'horizontal',
+    volumeHudShowIcon: true,
+    volumeHudShowTitle: true,
+    volumeHudShowSubtitle: true,
+    volumeHudShowPercent: true,
+    volumeHudShowMeter: true
   };
 }
 
@@ -263,6 +294,51 @@ function getSoftTakeoverThreshold() {
 
 function getShowFractionalOnlyLowEnabled() {
   return getShowFractionalOnlyLowState?.() ?? getUiSettings().showFractionalOnlyLow;
+}
+
+function getVolumeHudEnabled() {
+  return getVolumeHudEnabledState?.() ?? getUiSettings().volumeHudEnabled;
+}
+
+function getVolumeHudPosition() {
+  return getVolumeHudPositionState?.() ?? getUiSettings().volumeHudPosition;
+}
+
+function getVolumeHudOrientation() {
+  return getVolumeHudOrientationState?.() ?? getUiSettings().volumeHudOrientation;
+}
+
+function getVolumeHudShowIcon() {
+  return getVolumeHudShowIconState?.() ?? getUiSettings().volumeHudShowIcon;
+}
+
+function getVolumeHudShowTitle() {
+  return getVolumeHudShowTitleState?.() ?? getUiSettings().volumeHudShowTitle;
+}
+
+function getVolumeHudShowSubtitle() {
+  return getVolumeHudShowSubtitleState?.() ?? getUiSettings().volumeHudShowSubtitle;
+}
+
+function getVolumeHudShowPercent() {
+  return getVolumeHudShowPercentState?.() ?? getUiSettings().volumeHudShowPercent;
+}
+
+function getVolumeHudShowMeter() {
+  return getVolumeHudShowMeterState?.() ?? getUiSettings().volumeHudShowMeter;
+}
+
+function getVolumeHudPresentationSettings() {
+  return {
+    enabled: getVolumeHudEnabled(),
+    position: getVolumeHudPosition(),
+    orientation: getVolumeHudOrientation(),
+    showIcon: getVolumeHudShowIcon(),
+    showTitle: getVolumeHudShowTitle(),
+    showSubtitle: getVolumeHudShowSubtitle(),
+    showPercent: getVolumeHudShowPercent(),
+    showMeter: getVolumeHudShowMeter()
+  };
 }
 
 function getActiveMenuTab() {
@@ -643,6 +719,134 @@ function syncProfileToolbarUi() {
     ? t('settings.on')
     : t('settings.off');
   syncToolbarProfilePickerVisibility?.();
+}
+
+function hideLegacyVolumeHudSettingsUi() {
+  if (dom.legacyVolumeHudGroup) {
+    dom.legacyVolumeHudGroup.hidden = true;
+  }
+}
+
+function syncVolumeHudPreviewUi(settings = getVolumeHudPresentationSettings()) {
+  if (!dom.volumeHudPreview) {
+    return;
+  }
+
+  const isVertical = settings.orientation === 'vertical';
+  const previewVolume = 72;
+  const previewTitle = t('settings.volumeHudPreviewTitle');
+  const previewSubtitle = t('settings.volumeHudPreviewSubtitle');
+
+  dom.volumeHudPreview.classList.toggle('settings-hud-preview--vertical', isVertical);
+  dom.volumeHudPreview.classList.toggle('settings-hud-preview--horizontal', !isVertical);
+  dom.volumeHudPreviewAnchor?.classList.remove(
+    'is-bottom-center',
+    'is-bottom-left',
+    'is-bottom-right',
+    'is-top-center',
+    'is-top-left',
+    'is-top-right'
+  );
+  dom.volumeHudPreviewAnchor?.classList.add(`is-${settings.position}`);
+
+  if (dom.volumeHudPreviewTitle) {
+    dom.volumeHudPreviewTitle.textContent = previewTitle;
+    dom.volumeHudPreviewTitle.classList.toggle('hidden', !settings.showTitle);
+  }
+
+  if (dom.volumeHudPreviewSubtitle) {
+    dom.volumeHudPreviewSubtitle.textContent = previewSubtitle;
+    dom.volumeHudPreviewSubtitle.classList.toggle('hidden', !settings.showSubtitle);
+  }
+
+  if (dom.volumeHudPreviewValue) {
+    dom.volumeHudPreviewValue.textContent = `${previewVolume}%`;
+    dom.volumeHudPreviewValue.classList.toggle('hidden', !settings.showPercent);
+  }
+
+  dom.volumeHudPreviewIconShell?.classList.toggle('hidden', !settings.showIcon);
+  dom.volumeHudPreviewMeter?.classList.toggle('hidden', !settings.showMeter);
+  dom.volumeHudPreviewTitles?.classList.toggle(
+    'hidden',
+    !settings.showTitle && !settings.showSubtitle
+  );
+  dom.volumeHudPreviewHeader?.classList.toggle(
+    'hidden',
+    (!settings.showTitle && !settings.showSubtitle) && !settings.showPercent
+  );
+  dom.volumeHudPreviewContent?.classList.toggle(
+    'hidden',
+    ((!settings.showTitle && !settings.showSubtitle) && !settings.showPercent) && !settings.showMeter
+  );
+
+  if (dom.volumeHudPreviewMeterFill) {
+    if (isVertical) {
+      dom.volumeHudPreviewMeterFill.style.height = `${previewVolume}%`;
+      dom.volumeHudPreviewMeterFill.style.width = '100%';
+    } else {
+      dom.volumeHudPreviewMeterFill.style.width = `${previewVolume}%`;
+      dom.volumeHudPreviewMeterFill.style.height = '100%';
+    }
+  }
+
+  if (dom.volumeHudPreviewMeterThumb) {
+    if (isVertical) {
+      dom.volumeHudPreviewMeterThumb.style.bottom = `${previewVolume}%`;
+      dom.volumeHudPreviewMeterThumb.style.left = '50%';
+    } else {
+      dom.volumeHudPreviewMeterThumb.style.left = `${previewVolume}%`;
+      dom.volumeHudPreviewMeterThumb.style.bottom = '0';
+    }
+  }
+}
+
+function syncVolumeHudUi() {
+  const settings = getVolumeHudPresentationSettings();
+
+  if (dom.volumeHudToggle) {
+    dom.volumeHudToggle.classList.toggle('on', settings.enabled);
+    dom.volumeHudToggle.textContent = settings.enabled ? t('settings.on') : t('settings.off');
+  }
+
+  if (dom.volumeHudAdvanced) {
+    dom.volumeHudAdvanced.classList.toggle('open', settings.enabled);
+    dom.volumeHudAdvanced.setAttribute('aria-hidden', String(!settings.enabled));
+  }
+
+  if (dom.volumeHudPositionSelect) {
+    dom.volumeHudPositionSelect.value = settings.position;
+    dom.volumeHudPositionSelect.disabled = !settings.enabled;
+    enhanceCustomSelects?.(dom.volumeHudPositionSelect);
+  }
+
+  if (dom.volumeHudOrientationToggle) {
+    const orientationLabel = settings.orientation === 'vertical'
+      ? t('settings.volumeHudOrientations.vertical')
+      : t('settings.volumeHudOrientations.horizontal');
+
+    dom.volumeHudOrientationToggle.disabled = !settings.enabled;
+    dom.volumeHudOrientationToggle.classList.toggle('on', settings.orientation === 'vertical');
+    dom.volumeHudOrientationToggle.textContent = orientationLabel;
+  }
+
+  [
+    [dom.volumeHudShowIconToggle, settings.showIcon],
+    [dom.volumeHudShowTitleToggle, settings.showTitle],
+    [dom.volumeHudShowSubtitleToggle, settings.showSubtitle],
+    [dom.volumeHudShowPercentToggle, settings.showPercent],
+    [dom.volumeHudShowMeterToggle, settings.showMeter]
+  ].forEach(([button, value]) => {
+    if (!button) {
+      return;
+    }
+
+    button.disabled = !settings.enabled;
+    button.classList.toggle('on', value);
+    button.textContent = value ? t('settings.on') : t('settings.off');
+  });
+
+  syncVolumeHudPreviewUi(settings);
+  scheduleMenuPanelCardSizeSync();
 }
 
 function syncFractionalNumberUi() {
@@ -1156,6 +1360,41 @@ function setupSettings() {
     setProfileToolbarSwitcherEnabledState?.(!isToolbarProfilePickerEnabled(), { source: 'ui' });
   });
 
+  dom.volumeHudToggle?.addEventListener('click', () => {
+    setVolumeHudEnabledState?.(!getVolumeHudEnabled(), { source: 'ui' });
+  });
+
+  dom.volumeHudPositionSelect?.addEventListener('change', (event) => {
+    setVolumeHudPositionState?.(event.target.value, { source: 'ui' });
+  });
+
+  dom.volumeHudOrientationToggle?.addEventListener('click', () => {
+    setVolumeHudOrientationState?.(
+      getVolumeHudOrientation() === 'vertical' ? 'horizontal' : 'vertical',
+      { source: 'ui' }
+    );
+  });
+
+  dom.volumeHudShowIconToggle?.addEventListener('click', () => {
+    setVolumeHudShowIconState?.(!getVolumeHudShowIcon(), { source: 'ui' });
+  });
+
+  dom.volumeHudShowTitleToggle?.addEventListener('click', () => {
+    setVolumeHudShowTitleState?.(!getVolumeHudShowTitle(), { source: 'ui' });
+  });
+
+  dom.volumeHudShowSubtitleToggle?.addEventListener('click', () => {
+    setVolumeHudShowSubtitleState?.(!getVolumeHudShowSubtitle(), { source: 'ui' });
+  });
+
+  dom.volumeHudShowPercentToggle?.addEventListener('click', () => {
+    setVolumeHudShowPercentState?.(!getVolumeHudShowPercent(), { source: 'ui' });
+  });
+
+  dom.volumeHudShowMeterToggle?.addEventListener('click', () => {
+    setVolumeHudShowMeterState?.(!getVolumeHudShowMeter(), { source: 'ui' });
+  });
+
   dom.showFractionalNumbersToggle?.addEventListener('click', () => {
     setShowFractionalNumbersState?.(!getShowFractionalNumbersEnabled(), { source: 'ui' });
   });
@@ -1475,6 +1714,19 @@ function initUiStateSync() {
     }
 
     if (
+      nextSettings.volumeHudEnabled !== previousSettings.volumeHudEnabled
+      || nextSettings.volumeHudPosition !== previousSettings.volumeHudPosition
+      || nextSettings.volumeHudOrientation !== previousSettings.volumeHudOrientation
+      || nextSettings.volumeHudShowIcon !== previousSettings.volumeHudShowIcon
+      || nextSettings.volumeHudShowTitle !== previousSettings.volumeHudShowTitle
+      || nextSettings.volumeHudShowSubtitle !== previousSettings.volumeHudShowSubtitle
+      || nextSettings.volumeHudShowPercent !== previousSettings.volumeHudShowPercent
+      || nextSettings.volumeHudShowMeter !== previousSettings.volumeHudShowMeter
+    ) {
+      syncVolumeHudUi();
+    }
+
+    if (
       nextSettings.showFractionalNumbers !== previousSettings.showFractionalNumbers
       || nextSettings.showFractionalOnlyLow !== previousSettings.showFractionalOnlyLow
     ) {
@@ -1515,6 +1767,7 @@ function handleLanguageChanged() {
   syncFaderInterpolationUi();
   syncSoftTakeoverUi();
   syncProfileToolbarUi();
+  syncVolumeHudUi();
   syncFractionalNumberUi();
   syncVolumeCurveUi();
   audioApps = buildAudioAppsList(audioApps);
@@ -1583,6 +1836,7 @@ function bindGlobalUi() {
 
 function init() {
   cacheDomElements();
+  hideLegacyVolumeHudSettingsUi();
   initUiStore?.();
   applyTranslations();
   enhanceCustomSelects?.(document);
@@ -1602,6 +1856,7 @@ function init() {
   syncFaderInterpolationUi();
   syncSoftTakeoverUi();
   syncProfileToolbarUi();
+  syncVolumeHudUi();
   syncFractionalNumberUi();
   syncVolumeCurveUi();
   syncLanguageUi();
@@ -1616,6 +1871,7 @@ function init() {
 }
 
 window.requestAudioAppsRefresh = requestAudioAppsRefresh;
+window.getVolumeHudPresentationSettings = getVolumeHudPresentationSettings;
 
 function safeInit() {
   try {

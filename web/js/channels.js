@@ -211,8 +211,44 @@ function getChannelHudPrimaryLabel(channel, targets) {
   return `${targets[0].name} +${targets.length - 1}`;
 }
 
+function getVolumeHudPresentationConfig() {
+  if (typeof getVolumeHudPresentationSettings === 'function') {
+    return getVolumeHudPresentationSettings();
+  }
+
+  const uiSettings = typeof getUiSettingsState === 'function'
+    ? getUiSettingsState()
+    : {};
+
+  return {
+    enabled: uiSettings.volumeHudEnabled ?? true,
+    position: uiSettings.volumeHudPosition || 'bottom-center',
+    orientation: uiSettings.volumeHudOrientation || 'horizontal',
+    showIcon: uiSettings.volumeHudShowIcon ?? true,
+    showTitle: uiSettings.volumeHudShowTitle ?? true,
+    showSubtitle: uiSettings.volumeHudShowSubtitle ?? true,
+    showPercent: uiSettings.volumeHudShowPercent ?? true,
+    showMeter: uiSettings.volumeHudShowMeter ?? true
+  };
+}
+
 function buildChannelVolumeHudPayload(channel, meta = {}) {
   if (!channel) {
+    return null;
+  }
+
+  const presentation = getVolumeHudPresentationConfig();
+
+  if (
+    !presentation.enabled
+    || (
+      !presentation.showIcon
+      && !presentation.showTitle
+      && !presentation.showSubtitle
+      && !presentation.showPercent
+      && !presentation.showMeter
+    )
+  ) {
     return null;
   }
 
@@ -228,7 +264,8 @@ function buildChannelVolumeHudPayload(channel, meta = {}) {
     subtitle: channelTitle && channelTitle !== primaryLabel ? channelTitle : '',
     iconDataUrl: targets.length === 1 ? targets[0].iconDataUrl : '',
     volume: outputVolume,
-    valueText: formatChannelVolume(outputVolume, channel)
+    valueText: formatChannelVolume(outputVolume, channel),
+    presentation
   };
 }
 

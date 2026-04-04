@@ -1,5 +1,13 @@
 (function initVolumeHudOverlay(window) {
   const dom = {};
+  let currentPresentation = {
+    orientation: 'horizontal',
+    showIcon: true,
+    showTitle: true,
+    showSubtitle: true,
+    showPercent: true,
+    showMeter: true
+  };
 
   function $(id) {
     return document.getElementById(id);
@@ -19,6 +27,30 @@
     return `${Math.round(clampHudVolume(payload?.volume))}%`;
   }
 
+  function toggleHidden(element, hidden) {
+    element?.classList.toggle('hidden', Boolean(hidden));
+  }
+
+  function applyPresentationSettings(presentation = {}) {
+    currentPresentation = {
+      ...currentPresentation,
+      ...(presentation || {})
+    };
+
+    if (!dom.root) {
+      return;
+    }
+
+    dom.root.classList.toggle(
+      'volume-hud--vertical',
+      currentPresentation.orientation === 'vertical'
+    );
+    dom.root.classList.toggle(
+      'volume-hud--horizontal',
+      currentPresentation.orientation !== 'vertical'
+    );
+  }
+
   function syncVisibility(visible) {
     dom.root?.classList.toggle('is-visible', Boolean(visible));
   }
@@ -28,33 +60,55 @@
     const subtitle = String(payload?.subtitle || '').trim();
     const iconDataUrl = String(payload?.iconDataUrl || '').trim();
     const volume = clampHudVolume(payload?.volume);
+    const presentation = payload?.presentation || {};
+    const showTitle = presentation.showTitle !== false;
+    const showSubtitle = presentation.showSubtitle !== false;
+    const showIcon = presentation.showIcon !== false;
+    const showPercent = presentation.showPercent !== false;
+    const showMeter = presentation.showMeter !== false;
+
+    applyPresentationSettings(presentation);
 
     if (dom.title) {
       dom.title.textContent = title;
       dom.title.title = title;
+      toggleHidden(dom.title, !showTitle);
     }
 
     if (dom.subtitle) {
       dom.subtitle.textContent = subtitle;
       dom.subtitle.title = subtitle;
-      dom.subtitle.classList.toggle('hidden', !subtitle);
+      toggleHidden(dom.subtitle, !showSubtitle || !subtitle);
     }
 
     if (dom.value) {
       dom.value.textContent = formatHudValue(payload);
+      toggleHidden(dom.value, !showPercent);
     }
 
     if (dom.fill) {
-      dom.fill.style.width = `${volume}%`;
+      if (currentPresentation.orientation === 'vertical') {
+        dom.fill.style.height = `${volume}%`;
+        dom.fill.style.width = '100%';
+      } else {
+        dom.fill.style.width = `${volume}%`;
+        dom.fill.style.height = '100%';
+      }
     }
 
     if (dom.thumb) {
-      dom.thumb.style.left = `${volume}%`;
+      if (currentPresentation.orientation === 'vertical') {
+        dom.thumb.style.bottom = `${volume}%`;
+        dom.thumb.style.left = '50%';
+      } else {
+        dom.thumb.style.left = `${volume}%`;
+        dom.thumb.style.bottom = '0';
+      }
     }
 
     if (dom.iconShell && dom.icon) {
-      const hasIcon = Boolean(iconDataUrl);
-      dom.iconShell.classList.toggle('hidden', !hasIcon);
+      const hasIcon = showIcon && Boolean(iconDataUrl);
+      toggleHidden(dom.iconShell, !hasIcon);
 
       if (hasIcon) {
         dom.icon.src = iconDataUrl;
@@ -64,15 +118,24 @@
         dom.icon.alt = '';
       }
     }
+
+    toggleHidden(dom.titles, !showTitle && (!showSubtitle || !subtitle));
+    toggleHidden(dom.header, (!showTitle && (!showSubtitle || !subtitle)) && !showPercent);
+    toggleHidden(dom.meter, !showMeter);
+    toggleHidden(dom.content, ((!showTitle && (!showSubtitle || !subtitle)) && !showPercent) && !showMeter);
   }
 
   function cacheDom() {
     dom.root = $('volumeHud');
     dom.iconShell = $('volumeHudIconShell');
     dom.icon = $('volumeHudIcon');
+    dom.content = $('volumeHudContent');
+    dom.header = $('volumeHudHeader');
+    dom.titles = $('volumeHudTitles');
     dom.title = $('volumeHudTitle');
     dom.subtitle = $('volumeHudSubtitle');
     dom.value = $('volumeHudValue');
+    dom.meter = $('volumeHudMeter');
     dom.fill = $('volumeHudMeterFill');
     dom.thumb = $('volumeHudMeterThumb');
   }

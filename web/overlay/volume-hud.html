@@ -8,14 +8,14 @@
   <link rel="stylesheet" href="volume-hud.css">
 </head>
 <body>
-  <div class="volume-hud" id="volumeHud">
+  <div class="volume-hud volume-hud--horizontal" id="volumeHud">
     <div class="volume-hud__icon-shell hidden" id="volumeHudIconShell" aria-hidden="true">
       <img class="volume-hud__icon" id="volumeHudIcon" alt="">
     </div>
 
-    <div class="volume-hud__content">
-      <div class="volume-hud__header">
-        <div class="volume-hud__titles">
+    <div class="volume-hud__content" id="volumeHudContent">
+      <div class="volume-hud__header" id="volumeHudHeader">
+        <div class="volume-hud__titles" id="volumeHudTitles">
           <div class="volume-hud__title" id="volumeHudTitle">System volume</div>
           <div class="volume-hud__subtitle hidden" id="volumeHudSubtitle"></div>
         </div>
@@ -23,7 +23,7 @@
         <div class="volume-hud__value" id="volumeHudValue">0%</div>
       </div>
 
-      <div class="volume-hud__meter">
+      <div class="volume-hud__meter" id="volumeHudMeter">
         <div class="volume-hud__meter-fill" id="volumeHudMeterFill"></div>
         <div class="volume-hud__meter-thumb" id="volumeHudMeterThumb"></div>
       </div>

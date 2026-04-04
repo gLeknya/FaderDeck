@@ -10,8 +10,30 @@
     volumeCurveEnabled: 'faderdeck_volume_curve_enabled',
     volumeCurveType: 'faderdeck_volume_curve_type',
     volumeCurveAmount: 'faderdeck_volume_curve_amount',
-    profileToolbarSwitcherEnabled: 'faderdeck_profile_toolbar_switcher_enabled'
+    profileToolbarSwitcherEnabled: 'faderdeck_profile_toolbar_switcher_enabled',
+    volumeHudEnabled: 'faderdeck_volume_hud_enabled',
+    volumeHudPosition: 'faderdeck_volume_hud_position',
+    volumeHudOrientation: 'faderdeck_volume_hud_orientation',
+    volumeHudShowIcon: 'faderdeck_volume_hud_show_icon',
+    volumeHudShowTitle: 'faderdeck_volume_hud_show_title',
+    volumeHudShowSubtitle: 'faderdeck_volume_hud_show_subtitle',
+    volumeHudShowPercent: 'faderdeck_volume_hud_show_percent',
+    volumeHudShowMeter: 'faderdeck_volume_hud_show_meter'
   });
+
+  const HUD_POSITIONS = Object.freeze([
+    'bottom-center',
+    'bottom-left',
+    'bottom-right',
+    'top-center',
+    'top-left',
+    'top-right'
+  ]);
+
+  const HUD_ORIENTATIONS = Object.freeze([
+    'horizontal',
+    'vertical'
+  ]);
 
   const DEFAULT_UI_SETTINGS = Object.freeze({
     advancedMode: false,
@@ -24,7 +46,15 @@
     volumeCurveEnabled: false,
     volumeCurveType: 'ease-in-out',
     volumeCurveAmount: 0,
-    profileToolbarSwitcherEnabled: true
+    profileToolbarSwitcherEnabled: true,
+    volumeHudEnabled: true,
+    volumeHudPosition: 'bottom-center',
+    volumeHudOrientation: 'horizontal',
+    volumeHudShowIcon: true,
+    volumeHudShowTitle: true,
+    volumeHudShowSubtitle: true,
+    volumeHudShowPercent: true,
+    volumeHudShowMeter: true
   });
 
   const DEFAULT_UI_MENU = Object.freeze({
@@ -71,6 +101,12 @@
     const nextType = ['ease-in', 'ease-out', 'ease-in-out'].includes(settings.volumeCurveType)
       ? settings.volumeCurveType
       : DEFAULT_UI_SETTINGS.volumeCurveType;
+    const nextHudPosition = HUD_POSITIONS.includes(settings.volumeHudPosition)
+      ? settings.volumeHudPosition
+      : DEFAULT_UI_SETTINGS.volumeHudPosition;
+    const nextHudOrientation = HUD_ORIENTATIONS.includes(settings.volumeHudOrientation)
+      ? settings.volumeHudOrientation
+      : DEFAULT_UI_SETTINGS.volumeHudOrientation;
 
     return {
       ...DEFAULT_UI_SETTINGS,
@@ -79,6 +115,26 @@
       softTakeoverThreshold: Math.max(
         0,
         Math.min(15, Number.parseInt(settings.softTakeoverThreshold, 10) || 0)
+      ),
+      volumeHudEnabled: Boolean(
+        settings.volumeHudEnabled ?? DEFAULT_UI_SETTINGS.volumeHudEnabled
+      ),
+      volumeHudPosition: nextHudPosition,
+      volumeHudOrientation: nextHudOrientation,
+      volumeHudShowIcon: Boolean(
+        settings.volumeHudShowIcon ?? DEFAULT_UI_SETTINGS.volumeHudShowIcon
+      ),
+      volumeHudShowTitle: Boolean(
+        settings.volumeHudShowTitle ?? DEFAULT_UI_SETTINGS.volumeHudShowTitle
+      ),
+      volumeHudShowSubtitle: Boolean(
+        settings.volumeHudShowSubtitle ?? DEFAULT_UI_SETTINGS.volumeHudShowSubtitle
+      ),
+      volumeHudShowPercent: Boolean(
+        settings.volumeHudShowPercent ?? DEFAULT_UI_SETTINGS.volumeHudShowPercent
+      ),
+      volumeHudShowMeter: Boolean(
+        settings.volumeHudShowMeter ?? DEFAULT_UI_SETTINGS.volumeHudShowMeter
       ),
       volumeCurveType: nextType,
       volumeCurveAmount: Math.max(
@@ -212,6 +268,38 @@
       );
     }
 
+    if ('volumeHudEnabled' in (patch || {})) {
+      saveUiBooleanSetting(UI_STORAGE_KEYS.volumeHudEnabled, nextSettings.volumeHudEnabled);
+    }
+
+    if ('volumeHudPosition' in (patch || {})) {
+      saveUiStringSetting(UI_STORAGE_KEYS.volumeHudPosition, nextSettings.volumeHudPosition);
+    }
+
+    if ('volumeHudOrientation' in (patch || {})) {
+      saveUiStringSetting(UI_STORAGE_KEYS.volumeHudOrientation, nextSettings.volumeHudOrientation);
+    }
+
+    if ('volumeHudShowIcon' in (patch || {})) {
+      saveUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowIcon, nextSettings.volumeHudShowIcon);
+    }
+
+    if ('volumeHudShowTitle' in (patch || {})) {
+      saveUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowTitle, nextSettings.volumeHudShowTitle);
+    }
+
+    if ('volumeHudShowSubtitle' in (patch || {})) {
+      saveUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowSubtitle, nextSettings.volumeHudShowSubtitle);
+    }
+
+    if ('volumeHudShowPercent' in (patch || {})) {
+      saveUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowPercent, nextSettings.volumeHudShowPercent);
+    }
+
+    if ('volumeHudShowMeter' in (patch || {})) {
+      saveUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowMeter, nextSettings.volumeHudShowMeter);
+    }
+
     return setUiSettingsState(nextSettings, meta);
   }
 
@@ -285,7 +373,15 @@
       profileToolbarSwitcherEnabled: readUiBooleanSetting(
         UI_STORAGE_KEYS.profileToolbarSwitcherEnabled,
         true
-      )
+      ),
+      volumeHudEnabled: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudEnabled, true),
+      volumeHudPosition: localStorage.getItem(UI_STORAGE_KEYS.volumeHudPosition) || 'bottom-center',
+      volumeHudOrientation: localStorage.getItem(UI_STORAGE_KEYS.volumeHudOrientation) || 'horizontal',
+      volumeHudShowIcon: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowIcon, true),
+      volumeHudShowTitle: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowTitle, true),
+      volumeHudShowSubtitle: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowSubtitle, true),
+      volumeHudShowPercent: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowPercent, true),
+      volumeHudShowMeter: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowMeter, true)
     }, {
       type: 'ui/init-settings',
       source: 'ui-store'
@@ -342,6 +438,38 @@
 
   function getProfileToolbarSwitcherEnabledState() {
     return getUiSettingsState().profileToolbarSwitcherEnabled;
+  }
+
+  function getVolumeHudEnabledState() {
+    return getUiSettingsState().volumeHudEnabled;
+  }
+
+  function getVolumeHudPositionState() {
+    return getUiSettingsState().volumeHudPosition;
+  }
+
+  function getVolumeHudOrientationState() {
+    return getUiSettingsState().volumeHudOrientation;
+  }
+
+  function getVolumeHudShowIconState() {
+    return getUiSettingsState().volumeHudShowIcon;
+  }
+
+  function getVolumeHudShowTitleState() {
+    return getUiSettingsState().volumeHudShowTitle;
+  }
+
+  function getVolumeHudShowSubtitleState() {
+    return getUiSettingsState().volumeHudShowSubtitle;
+  }
+
+  function getVolumeHudShowPercentState() {
+    return getUiSettingsState().volumeHudShowPercent;
+  }
+
+  function getVolumeHudShowMeterState() {
+    return getUiSettingsState().volumeHudShowMeter;
   }
 
   function getIsMenuOpenState() {
@@ -429,6 +557,62 @@
     });
   }
 
+  function setVolumeHudEnabledState(value, meta = {}) {
+    return patchUiSettingsState({ volumeHudEnabled: Boolean(value) }, {
+      type: 'ui/settings/volume-hud-enabled',
+      ...meta
+    });
+  }
+
+  function setVolumeHudPositionState(value, meta = {}) {
+    return patchUiSettingsState({ volumeHudPosition: value }, {
+      type: 'ui/settings/volume-hud-position',
+      ...meta
+    });
+  }
+
+  function setVolumeHudOrientationState(value, meta = {}) {
+    return patchUiSettingsState({ volumeHudOrientation: value }, {
+      type: 'ui/settings/volume-hud-orientation',
+      ...meta
+    });
+  }
+
+  function setVolumeHudShowIconState(value, meta = {}) {
+    return patchUiSettingsState({ volumeHudShowIcon: Boolean(value) }, {
+      type: 'ui/settings/volume-hud-show-icon',
+      ...meta
+    });
+  }
+
+  function setVolumeHudShowTitleState(value, meta = {}) {
+    return patchUiSettingsState({ volumeHudShowTitle: Boolean(value) }, {
+      type: 'ui/settings/volume-hud-show-title',
+      ...meta
+    });
+  }
+
+  function setVolumeHudShowSubtitleState(value, meta = {}) {
+    return patchUiSettingsState({ volumeHudShowSubtitle: Boolean(value) }, {
+      type: 'ui/settings/volume-hud-show-subtitle',
+      ...meta
+    });
+  }
+
+  function setVolumeHudShowPercentState(value, meta = {}) {
+    return patchUiSettingsState({ volumeHudShowPercent: Boolean(value) }, {
+      type: 'ui/settings/volume-hud-show-percent',
+      ...meta
+    });
+  }
+
+  function setVolumeHudShowMeterState(value, meta = {}) {
+    return patchUiSettingsState({ volumeHudShowMeter: Boolean(value) }, {
+      type: 'ui/settings/volume-hud-show-meter',
+      ...meta
+    });
+  }
+
   function setMenuOpenState(value, meta = {}) {
     return patchUiMenuState({ open: Boolean(value) }, {
       type: 'ui/menu/open',
@@ -459,6 +643,14 @@
   window.getVolumeCurveTypeState = getVolumeCurveTypeState;
   window.getVolumeCurveAmountState = getVolumeCurveAmountState;
   window.getProfileToolbarSwitcherEnabledState = getProfileToolbarSwitcherEnabledState;
+  window.getVolumeHudEnabledState = getVolumeHudEnabledState;
+  window.getVolumeHudPositionState = getVolumeHudPositionState;
+  window.getVolumeHudOrientationState = getVolumeHudOrientationState;
+  window.getVolumeHudShowIconState = getVolumeHudShowIconState;
+  window.getVolumeHudShowTitleState = getVolumeHudShowTitleState;
+  window.getVolumeHudShowSubtitleState = getVolumeHudShowSubtitleState;
+  window.getVolumeHudShowPercentState = getVolumeHudShowPercentState;
+  window.getVolumeHudShowMeterState = getVolumeHudShowMeterState;
   window.getIsMenuOpenState = getIsMenuOpenState;
   window.getActiveMenuTabState = getActiveMenuTabState;
   window.setAdvancedModeState = setAdvancedModeState;
@@ -472,6 +664,14 @@
   window.setVolumeCurveTypeState = setVolumeCurveTypeState;
   window.setVolumeCurveAmountState = setVolumeCurveAmountState;
   window.setProfileToolbarSwitcherEnabledState = setProfileToolbarSwitcherEnabledState;
+  window.setVolumeHudEnabledState = setVolumeHudEnabledState;
+  window.setVolumeHudPositionState = setVolumeHudPositionState;
+  window.setVolumeHudOrientationState = setVolumeHudOrientationState;
+  window.setVolumeHudShowIconState = setVolumeHudShowIconState;
+  window.setVolumeHudShowTitleState = setVolumeHudShowTitleState;
+  window.setVolumeHudShowSubtitleState = setVolumeHudShowSubtitleState;
+  window.setVolumeHudShowPercentState = setVolumeHudShowPercentState;
+  window.setVolumeHudShowMeterState = setVolumeHudShowMeterState;
   window.setMenuOpenState = setMenuOpenState;
   window.setActiveMenuTabState = setActiveMenuTabState;
 })(window);
