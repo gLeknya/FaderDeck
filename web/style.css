@@ -17,6 +17,27 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 html,
@@ -659,6 +680,7 @@ select {
   min-height: 0;
   overflow: hidden;
   display: flex;
+  align-self: stretch;
 }
 
 .menu-panel-view:not(.is-active) .volume-curve-layout {
@@ -673,12 +695,6 @@ select {
   min-height: 0;
   display: flex;
   overflow: hidden;
-}
-
-.settings-scroll-shell::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
 }
 
 .menu-panel-view.is-active {
@@ -784,138 +800,12 @@ select {
   overflow: hidden;
 }
 
-.app-scrollbar {
-  opacity: 0;
-  pointer-events: none;
-  z-index: 6;
-}
-
-.app-scrollbar.hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.app-scrollbar.is-active {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.app-scrollbar--vertical {
-  width: 18px;
-  min-height: 0;
-  padding: 2px 0 4px;
-  transform: translateX(4px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
-}
-
-.app-scrollbar--vertical.is-active {
-  transform: translateX(0);
-}
-
-.app-scrollbar--vertical.hidden {
-  transform: translateX(4px);
-}
-
-.app-scrollbar--horizontal {
-  height: 18px;
-  padding: 1px 20px 5px;
-  transform: translateY(-6px);
-  transition: height 0.18s ease, padding 0.18s ease, opacity 0.18s ease, transform 0.18s ease;
-}
-
-.app-scrollbar--horizontal.is-active {
-  transform: translateY(0);
-}
-
-.app-scrollbar--horizontal.hidden {
-  height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  transform: translateY(-6px);
-}
-
-.app-scrollbar-track {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.app-scrollbar--vertical .app-scrollbar-track {
-  min-height: 100%;
-}
-
-.app-scrollbar--horizontal .app-scrollbar-track {
-  min-width: 100%;
-}
-
-.app-scrollbar--vertical .app-scrollbar-track::before,
-.app-scrollbar--horizontal .app-scrollbar-track::before {
-  content: "";
-  position: absolute;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.app-scrollbar--vertical .app-scrollbar-track::before {
-  left: 50%;
-  top: 0;
-  bottom: 0;
-  width: 4px;
-  transform: translateX(-50%);
-}
-
-.app-scrollbar--horizontal .app-scrollbar-track::before {
-  left: 0;
-  right: 0;
-  top: 50%;
-  height: 4px;
-  transform: translateY(-50%);
-}
-
-.app-scrollbar-thumb {
-  position: absolute;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 0 12px rgba(255, 255, 255, 0.14);
-  transition: background 0.18s ease, box-shadow 0.18s ease, opacity 0.18s ease;
-}
-
-.app-scrollbar--vertical .app-scrollbar-thumb {
-  left: 50%;
-  top: 0;
-  width: 4px;
-  min-height: 34px;
-  transform: translate(-50%, 0);
-}
-
-.app-scrollbar--horizontal .app-scrollbar-thumb {
-  left: 0;
-  top: 50%;
-  height: 4px;
-  min-width: 34px;
-  transform: translate(0, -50%);
-}
-
-.app-scrollbar-thumb.is-dragging,
-.app-scrollbar:hover .app-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.42);
-  box-shadow: 0 0 14px rgba(255, 255, 255, 0.18);
-}
-
-.content-scrollbar {
-  flex: 0 0 auto;
-}
-
 .main-content-viewport {
   flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  scrollbar-width: none;
-}
-
-.main-content-viewport::-webkit-scrollbar {
-  display: none;
+  scrollbar-gutter: stable;
 }
 
 .main-content-canvas {
@@ -1568,17 +1458,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .entity-edit-main-panel {
   height: 100%;
-  padding: 22px 42px 24px 24px;
+  padding: 22px 24px 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   border-radius: inherit;
-  scrollbar-width: none;
-}
-
-.entity-edit-main-panel::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
 }
 
 .entity-edit-main-layout {
@@ -2020,14 +1904,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   overscroll-behavior: contain;
   min-height: 0;
   flex: 1 1 auto;
-  padding-right: 14px;
-  scrollbar-width: none;
-}
-
-.entity-edit-side-options::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+  scrollbar-gutter: stable;
 }
 
 .entity-edit-side-options-shell {
@@ -2103,20 +1980,6 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .entity-edit-floating-preview.is-animating {
   opacity: 1;
-}
-
-.entity-edit-scrollbar {
-  position: absolute;
-  top: 16px;
-  bottom: 16px;
-}
-
-.entity-edit-scrollbar-main {
-  right: 8px;
-}
-
-.entity-edit-scrollbar-side {
-  right: -2px;
 }
 
 @keyframes entity-edit-target-chip-under {
@@ -2220,38 +2083,20 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .settings-content {
+  flex: 1 1 auto;
+  min-height: 0;
   width: 100%;
   min-width: 0;
-  flex: 1 1 auto;
-  display: block;
-  max-width: none;
-  height: 100%;
-  max-height: 100%;
-  min-height: 0;
-  overflow-x: hidden;
   overflow-y: auto;
+  overflow-x: hidden;
   overscroll-behavior: contain;
-  scrollbar-width: none;
-  padding-right: 14px;
+  scrollbar-gutter: stable;
   position: relative;
   z-index: 2;
 }
 
-.settings-content::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
 .settings-content > .settings-section + .settings-section {
   margin-top: 14px;
-}
-
-.settings-scrollbar {
-  position: absolute;
-  top: 2px;
-  right: -2px;
-  bottom: 2px;
 }
 
 .settings-section {
@@ -2810,21 +2655,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   max-height: min(520px, calc(100vh - 220px));
   min-height: 0;
   overflow-y: auto;
-  scrollbar-width: none;
-  padding-right: 14px;
-}
-
-.profile-list::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
-.profile-list-scrollbar {
-  position: absolute;
-  top: 2px;
-  right: -2px;
-  bottom: 2px;
+  scrollbar-gutter: stable;
 }
 
 .profiles-empty-state {

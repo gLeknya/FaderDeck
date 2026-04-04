@@ -3,15 +3,8 @@
   const ENTITY_EDITOR_CLOSE_MS = 240;
   const ENTITY_EDITOR_SIDE_PANEL_CLOSE_MS = 220;
   const ENTITY_EDITOR_PREVIEW_MOVE_MS = 250;
-  const ENTITY_EDITOR_SCROLLBAR_HIDE_MS = 1500;
 
   const dom = {};
-  const scrollControllers = {
-    main: null,
-    side: null
-  };
-  let editorScrollSyncFrame = null;
-  let editorScrollSyncTimeoutId = null;
   const editorState = {
     initialized: false,
     entityType: null,
@@ -49,14 +42,8 @@
     dom.previewMount = $('entityEditPreviewMount');
     dom.mainShell = $('entityEditMainShell');
     dom.main = $('entityEditMain');
-    dom.mainScrollBar = $('entityEditMainScrollBar');
-    dom.mainScrollTrack = $('entityEditMainScrollTrack');
-    dom.mainScrollThumb = $('entityEditMainScrollThumb');
     dom.sidePanel = $('entityEditSidePanel');
     dom.sideOptions = null;
-    dom.sideScrollBar = null;
-    dom.sideScrollTrack = null;
-    dom.sideScrollThumb = null;
   }
 
   function escapeHtml(value) {
@@ -219,21 +206,6 @@
     editorState.previewDragFrameId = null;
   }
 
-  function clearEditorScrollSyncFrame() {
-    if (editorScrollSyncFrame) {
-      cancelAnimationFrame(editorScrollSyncFrame);
-      editorScrollSyncFrame = null;
-    }
-
-    if (editorScrollSyncTimeoutId) {
-      clearTimeout(editorScrollSyncTimeoutId);
-      editorScrollSyncTimeoutId = null;
-    }
-
-    scrollControllers.main?.cancelSync?.();
-    scrollControllers.side?.cancelSync?.();
-  }
-
   function clearSidePanelCloseTimer() {
     if (!editorState.sidePanelCloseTimerId) {
       return;
@@ -257,70 +229,6 @@
     }
 
     return Promise.resolve();
-  }
-
-  function clearEditorScrollbarHideTimer(area) {
-    scrollControllers[area]?.clearActivity?.();
-  }
-
-  function showEditorScrollbarForActivity(area) {
-    scrollControllers[area]?.showForActivity?.();
-  }
-
-  function scheduleEditorScrollSync() {
-    scrollControllers.main?.scheduleSync?.();
-    scrollControllers.side?.scheduleSync?.();
-
-    if (editorScrollSyncFrame) {
-      cancelAnimationFrame(editorScrollSyncFrame);
-    }
-
-    if (editorScrollSyncTimeoutId) {
-      clearTimeout(editorScrollSyncTimeoutId);
-    }
-
-    editorScrollSyncFrame = requestAnimationFrame(() => {
-      editorScrollSyncFrame = null;
-      scrollControllers.main?.scheduleSync?.();
-      scrollControllers.side?.scheduleSync?.();
-      requestAnimationFrame(() => {
-        scrollControllers.main?.scheduleSync?.();
-        scrollControllers.side?.scheduleSync?.();
-      });
-    });
-
-    editorScrollSyncTimeoutId = window.setTimeout(() => {
-      editorScrollSyncTimeoutId = null;
-      scrollControllers.main?.scheduleSync?.();
-      scrollControllers.side?.scheduleSync?.();
-    }, ENTITY_EDITOR_SIDE_PANEL_CLOSE_MS + 40);
-  }
-
-  function setupEditorScrollbars() {
-    if (scrollControllers.main || typeof createAppScrollbar !== 'function') {
-      return;
-    }
-
-    scrollControllers.main = createAppScrollbar({
-      orientation: 'vertical',
-      alwaysVisible: true,
-      hideDelay: ENTITY_EDITOR_SCROLLBAR_HIDE_MS,
-      getScroller: () => dom.main,
-      getScrollbar: () => dom.mainScrollBar,
-      getTrack: () => dom.mainScrollTrack,
-      getThumb: () => dom.mainScrollThumb
-    });
-
-    scrollControllers.side = createAppScrollbar({
-      orientation: 'vertical',
-      alwaysVisible: true,
-      hideDelay: ENTITY_EDITOR_SCROLLBAR_HIDE_MS,
-      getScroller: () => dom.sideOptions,
-      getScrollbar: () => dom.sideScrollBar,
-      getTrack: () => dom.sideScrollTrack,
-      getThumb: () => dom.sideScrollThumb,
-      getEnabled: () => Boolean(editorState.sidePanelOpen || editorState.sidePanelClosing)
-    });
   }
 
   function sanitizeAnimationClone(root) {
@@ -597,7 +505,6 @@
   function cleanupPreviewState({ restoreSource = true } = {}) {
     clearPreviewTimer();
     clearPreviewDragFrame();
-    clearEditorScrollSyncFrame();
     cleanupFloatingPreviews();
 
     if (restoreSource) {
@@ -1031,20 +938,11 @@
           <div class="entity-edit-side-options" id="entityEditSideOptions">
             ${renderSidePanelOptions(channel)}
           </div>
-
-          <div class="app-scrollbar app-scrollbar--vertical entity-edit-scrollbar entity-edit-scrollbar-side hidden" id="entityEditSideScrollBar" aria-hidden="true">
-            <div class="app-scrollbar-track" id="entityEditSideScrollTrack">
-              <div class="app-scrollbar-thumb" id="entityEditSideScrollThumb"></div>
-            </div>
-          </div>
         </div>
       </div>
     `;
 
     dom.sideOptions = $('entityEditSideOptions');
-    dom.sideScrollBar = $('entityEditSideScrollBar');
-    dom.sideScrollTrack = $('entityEditSideScrollTrack');
-    dom.sideScrollThumb = $('entityEditSideScrollThumb');
   }
 
   function syncEditorTargetsBody(channel = getEditorChannel()) {
@@ -1080,8 +978,6 @@
     if (preserveScroll) {
       dom.sideOptions.scrollTop = previousScrollTop;
     }
-
-    scheduleEditorScrollSync();
   }
 
   function syncTargetSelectionUi(channel = getEditorChannel()) {
@@ -1092,9 +988,6 @@
     syncEditorTargetsBody(channel);
     syncSidePanelSelectionState(channel);
     syncPreviewFromChannel(channel);
-    showEditorScrollbarForActivity('main');
-    showEditorScrollbarForActivity('side');
-    scheduleEditorScrollSync();
   }
 
   function animateEditorTargetChip(processName = '') {
@@ -1148,14 +1041,6 @@
       syncPreviewFromChannel(channel);
       dom.previewFrame?.classList.add('is-ready');
       setSourcePreviewState(editorState.sourceHidden);
-      scheduleEditorScrollSync();
-      requestAnimationFrame(() => {
-        showEditorScrollbarForActivity('main');
-
-        if (editorState.sidePanelOpen || editorState.sidePanelClosing) {
-          showEditorScrollbarForActivity('side');
-        }
-      });
       return;
     }
 
@@ -1164,10 +1049,6 @@
     renderPreviewContent();
     dom.previewFrame?.classList.add('is-ready');
     setSourcePreviewState(editorState.sourceHidden);
-    scheduleEditorScrollSync();
-    requestAnimationFrame(() => {
-      showEditorScrollbarForActivity('main');
-    });
   }
 
   function commitEditorTitle() {
@@ -1209,11 +1090,6 @@
     editorState.sidePanelClosing = false;
     editorState.sidePanelOpen = true;
     renderEntityEditor();
-    scheduleEditorScrollSync();
-    requestAnimationFrame(() => {
-      showEditorScrollbarForActivity('side');
-      scheduleEditorScrollSync();
-    });
     requestTargetsPanelApplicationsRefresh({ force: true });
   }
 
@@ -1226,7 +1102,6 @@
 
     editorState.sidePanelClosing = true;
     renderEntityEditor();
-    scheduleEditorScrollSync();
 
     editorState.sidePanelCloseTimerId = window.setTimeout(() => {
       editorState.sidePanelCloseTimerId = null;
@@ -1281,8 +1156,6 @@
             behavior: 'smooth'
           });
         }
-        showEditorScrollbarForActivity('main');
-        scheduleEditorScrollSync();
       });
       return;
     }
@@ -1305,7 +1178,6 @@
       const currentSettings = getEditorCustomSettings(getEditorChannel());
       updateChannelCustomSetting(settingKey, !currentSettings[settingKey]);
       renderEntityEditor();
-      showEditorScrollbarForActivity('main');
       return;
     }
 
@@ -1314,7 +1186,6 @@
     if (curveButton) {
       updateChannelCustomSetting('volumeCurveType', curveButton.dataset.editorCurveType);
       renderEntityEditor();
-      showEditorScrollbarForActivity('main');
     }
   }
 
@@ -1417,8 +1288,6 @@
 
   function handleEditorOpen(payload = {}) {
     cleanupPreviewState({ restoreSource: true });
-    clearEditorScrollbarHideTimer('main');
-    clearEditorScrollbarHideTimer('side');
     clearSidePanelCloseTimer();
 
     editorState.entityType = payload.entityType || 'fader';
@@ -1461,8 +1330,6 @@
   function handleEditorClose() {
     stopPreviewDrag();
     cleanupPreviewState({ restoreSource: true });
-    clearEditorScrollbarHideTimer('main');
-    clearEditorScrollbarHideTimer('side');
     clearSidePanelCloseTimer();
 
     editorState.entityType = null;
@@ -1486,13 +1353,7 @@
       dom.sidePanel.classList.remove('is-open');
     }
 
-    dom.mainScrollBar?.classList.add('hidden');
-    dom.mainScrollBar?.classList.remove('is-active');
-
     dom.sideOptions = null;
-    dom.sideScrollBar = null;
-    dom.sideScrollTrack = null;
-    dom.sideScrollThumb = null;
 
     dom.shell?.classList.remove('entity-edit-side-open');
     dom.shell?.classList.remove('entity-edit-side-closing');
@@ -1668,7 +1529,6 @@
       }
     });
     dom.previewMount.addEventListener('pointerdown', startPreviewDrag);
-    setupEditorScrollbars();
 
     initEntityEditorStateSync();
     editorState.initialized = true;

@@ -1,9 +1,16 @@
-const { app, BrowserWindow, ipcMain, Menu, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, dialog, shell, screen } = require('electron');
 const path = require('path');
 
 const { FaderDeckAPI } = require('./backend/api');
 
 const WINDOW_CONTROL_CHANNEL = 'window-control';
+const SHOW_VOLUME_HUD_CHANNEL = 'api:show_volume_hud';
+const VOLUME_HUD_UPDATE_CHANNEL = 'volume-hud:update';
+const VOLUME_HUD_VISIBILITY_CHANNEL = 'volume-hud:visibility';
+const VOLUME_HUD_HIDE_DELAY_MS = 1350;
+const VOLUME_HUD_HIDE_ANIMATION_MS = 180;
+const VOLUME_HUD_WINDOW_WIDTH = 320;
+const VOLUME_HUD_WINDOW_HEIGHT = 132;
 const WINDOW_OPTIONS = {
   width: 1400,
   height: 760,
@@ -22,6 +29,10 @@ const WINDOW_OPTIONS = {
 };
 
 let mainWindow = null;
+let volumeHudWindow = null;
+let volumeHudReadyPromise = null;
+let volumeHudHideTimer = null;
+let volumeHudHideCommitTimer = null;
 let api = null;
 
 function ensureApi() {
@@ -41,6 +52,165 @@ function shutdownApi() {
   api = null;
 }
 
+function clearVolumeHudTimers() {
+  if (volumeHudHideTimer) {
+    clearTimeout(volumeHudHideTimer);
+    volumeHudHideTimer = null;
+  }
+
+  if (volumeHudHideCommitTimer) {
+    clearTimeout(volumeHudHideCommitTimer);
+    volumeHudHideCommitTimer = null;
+  }
+}
+
+function destroyVolumeHudWindow() {
+  clearVolumeHudTimers();
+
+  if (!volumeHudWindow || volumeHudWindow.isDestroyed()) {
+    volumeHudWindow = null;
+    volumeHudReadyPromise = null;
+    return;
+  }
+
+  volumeHudWindow.destroy();
+  volumeHudWindow = null;
+  volumeHudReadyPromise = null;
+}
+
+function normalizeVolumeHudPayload(payload = {}) {
+  return {
+    channelId: Number.parseInt(payload?.channelId, 10) || null,
+    title: String(payload?.title || '').trim().slice(0, 120),
+    subtitle: String(payload?.subtitle || '').trim().slice(0, 160),
+    valueText: String(payload?.valueText || '').trim().slice(0, 32),
+    iconDataUrl: typeof payload?.iconDataUrl === 'string' ? payload.iconDataUrl : '',
+    source: String(payload?.source || '').trim(),
+    volume: Math.max(0, Math.min(100, Number(payload?.volume) || 0))
+  };
+}
+
+function getVolumeHudBounds() {
+  const fallbackDisplay = screen.getPrimaryDisplay();
+  const referenceDisplay = (
+    mainWindow && !mainWindow.isDestroyed()
+      ? screen.getDisplayMatching(mainWindow.getBounds())
+      : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
+  ) || fallbackDisplay;
+  const workArea = referenceDisplay.workArea;
+
+  return {
+    width: VOLUME_HUD_WINDOW_WIDTH,
+    height: VOLUME_HUD_WINDOW_HEIGHT,
+    x: Math.round(workArea.x + ((workArea.width - VOLUME_HUD_WINDOW_WIDTH) / 2)),
+    y: Math.round(workArea.y + workArea.height - VOLUME_HUD_WINDOW_HEIGHT - 52)
+  };
+}
+
+function createVolumeHudWindow() {
+  if (volumeHudWindow && !volumeHudWindow.isDestroyed()) {
+    return volumeHudWindow;
+  }
+
+  volumeHudWindow = new BrowserWindow({
+    width: VOLUME_HUD_WINDOW_WIDTH,
+    height: VOLUME_HUD_WINDOW_HEIGHT,
+    show: false,
+    frame: false,
+    transparent: true,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    closable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    focusable: false,
+    hasShadow: false,
+    roundedCorners: false,
+    thickFrame: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, 'overlay-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false
+    }
+  });
+
+  volumeHudWindow.setAlwaysOnTop(true, 'screen-saver');
+  volumeHudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  volumeHudWindow.setIgnoreMouseEvents(true, { forward: true });
+  volumeHudWindow.setFocusable(false);
+  volumeHudWindow.removeMenu();
+  volumeHudWindow.loadFile(path.join(__dirname, 'web', 'overlay', 'volume-hud.html'));
+
+  volumeHudReadyPromise = new Promise((resolve) => {
+    volumeHudWindow.webContents.once('did-finish-load', () => {
+      resolve(volumeHudWindow);
+    });
+  });
+
+  volumeHudWindow.on('closed', () => {
+    clearVolumeHudTimers();
+    volumeHudWindow = null;
+    volumeHudReadyPromise = null;
+  });
+
+  return volumeHudWindow;
+}
+
+async function ensureVolumeHudWindow() {
+  const window = createVolumeHudWindow();
+  await volumeHudReadyPromise;
+  return window;
+}
+
+function scheduleVolumeHudHide() {
+  clearVolumeHudTimers();
+
+  volumeHudHideTimer = setTimeout(() => {
+    if (!volumeHudWindow || volumeHudWindow.isDestroyed()) {
+      return;
+    }
+
+    volumeHudWindow.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, { visible: false });
+
+    volumeHudHideCommitTimer = setTimeout(() => {
+      if (volumeHudWindow && !volumeHudWindow.isDestroyed()) {
+        volumeHudWindow.hide();
+      }
+    }, VOLUME_HUD_HIDE_ANIMATION_MS);
+  }, VOLUME_HUD_HIDE_DELAY_MS);
+}
+
+async function showVolumeHud(payload = {}) {
+  const normalizedPayload = normalizeVolumeHudPayload(payload);
+
+  if (!normalizedPayload.title && !normalizedPayload.valueText) {
+    return { success: false };
+  }
+
+  const window = await ensureVolumeHudWindow();
+
+  if (!window || window.isDestroyed()) {
+    return { success: false };
+  }
+
+  clearVolumeHudTimers();
+  window.setBounds(getVolumeHudBounds(), false);
+  window.webContents.send(VOLUME_HUD_UPDATE_CHANNEL, normalizedPayload);
+
+  if (!window.isVisible()) {
+    window.showInactive();
+  }
+
+  window.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, { visible: true });
+  scheduleVolumeHudHide();
+
+  return { success: true };
+}
+
 function createMainWindow() {
   ensureApi();
 
@@ -49,6 +219,7 @@ function createMainWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    destroyVolumeHudWindow();
     shutdownApi();
   });
 }
@@ -174,6 +345,10 @@ function registerIpcHandlers() {
   Object.entries(handlers).forEach(([channel, handler]) => {
     ipcMain.handle(channel, handler);
   });
+
+  ipcMain.on(SHOW_VOLUME_HUD_CHANNEL, (_event, payload) => {
+    void showVolumeHud(payload);
+  });
 }
 
 app.whenReady().then(() => {
@@ -189,6 +364,7 @@ app.on('activate', () => {
 });
 
 app.on('window-all-closed', () => {
+  destroyVolumeHudWindow();
   shutdownApi();
 
   if (process.platform !== 'darwin') {

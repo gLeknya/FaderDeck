@@ -1,9 +1,14 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 const WINDOW_CONTROL_CHANNEL = 'window-control';
+const SHOW_VOLUME_HUD_CHANNEL = 'api:show_volume_hud';
 
 function invoke(channel, ...args) {
   return ipcRenderer.invoke(channel, ...args);
+}
+
+function emit(channel, ...args) {
+  ipcRenderer.send(channel, ...args);
 }
 
 const api = Object.freeze({
@@ -24,6 +29,7 @@ const api = Object.freeze({
   open_profiles_folder: () => invoke('api:open_profiles_folder'),
   show_profile_in_folder: (profilePath) => invoke('api:show_profile_in_folder', profilePath),
   pick_profile_file: () => invoke('api:pick_profile_file'),
+  show_volume_hud: (payload) => emit(SHOW_VOLUME_HUD_CHANNEL, payload),
   toggle_devtools: () => invoke('api:toggle_devtools'),
   exit_app: () => invoke('api:exit_app'),
   windowControl: (action) => invoke(WINDOW_CONTROL_CHANNEL, action)

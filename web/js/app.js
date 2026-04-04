@@ -1,6 +1,5 @@
 let audioApps = [];
 let contextTarget = null;
-let menuScrollVisibilitySnapshot = null;
 let menuPanelMetricsTimeout = null;
 const audioAppIconCache = new Map();
 
@@ -20,7 +19,6 @@ const VOLUME_CURVE_DEMO_START_POSITION = 0;
 const VOLUME_CURVE_DEMO_PEAK_POSITION = 100;
 const VOLUME_CURVE_DEMO_END_POSITION = 0;
 const MENU_PANEL_SIZE_SETTLE_DELAY_MS = 260;
-const SETTINGS_SCROLLBAR_HIDE_DELAY_MS = 2000;
 const AUDIO_APPS_REFRESH_MIN_INTERVAL_MS = 1500;
 const SETTINGS_SECTION_HIDE_THRESHOLD = 2 / 3;
 const SETTINGS_SECTION_MIN_SCALE = 0.86;
@@ -33,17 +31,12 @@ const FALLBACK_AUDIO_APPS = [
   { name: 'VLC', process: 'vlc.exe' }
 ];
 
-let contentMetricsFrame = null;
 let volumeCurveDemoPosition = 0;
 let volumeCurveDemoTimer = null;
 let volumeCurveDemoFrame = null;
 let volumeCurveDemoDragging = false;
 let menuPanelMetricsFrame = null;
 let activeSettingsTooltipTarget = null;
-let settingsScrollController = null;
-let settingsScrollSyncFrame = null;
-let settingsScrollSyncTimeout = null;
-let contentScrollController = null;
 let uiStateSyncInitialized = false;
 let audioAppsRefreshInFlight = null;
 let audioAppsRefreshQueued = false;
@@ -219,16 +212,10 @@ function cacheDomElements() {
   dom.menuViews = Array.from(document.querySelectorAll('.menu-panel-view'));
   dom.languageSelect = $('languageSelect');
   dom.settingsContent = $('settingsContent');
-  dom.settingsScrollBar = $('settingsScrollBar');
-  dom.settingsScrollTrack = $('settingsScrollTrack');
-  dom.settingsScrollThumb = $('settingsScrollThumb');
   dom.settingsSections = Array.from(document.querySelectorAll('.settings-section'));
   dom.settingsTooltipLayer = $('settingsTooltipLayer');
   dom.settingsTooltipBubble = $('settingsTooltipBubble');
   dom.mainContentViewport = $('mainContentViewport');
-  dom.contentScrollBar = $('contentScrollBar');
-  dom.contentScrollTrack = $('contentScrollTrack');
-  dom.contentScrollThumb = $('contentScrollThumb');
 }
 
 function getUiSettings() {
@@ -513,15 +500,13 @@ function scheduleMenuPanelCardSizeSync() {
   menuPanelMetricsFrame = requestAnimationFrame(() => {
     menuPanelMetricsFrame = null;
     syncMenuPanelCardSize();
-    scheduleSettingsScrollSync();
-    window.scheduleProfilesScrollSync?.();
+    syncSettingsViewportUi();
   });
 
   menuPanelMetricsTimeout = window.setTimeout(() => {
     menuPanelMetricsTimeout = null;
     syncMenuPanelCardSize();
-    scheduleSettingsScrollSync();
-    window.scheduleProfilesScrollSync?.();
+    syncSettingsViewportUi();
   }, MENU_PANEL_SIZE_SETTLE_DELAY_MS);
 }
 
@@ -538,24 +523,7 @@ function syncMenuTabUi() {
 
   dom.menuPanelOverlay?.classList.toggle('hidden', !activeMenuTab);
   scheduleMenuPanelCardSizeSync();
-
-  requestAnimationFrame(() => {
-    scheduleSettingsScrollSync();
-    window.scheduleProfilesScrollSync?.();
-  });
-
-  if (activeMenuTab === 'settings') {
-    requestAnimationFrame(() => {
-      settingsScrollController?.scheduleSync?.();
-      requestAnimationFrame(() => {
-        settingsScrollController?.scheduleSync?.();
-        requestAnimationFrame(() => {
-          settingsScrollController?.scheduleSync?.();
-          settingsScrollController?.showForActivity?.();
-        });
-      });
-    });
-  }
+  requestAnimationFrame(syncSettingsViewportUi);
 }
 
 function setActiveMenuTab(tabName) {
@@ -569,7 +537,6 @@ function syncMenuShellUi() {
 }
 
 function openMainMenu() {
-  menuScrollVisibilitySnapshot = !dom.contentScrollBar?.classList.contains('hidden');
   setMenuOpenState?.(true, { source: 'ui' });
 }
 
@@ -584,18 +551,9 @@ function closeMainMenu() {
     view.classList.remove('is-active', 'is-visible');
     view.hidden = true;
   });
-  settingsScrollController?.clearActivity?.();
-
-  if (menuScrollVisibilitySnapshot === false) {
-    dom.contentScrollBar?.classList.add('hidden');
-  }
   requestAnimationFrame(() => {
-    if (menuScrollVisibilitySnapshot === false) {
-      dom.contentScrollBar?.classList.add('hidden');
-    }
-    menuScrollVisibilitySnapshot = null;
     scheduleContentMetricsUpdate();
-    window.scheduleProfilesScrollSync?.();
+    syncSettingsViewportUi();
   });
 }
 
@@ -990,76 +948,35 @@ function refreshCurveDrivenUi() {
   }
 }
 
-function getContentBaseOverflow() {
-  if (!dom.mainContentViewport) {
-    return 0;
-  }
+function syncSettingsViewportUi() {
+  const settingsScroller = dom.settingsContent;
+  const settingsTabActive = isMenuOpen() && getActiveMenuTab() === 'settings';
 
-  const railCompensation = isMenuOpen() ? (dom.menuRail?.offsetWidth || 0) : 0;
-  const baseVisibleWidth = dom.mainContentViewport.clientWidth + railCompensation;
-  return Math.max(0, dom.mainContentViewport.scrollWidth - baseVisibleWidth);
-}
-
-function syncContentScrollUi() {
-  return contentScrollController?.sync() || null;
-}
-
-function handleSettingsScrollbarSync(metrics) {
-  const settingsScroller = dom.settingsContent || dom.settingsScrollShell;
-
-  if (!settingsScroller) {
+  if (!settingsScroller || !settingsTabActive) {
+    dom.settingsScrollShell?.classList.remove('has-overflow', 'at-top', 'at-bottom');
+    dom.menuPanelCard?.classList.remove('settings-fade-active', 'settings-at-top', 'settings-at-bottom');
+    resetSettingsSectionEffects();
     return;
   }
 
+  const maxScroll = Math.max(0, settingsScroller.scrollHeight - settingsScroller.clientHeight);
+  const shouldShowFade = maxScroll > 1;
   const isAtTop = settingsScroller.scrollTop <= 1;
-  const isAtBottom = !metrics?.shouldShow || settingsScroller.scrollTop >= (metrics.maxScroll - 1);
+  const isAtBottom = !shouldShowFade || settingsScroller.scrollTop >= (maxScroll - 1);
 
-  dom.settingsScrollShell?.classList.toggle('has-overflow', Boolean(metrics?.shouldShow));
+  dom.settingsScrollShell?.classList.toggle('has-overflow', shouldShowFade);
   dom.settingsScrollShell?.classList.toggle('at-top', isAtTop);
   dom.settingsScrollShell?.classList.toggle('at-bottom', isAtBottom);
-  dom.menuPanelCard?.classList.toggle('settings-fade-active', Boolean(metrics?.shouldShow));
+  dom.menuPanelCard?.classList.toggle('settings-fade-active', shouldShowFade);
   dom.menuPanelCard?.classList.toggle('settings-at-top', isAtTop);
   dom.menuPanelCard?.classList.toggle('settings-at-bottom', isAtBottom);
 
-  if (!metrics?.shouldShow) {
+  if (!shouldShowFade) {
     resetSettingsSectionEffects();
     return;
   }
 
   syncSettingsSectionEffects();
-}
-
-function syncSettingsScrollUi() {
-  return settingsScrollController?.sync() || null;
-}
-
-function scheduleSettingsScrollSync() {
-  settingsScrollController?.scheduleSync?.();
-
-  if (settingsScrollSyncFrame) {
-    cancelAnimationFrame(settingsScrollSyncFrame);
-  }
-
-  if (settingsScrollSyncTimeout) {
-    clearTimeout(settingsScrollSyncTimeout);
-  }
-
-  settingsScrollSyncFrame = requestAnimationFrame(() => {
-    settingsScrollSyncFrame = null;
-    settingsScrollController?.scheduleSync?.();
-    requestAnimationFrame(() => {
-      settingsScrollController?.scheduleSync?.();
-    });
-  });
-
-  settingsScrollSyncTimeout = window.setTimeout(() => {
-    settingsScrollSyncTimeout = null;
-    settingsScrollController?.scheduleSync?.();
-  }, MENU_PANEL_SIZE_SETTLE_DELAY_MS + 40);
-}
-
-function showSettingsScrollbarForActivity() {
-  settingsScrollController?.showForActivity();
 }
 
 function resetSettingsSectionEffects() {
@@ -1181,85 +1098,8 @@ function positionSettingsTooltip(target) {
 }
 
 function scheduleContentMetricsUpdate() {
-  if (contentMetricsFrame) {
-    cancelAnimationFrame(contentMetricsFrame);
-  }
-
-  contentMetricsFrame = requestAnimationFrame(() => {
-    contentMetricsFrame = null;
-    syncContentScrollUi();
-  });
-}
-
-function setupContentScroller() {
-  if (!dom.mainContentViewport || typeof createAppScrollbar !== 'function') {
-    return;
-  }
-
-  contentScrollController?.destroy?.();
-  contentScrollController = createAppScrollbar({
-    orientation: 'horizontal',
-    hideDelay: 1800,
-    getScroller: () => dom.mainContentViewport,
-    getScrollbar: () => dom.contentScrollBar,
-    getTrack: () => dom.contentScrollTrack,
-    getThumb: () => dom.contentScrollThumb,
-    getEnabled: () => menuScrollVisibilitySnapshot !== false && getContentBaseOverflow() > 0
-  });
-
-  dom.mainContentViewport.addEventListener('wheel', (event) => {
-    const maxScrollLeft = Math.max(
-      0,
-      dom.mainContentViewport.scrollWidth - dom.mainContentViewport.clientWidth
-    );
-
-    if (maxScrollLeft <= 0) {
-      return;
-    }
-
-    const dominantDelta = Math.abs(event.deltaY) >= Math.abs(event.deltaX)
-      ? event.deltaY
-      : event.deltaX;
-
-    if (!dominantDelta) {
-      return;
-    }
-
-    const nextScrollLeft = Math.max(
-      0,
-      Math.min(maxScrollLeft, dom.mainContentViewport.scrollLeft + dominantDelta)
-    );
-
-    if (nextScrollLeft === dom.mainContentViewport.scrollLeft) {
-      return;
-    }
-
-    event.preventDefault();
-    dom.mainContentViewport.scrollLeft = nextScrollLeft;
-  }, { passive: false });
-}
-
-function setupSettingsScroller() {
-  if (!dom.settingsContent || typeof createAppScrollbar !== 'function') {
-    return;
-  }
-
-  settingsScrollController?.destroy?.();
-  settingsScrollController = createAppScrollbar({
-    orientation: 'vertical',
-    alwaysVisible: true,
-    hideDelay: SETTINGS_SCROLLBAR_HIDE_DELAY_MS,
-    getScroller: () => dom.settingsContent,
-    getScrollbar: () => dom.settingsScrollBar,
-    getTrack: () => dom.settingsScrollTrack,
-    getThumb: () => dom.settingsScrollThumb,
-    getEnabled: () => isMenuOpen() && getActiveMenuTab() === 'settings',
-    onSync: handleSettingsScrollbarSync,
-    onScroll: () => {
-      hideSettingsTooltip();
-    }
-  });
-  window.addEventListener('resize', hideSettingsTooltip);
+  // Native scrollbars are used everywhere now, so external callers can keep
+  // calling this safely without any JS-driven scrollbar sync work.
 }
 
 function setupSettingsTooltips() {
@@ -1356,6 +1196,10 @@ function setupSettings() {
   });
 
   dom.volumeCurveDemoTrack?.addEventListener('pointerdown', startVolumeCurveDemoDrag);
+  dom.settingsContent?.addEventListener('scroll', () => {
+    hideSettingsTooltip();
+    syncSettingsViewportUi();
+  }, { passive: true });
 }
 
 async function loadAudioApps(options = {}) {
@@ -1652,14 +1496,12 @@ function initUiStateSync() {
     if (nextMenu.open !== previousMenu.open) {
       syncMenuShellUi();
       scheduleContentMetricsUpdate();
-      scheduleSettingsScrollSync();
-      window.scheduleProfilesScrollSync?.();
+      syncSettingsViewportUi();
     }
 
     if (nextMenu.activeTab !== previousMenu.activeTab) {
       syncMenuTabUi();
-      scheduleSettingsScrollSync();
-      window.scheduleProfilesScrollSync?.();
+      syncSettingsViewportUi();
     }
   });
 
@@ -1692,7 +1534,7 @@ function handleLanguageChanged() {
 
   scheduleContentMetricsUpdate();
   scheduleMenuPanelCardSizeSync();
-  window.scheduleProfilesScrollSync?.();
+  syncSettingsViewportUi();
 }
 
 function bindGlobalUi() {
@@ -1751,11 +1593,9 @@ function init() {
   initEntityEditor?.();
   bindGlobalUi();
   setupSettings();
-  setupSettingsScroller();
   setupSettingsTooltips();
   setupWindowControls();
   setupMenuTabs();
-  setupContentScroller();
   syncMenuShellUi();
   syncAdvancedModeUi();
   syncDeveloperModeUi();
@@ -1767,13 +1607,12 @@ function init() {
   syncLanguageUi();
   syncMenuTabUi();
   scheduleMenuPanelCardSizeSync();
-  scheduleSettingsScrollSync();
+  syncSettingsViewportUi();
   loadProfileFromLocal();
   initProfilesUi?.();
   requestAudioAppsRefresh('init', { force: true });
   initWebMIDI();
   scheduleContentMetricsUpdate();
-  window.scheduleProfilesScrollSync?.();
 }
 
 window.requestAudioAppsRefresh = requestAudioAppsRefresh;

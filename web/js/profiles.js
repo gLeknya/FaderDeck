@@ -2,9 +2,6 @@ let profileEditingState = null;
 let draggedProfileName = null;
 let profileUiInitialized = false;
 let profileRuntimeSyncInitialized = false;
-let profileScrollController = null;
-let profileScrollSyncFrame = null;
-let profileScrollSyncTimeout = null;
 
 function getProfileService() {
   return window.profileService || null;
@@ -21,18 +18,6 @@ function escapeHtml(value = '') {
 
 function getProfileListElement() {
   return document.getElementById('profileList');
-}
-
-function getProfileListScrollBar() {
-  return document.getElementById('profileListScrollBar');
-}
-
-function getProfileListScrollTrack() {
-  return document.getElementById('profileListScrollTrack');
-}
-
-function getProfileListScrollThumb() {
-  return document.getElementById('profileListScrollThumb');
 }
 
 function getToolbarProfileSelect() {
@@ -219,7 +204,6 @@ function renderProfilesPanel() {
         <div class="profiles-empty-text">${t('profiles.emptyText')}</div>
       </div>
     `;
-    scheduleProfilesScrollSync();
     return;
   }
 
@@ -230,54 +214,6 @@ function renderProfilesPanel() {
     .join('');
 
   focusProfileInputIfNeeded();
-  scheduleProfilesScrollSync();
-}
-
-function scheduleProfilesScrollSync() {
-  profileScrollController?.scheduleSync?.();
-
-  if (profileScrollSyncFrame) {
-    cancelAnimationFrame(profileScrollSyncFrame);
-  }
-
-  if (profileScrollSyncTimeout) {
-    clearTimeout(profileScrollSyncTimeout);
-  }
-
-  profileScrollSyncFrame = requestAnimationFrame(() => {
-    profileScrollSyncFrame = null;
-    profileScrollController?.scheduleSync?.();
-    requestAnimationFrame(() => {
-      profileScrollController?.scheduleSync?.();
-    });
-  });
-
-  profileScrollSyncTimeout = window.setTimeout(() => {
-    profileScrollSyncTimeout = null;
-    profileScrollController?.scheduleSync?.();
-  }, 320);
-}
-
-function setupProfilesScrollbar() {
-  if (profileScrollController || typeof createAppScrollbar !== 'function') {
-    return;
-  }
-
-  profileScrollController = createAppScrollbar({
-    orientation: 'vertical',
-    alwaysVisible: true,
-    hideDelay: 1800,
-    getScroller: getProfileListElement,
-    getScrollbar: getProfileListScrollBar,
-    getTrack: getProfileListScrollTrack,
-    getThumb: getProfileListScrollThumb,
-    getEnabled: () => (
-      typeof isMenuOpen === 'function'
-      && typeof getActiveMenuTab === 'function'
-      && isMenuOpen()
-      && getActiveMenuTab() === 'profiles'
-    )
-  });
 }
 
 function focusProfileInputIfNeeded() {
@@ -616,8 +552,6 @@ function bindProfilesUi() {
     return;
   }
 
-  setupProfilesScrollbar();
-
   getToolbarProfileSelect()?.addEventListener('change', (event) => {
     if (!event.target.value) {
       return;
@@ -708,5 +642,3 @@ function createDeleteIconMarkup() {
     </svg>
   `;
 }
-
-window.scheduleProfilesScrollSync = scheduleProfilesScrollSync;

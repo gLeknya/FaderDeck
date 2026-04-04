@@ -152,6 +152,97 @@ function getChannelTargetProcesses(channel) {
   return fallbackProcess ? [fallbackProcess] : [];
 }
 
+function getHudAvailableAudioApps() {
+  if (typeof getAvailableAudioApps === 'function') {
+    return getAvailableAudioApps();
+  }
+
+  return Array.isArray(audioApps) ? audioApps : [];
+}
+
+function getResolvedChannelHudTargets(channel) {
+  const availableApps = getHudAvailableAudioApps();
+  const explicitTargets = Array.isArray(channel?.targets)
+    ? channel.targets
+        .map((target) => {
+          const process = String(target?.process || '').trim();
+          const matchedApp = availableApps.find((application) => application.process === process);
+
+          if (!process) {
+            return null;
+          }
+
+          return {
+            process,
+            name: String(target?.name || matchedApp?.name || process).trim() || process,
+            iconDataUrl: String(matchedApp?.iconDataUrl || '').trim()
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  if (explicitTargets.length > 0) {
+    return explicitTargets;
+  }
+
+  const fallbackProcess = String(channel?.app || '').trim();
+
+  if (!fallbackProcess) {
+    return [];
+  }
+
+  const matchedApp = availableApps.find((application) => application.process === fallbackProcess);
+  return [{
+    process: fallbackProcess,
+    name: String(channel?.appName || matchedApp?.name || fallbackProcess).trim() || fallbackProcess,
+    iconDataUrl: String(matchedApp?.iconDataUrl || '').trim()
+  }];
+}
+
+function getChannelHudPrimaryLabel(channel, targets) {
+  if (!targets.length) {
+    return String(channel?.title || channel?.appName || t('audio.systemVolume')).trim();
+  }
+
+  if (targets.length === 1) {
+    return targets[0].name;
+  }
+
+  return `${targets[0].name} +${targets.length - 1}`;
+}
+
+function buildChannelVolumeHudPayload(channel, meta = {}) {
+  if (!channel) {
+    return null;
+  }
+
+  const targets = getResolvedChannelHudTargets(channel);
+  const primaryLabel = getChannelHudPrimaryLabel(channel, targets);
+  const channelTitle = String(channel?.title || '').trim();
+  const outputVolume = getChannelOutputVolume(channel);
+
+  return {
+    channelId: channel.id,
+    source: String(meta?.source || 'ui'),
+    title: primaryLabel,
+    subtitle: channelTitle && channelTitle !== primaryLabel ? channelTitle : '',
+    iconDataUrl: targets.length === 1 ? targets[0].iconDataUrl : '',
+    volume: outputVolume,
+    valueText: formatChannelVolume(outputVolume, channel)
+  };
+}
+
+function emitChannelVolumeHud(channel, meta = {}) {
+  const payload = buildChannelVolumeHudPayload(channel, meta);
+  const api = typeof getApi === 'function' ? getApi() : window.pywebview?.api ?? null;
+
+  if (!payload || !api?.show_volume_hud) {
+    return;
+  }
+
+  api.show_volume_hud(payload);
+}
+
 function getChannelOutputVolume(channel) {
   if (!channel) {
     return 0;
@@ -304,7 +395,9 @@ function applyVolumeToChannel(channelId, volume, meta = {}) {
   const updatedChannel = typeof setChannelVolumeState === 'function'
     ? setChannelVolumeState(channelId, volume, { source: 'ui', ...meta })
     : null;
-  queueChannelVolumePush(updatedChannel || getChannelById(channelId));
+  const nextChannel = updatedChannel || getChannelById(channelId);
+  queueChannelVolumePush(nextChannel);
+  emitChannelVolumeHud(nextChannel, meta);
 }
 
 function getVolumeFromPointer(track, clientY) {
