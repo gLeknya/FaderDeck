@@ -100,46 +100,108 @@
     }
   }
 
-  const initialState = {
-    channels: [],
-    standaloneButtons: [],
-    profile: {
-      currentName: '',
-      list: [],
-      preferences: {
-        order: [],
-        toolbarVisible: {}
-      }
+  const DEFAULT_PERSISTED_RENDERER_SETTINGS = Object.freeze({
+    midiInputId: null,
+    midiInputName: ''
+  });
+
+  const DEFAULT_SESSION_PROFILE_STATE = Object.freeze({
+    currentName: '',
+    list: [],
+    preferences: {
+      order: [],
+      toolbarVisible: {}
+    }
+  });
+
+  const DEFAULT_SESSION_UI_STATE = Object.freeze({
+    settings: {
+      advancedMode: false,
+      developerMode: false,
+      faderInterpolationEnabled: false,
+      softTakeoverEnabled: false,
+      softTakeoverThreshold: 5,
+      showFractionalNumbers: false,
+      showFractionalOnlyLow: false,
+      volumeCurveEnabled: false,
+      volumeCurveType: 'ease-in-out',
+      volumeCurveAmount: 0,
+      profileToolbarSwitcherEnabled: true,
+      volumeHudEnabled: true,
+      volumeHudPosition: 'bottom-center',
+      volumeHudOrientation: 'horizontal',
+      volumeHudShowIcon: true,
+      volumeHudShowTitle: true,
+      volumeHudShowSubtitle: true,
+      volumeHudShowPercent: true,
+      volumeHudShowMeter: true
     },
-    ui: {
-      settings: {
-        advancedMode: false,
-        developerMode: false,
-        faderInterpolationEnabled: false,
-        softTakeoverEnabled: false,
-        softTakeoverThreshold: 5,
-        showFractionalNumbers: false,
-        showFractionalOnlyLow: false,
-        volumeCurveEnabled: false,
-        volumeCurveType: 'ease-in-out',
-        volumeCurveAmount: 0,
-        profileToolbarSwitcherEnabled: true,
-        volumeHudEnabled: true,
-        volumeHudPosition: 'bottom-center',
-        volumeHudOrientation: 'horizontal',
-        volumeHudShowIcon: true,
-        volumeHudShowTitle: true,
-        volumeHudShowSubtitle: true,
-        volumeHudShowPercent: true,
-        volumeHudShowMeter: true
+    menu: {
+      open: false,
+      activeTab: null
+    }
+  });
+
+  function normalizePersistedRendererSettings(settings = {}) {
+    return {
+      midiInputId: settings.midiInputId || null,
+      midiInputName: settings.midiInputName || ''
+    };
+  }
+
+  function createEmptyPersistedRendererPayload(profileName = '') {
+    return {
+      meta: {
+        name: profileName
       },
-      menu: {
-        open: false,
-        activeTab: null
+      channels: [],
+      standaloneButtons: [],
+      settings: {
+        ...DEFAULT_PERSISTED_RENDERER_SETTINGS
       }
-    },
-    midi: readInitialMidiState()
-  };
+    };
+  }
+
+  function normalizePersistedRendererPayload(payload = {}) {
+    const normalizedSettings = normalizePersistedRendererSettings(payload.settings);
+
+    return {
+      meta: {
+        name: String(payload?.meta?.name || '').trim()
+      },
+      channels: normalizeChannels(payload.channels),
+      standaloneButtons: normalizeStandaloneButtons(payload.standaloneButtons),
+      settings: normalizedSettings
+    };
+  }
+
+  function createInitialRendererState() {
+    return {
+      channels: [],
+      standaloneButtons: [],
+      profile: {
+        ...DEFAULT_SESSION_PROFILE_STATE,
+        preferences: {
+          ...DEFAULT_SESSION_PROFILE_STATE.preferences
+        }
+      },
+      // Session UI state lives in the renderer store, but menu state must never
+      // leak into profile serialization. Persisted UI settings are managed by ui-store.
+      ui: {
+        settings: {
+          ...DEFAULT_SESSION_UI_STATE.settings
+        },
+        menu: {
+          ...DEFAULT_SESSION_UI_STATE.menu
+        }
+      },
+      // Saved MIDI selection is persisted intentionally; live MIDI discovery/runtime
+      // state stays in midi-service and is never serialized here.
+      midi: readInitialMidiState()
+    };
+  }
+
+  const initialState = createInitialRendererState();
 
   const store = window.createRendererStore(initialState);
 
@@ -226,20 +288,31 @@
     return nextMidiState;
   }
 
+  function getPersistedRendererState() {
+    const state = getAppState();
+    const midiState = normalizeMidiState(state.midi);
+
+    return normalizePersistedRendererPayload({
+      channels: state.channels,
+      standaloneButtons: state.standaloneButtons,
+      settings: {
+        midiInputId: midiState.selectedInputId || null,
+        midiInputName: midiState.selectedInputName || ''
+      }
+    });
+  }
+
   function hydrateRendererState(payload = {}, meta = {}) {
-    const nextChannels = normalizeChannels(payload.channels);
-    const nextStandaloneButtons = normalizeStandaloneButtons(payload.standaloneButtons);
-    const nextMidiState = payload.settings
-      ? normalizeMidiState({
-        selectedInputId: payload.settings.midiInputId || '',
-        selectedInputName: payload.settings.midiInputName || ''
-      })
-      : getMidiSelectionState();
+    const persistedPayload = normalizePersistedRendererPayload(payload);
+    const nextMidiState = normalizeMidiState({
+      selectedInputId: persistedPayload.settings.midiInputId || '',
+      selectedInputName: persistedPayload.settings.midiInputName || ''
+    });
 
     setAppState((previousState) => ({
       ...previousState,
-      channels: nextChannels,
-      standaloneButtons: nextStandaloneButtons,
+      channels: persistedPayload.channels,
+      standaloneButtons: persistedPayload.standaloneButtons,
       midi: nextMidiState
     }), {
       type: 'renderer/hydrate',
@@ -248,16 +321,12 @@
   }
 
   function serializeRendererState(profileName = '') {
-    const state = getAppState();
+    const persistedPayload = getPersistedRendererState();
+
     return JSON.parse(JSON.stringify({
+      ...persistedPayload,
       meta: {
         name: profileName
-      },
-      channels: state.channels,
-      standaloneButtons: state.standaloneButtons,
-      settings: {
-        midiInputId: state.midi.selectedInputId || null,
-        midiInputName: state.midi.selectedInputName || ''
       }
     }));
   }
@@ -357,6 +426,9 @@
   window.setCurrentProfileState = setCurrentProfileState;
   window.getMidiSelectionState = getMidiSelectionState;
   window.setMidiSelectionState = setMidiSelectionState;
+  window.getPersistedRendererState = getPersistedRendererState;
+  window.normalizePersistedRendererPayload = normalizePersistedRendererPayload;
+  window.createEmptyPersistedRendererPayload = createEmptyPersistedRendererPayload;
   window.hydrateRendererState = hydrateRendererState;
   window.serializeRendererState = serializeRendererState;
   window.addStandaloneButtonState = addStandaloneButtonState;

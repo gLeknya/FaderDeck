@@ -35,7 +35,9 @@
     'vertical'
   ]);
 
-  const DEFAULT_UI_SETTINGS = Object.freeze({
+  // These settings are persisted as local app preferences and intentionally do
+  // not participate in renderer profile serialization.
+  const DEFAULT_PERSISTED_UI_SETTINGS = Object.freeze({
     advancedMode: false,
     developerMode: false,
     faderInterpolationEnabled: false,
@@ -57,7 +59,8 @@
     volumeHudShowMeter: true
   });
 
-  const DEFAULT_UI_MENU = Object.freeze({
+  // Menu state is session-only UI state and should never be serialized.
+  const DEFAULT_SESSION_UI_MENU = Object.freeze({
     open: false,
     activeTab: null
   });
@@ -100,16 +103,16 @@
   function normalizeUiSettings(settings = {}) {
     const nextType = ['ease-in', 'ease-out', 'ease-in-out'].includes(settings.volumeCurveType)
       ? settings.volumeCurveType
-      : DEFAULT_UI_SETTINGS.volumeCurveType;
+      : DEFAULT_PERSISTED_UI_SETTINGS.volumeCurveType;
     const nextHudPosition = HUD_POSITIONS.includes(settings.volumeHudPosition)
       ? settings.volumeHudPosition
-      : DEFAULT_UI_SETTINGS.volumeHudPosition;
+      : DEFAULT_PERSISTED_UI_SETTINGS.volumeHudPosition;
     const nextHudOrientation = HUD_ORIENTATIONS.includes(settings.volumeHudOrientation)
       ? settings.volumeHudOrientation
-      : DEFAULT_UI_SETTINGS.volumeHudOrientation;
+      : DEFAULT_PERSISTED_UI_SETTINGS.volumeHudOrientation;
 
     return {
-      ...DEFAULT_UI_SETTINGS,
+      ...DEFAULT_PERSISTED_UI_SETTINGS,
       ...settings,
       softTakeoverEnabled: Boolean(settings.softTakeoverEnabled),
       softTakeoverThreshold: Math.max(
@@ -117,24 +120,24 @@
         Math.min(15, Number.parseInt(settings.softTakeoverThreshold, 10) || 0)
       ),
       volumeHudEnabled: Boolean(
-        settings.volumeHudEnabled ?? DEFAULT_UI_SETTINGS.volumeHudEnabled
+        settings.volumeHudEnabled ?? DEFAULT_PERSISTED_UI_SETTINGS.volumeHudEnabled
       ),
       volumeHudPosition: nextHudPosition,
       volumeHudOrientation: nextHudOrientation,
       volumeHudShowIcon: Boolean(
-        settings.volumeHudShowIcon ?? DEFAULT_UI_SETTINGS.volumeHudShowIcon
+        settings.volumeHudShowIcon ?? DEFAULT_PERSISTED_UI_SETTINGS.volumeHudShowIcon
       ),
       volumeHudShowTitle: Boolean(
-        settings.volumeHudShowTitle ?? DEFAULT_UI_SETTINGS.volumeHudShowTitle
+        settings.volumeHudShowTitle ?? DEFAULT_PERSISTED_UI_SETTINGS.volumeHudShowTitle
       ),
       volumeHudShowSubtitle: Boolean(
-        settings.volumeHudShowSubtitle ?? DEFAULT_UI_SETTINGS.volumeHudShowSubtitle
+        settings.volumeHudShowSubtitle ?? DEFAULT_PERSISTED_UI_SETTINGS.volumeHudShowSubtitle
       ),
       volumeHudShowPercent: Boolean(
-        settings.volumeHudShowPercent ?? DEFAULT_UI_SETTINGS.volumeHudShowPercent
+        settings.volumeHudShowPercent ?? DEFAULT_PERSISTED_UI_SETTINGS.volumeHudShowPercent
       ),
       volumeHudShowMeter: Boolean(
-        settings.volumeHudShowMeter ?? DEFAULT_UI_SETTINGS.volumeHudShowMeter
+        settings.volumeHudShowMeter ?? DEFAULT_PERSISTED_UI_SETTINGS.volumeHudShowMeter
       ),
       volumeCurveType: nextType,
       volumeCurveAmount: Math.max(
@@ -146,7 +149,7 @@
 
   function normalizeUiMenu(menu = {}) {
     return {
-      ...DEFAULT_UI_MENU,
+      ...DEFAULT_SESSION_UI_MENU,
       ...menu,
       activeTab: menu.activeTab || null,
       open: Boolean(menu.open)
@@ -155,8 +158,8 @@
 
   function getUiState() {
     return window.getAppState?.().ui || {
-      settings: { ...DEFAULT_UI_SETTINGS },
-      menu: { ...DEFAULT_UI_MENU }
+      settings: { ...DEFAULT_PERSISTED_UI_SETTINGS },
+      menu: { ...DEFAULT_SESSION_UI_MENU }
     };
   }
 
@@ -387,13 +390,21 @@
       source: 'ui-store'
     });
 
-    setUiMenuState(DEFAULT_UI_MENU, {
+    setUiMenuState(DEFAULT_SESSION_UI_MENU, {
       type: 'ui/init-menu',
       source: 'ui-store'
     });
-
+ 
     uiStoreInitialized = true;
     return getUiState();
+  }
+
+  function resetSessionUiMenuState(meta = {}) {
+    return setUiMenuState(DEFAULT_SESSION_UI_MENU, {
+      type: 'ui/init-menu',
+      source: 'ui-store',
+      ...meta
+    });
   }
 
   function getAdvancedModeEnabledState() {
@@ -636,6 +647,7 @@
   window.patchUiSettingsState = patchUiSettingsState;
   window.setUiMenuState = setUiMenuState;
   window.patchUiMenuState = patchUiMenuState;
+  window.resetSessionUiMenuState = resetSessionUiMenuState;
   window.getAdvancedModeEnabledState = getAdvancedModeEnabledState;
   window.getDeveloperModeEnabledState = getDeveloperModeEnabledState;
   window.getFaderInterpolationEnabledState = getFaderInterpolationEnabledState;

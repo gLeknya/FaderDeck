@@ -2,19 +2,16 @@
   const LOCAL_PROFILE_STORAGE_KEY = 'mixer_profile';
 
   function createFallbackRendererProfile() {
-    const midiState = window.getMidiSelectionState?.() || {
-      selectedInputId: '',
-      selectedInputName: ''
-    };
-
-    return {
-      channels: [],
-      standaloneButtons: [],
-      settings: {
-        midiInputId: midiState.selectedInputId || null,
-        midiInputName: midiState.selectedInputName || ''
-      }
-    };
+    return typeof window.createEmptyPersistedRendererPayload === 'function'
+      ? window.createEmptyPersistedRendererPayload()
+      : {
+        channels: [],
+        standaloneButtons: [],
+        settings: {
+          midiInputId: null,
+          midiInputName: ''
+        }
+      };
   }
 
   function saveRendererProfileToLocal() {

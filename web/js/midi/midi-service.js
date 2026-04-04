@@ -29,10 +29,13 @@
   let midiStoreSyncInitialized = false;
   let midiRuntimeResetSyncInitialized = false;
 
+  // Runtime-only parser/soft-takeover state. This never belongs in renderer
+  // profile serialization and lives entirely inside the MIDI service layer.
   const midiParserStates = new Map();
   const pickupRuntimeState = new Map();
   const runtimeListeners = new Set();
   const messageListeners = new Set();
+  // Live WebMIDI availability/discovery state is runtime-only as well.
   const runtimeState = {
     supported: typeof navigator !== 'undefined' && typeof navigator.requestMIDIAccess === 'function',
     scanning: false,
