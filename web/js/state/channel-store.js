@@ -1,13 +1,72 @@
 (function initChannelState(window) {
+  function createDefaultChannelCustomSettings() {
+    return {
+      faderInterpolationEnabled: false,
+      softTakeoverEnabled: false,
+      softTakeoverThreshold: 5,
+      volumeCurveEnabled: false,
+      volumeCurveType: 'ease-in-out',
+      volumeCurveAmount: 0,
+      showFractionalNumbers: false
+    };
+  }
+
   function cloneButtonEntity(button = {}) {
     return {
       ...button
     };
   }
 
+  function createChannelTarget(process = '', name = '') {
+    const normalizedProcess = String(process || '').trim();
+
+    if (!normalizedProcess) {
+      return null;
+    }
+
+    return {
+      process: normalizedProcess,
+      name: String(name || normalizedProcess).trim() || normalizedProcess
+    };
+  }
+
+  function cloneChannelTarget(target = {}) {
+    return createChannelTarget(target.process, target.name);
+  }
+
+  function normalizeChannelTargets(channel = {}) {
+    const explicitTargets = Array.isArray(channel.targets)
+      ? channel.targets
+          .map(cloneChannelTarget)
+          .filter(Boolean)
+      : [];
+
+    if (explicitTargets.length > 0) {
+      return explicitTargets;
+    }
+
+    const fallbackTarget = createChannelTarget(channel.app, channel.appName);
+    return fallbackTarget ? [fallbackTarget] : [];
+  }
+
+  function cloneChannelCustomSettings(customSettings = {}) {
+    return {
+      ...createDefaultChannelCustomSettings(),
+      ...(customSettings || {})
+    };
+  }
+
   function cloneChannelEntity(channel = {}) {
+    const targets = normalizeChannelTargets(channel);
+    const primaryTarget = targets[0] || null;
+
     return {
       ...channel,
+      app: primaryTarget?.process || '',
+      appName: primaryTarget?.name || '',
+      targets,
+      customSettingsEnabled: Boolean(channel.customSettingsEnabled),
+      customSettings: cloneChannelCustomSettings(channel.customSettings),
       buttons: Array.isArray(channel.buttons)
         ? channel.buttons.map(cloneButtonEntity)
         : []
@@ -24,11 +83,20 @@
     return Math.round(clampedValue * 1000) / 1000;
   }
 
+  function syncLegacyChannelTargetFields(channel) {
+    const primaryTarget = Array.isArray(channel.targets) ? channel.targets[0] : null;
+    channel.app = primaryTarget?.process || '';
+    channel.appName = primaryTarget?.name || '';
+    return channel;
+  }
+
   function createChannelStateModel(index, overrides = {}) {
+    const defaultTarget = createChannelTarget('master', window.t('audio.systemVolume'));
     return {
       id: Date.now() + Math.floor(Math.random() * 1000),
-      app: 'master',
-      appName: window.t('audio.systemVolume'),
+      app: defaultTarget.process,
+      appName: defaultTarget.name,
+      targets: [defaultTarget],
       title: window.t('channels.defaultTitle', { index }),
       faderCC: null,
       faderMapping: null,
@@ -37,6 +105,8 @@
       skipBinding: false,
       showBindHint: true,
       flashOnCreate: true,
+      customSettingsEnabled: false,
+      customSettings: createDefaultChannelCustomSettings(),
       ...overrides
     };
   }
@@ -138,8 +208,9 @@
 
   function assignChannelAppState(channelId, appProcess, appName, meta = {}) {
     return updateChannelState(channelId, (channel) => {
-      channel.app = appProcess;
-      channel.appName = appName || appProcess;
+      const nextTarget = createChannelTarget(appProcess, appName);
+      channel.targets = nextTarget ? [nextTarget] : [];
+      syncLegacyChannelTargetFields(channel);
 
       if (!channel.title) {
         channel.title = channel.appName;
@@ -148,6 +219,52 @@
       return channel;
     }, {
       type: 'channels/set-app',
+      appProcess,
+      ...meta
+    });
+  }
+
+  function clearChannelAppTargetState(channelId, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      channel.targets = [];
+      syncLegacyChannelTargetFields(channel);
+      return channel;
+    }, {
+      type: 'channels/clear-app',
+      ...meta
+    });
+  }
+
+  function addChannelAppTargetState(channelId, appProcess, appName, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      const nextTarget = createChannelTarget(appProcess, appName);
+
+      if (!nextTarget) {
+        return channel;
+      }
+
+      const hasTarget = channel.targets.some((target) => target.process === nextTarget.process);
+
+      if (!hasTarget) {
+        channel.targets = [...channel.targets, nextTarget];
+      }
+
+      syncLegacyChannelTargetFields(channel);
+      return channel;
+    }, {
+      type: 'channels/add-app-target',
+      appProcess,
+      ...meta
+    });
+  }
+
+  function removeChannelAppTargetState(channelId, appProcess, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      channel.targets = channel.targets.filter((target) => target.process !== appProcess);
+      syncLegacyChannelTargetFields(channel);
+      return channel;
+    }, {
+      type: 'channels/remove-app-target',
       appProcess,
       ...meta
     });
@@ -183,6 +300,35 @@
       return channel;
     }, {
       type: 'channels/set-fader-mapping',
+      ...meta
+    });
+  }
+
+  function setChannelCustomSettingsEnabledState(channelId, enabled, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      channel.customSettingsEnabled = Boolean(enabled);
+      channel.customSettings = cloneChannelCustomSettings(channel.customSettings);
+      return channel;
+    }, {
+      type: 'channels/set-custom-settings-enabled',
+      ...meta
+    });
+  }
+
+  function updateChannelCustomSettingsState(channelId, updater, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      const draftSettings = cloneChannelCustomSettings(channel.customSettings);
+      const nextSettings = typeof updater === 'function'
+        ? updater(draftSettings) || draftSettings
+        : {
+          ...draftSettings,
+          ...(updater || {})
+        };
+
+      channel.customSettings = cloneChannelCustomSettings(nextSettings);
+      return channel;
+    }, {
+      type: 'channels/update-custom-settings',
       ...meta
     });
   }
@@ -278,14 +424,20 @@
   }
 
   window.createChannelStateModel = createChannelStateModel;
+  window.createDefaultChannelCustomSettingsState = createDefaultChannelCustomSettings;
   window.createChannelState = createChannelState;
   window.updateChannelState = updateChannelState;
   window.removeChannelState = removeChannelState;
   window.renameChannelState = renameChannelState;
   window.assignChannelAppState = assignChannelAppState;
+  window.clearChannelAppTargetState = clearChannelAppTargetState;
+  window.addChannelAppTargetState = addChannelAppTargetState;
+  window.removeChannelAppTargetState = removeChannelAppTargetState;
   window.setChannelVolumeState = setChannelVolumeState;
   window.dismissChannelBindHintState = dismissChannelBindHintState;
   window.setChannelFaderMappingState = setChannelFaderMappingState;
+  window.setChannelCustomSettingsEnabledState = setChannelCustomSettingsEnabledState;
+  window.updateChannelCustomSettingsState = updateChannelCustomSettingsState;
   window.clearChannelFlashState = clearChannelFlashState;
   window.addChannelButtonState = addChannelButtonState;
   window.updateChannelButtonState = updateChannelButtonState;

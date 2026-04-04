@@ -452,23 +452,21 @@ function Invoke-CommandPayload {
 
     'SetVolume' {
       $updatedCount = [FaderDeck.Audio.AudioSessionNative]::SetVolume($processName, [float]$volume)
-      $applications = @(Group-Sessions -Sessions ([FaderDeck.Audio.AudioSessionNative]::GetSessions()) -ProcessNames @($processName))
 
       return [PSCustomObject]@{
         success = $true
         updatedCount = $updatedCount
-        application = if ($applications.Count -gt 0) { $applications[0] } else { $null }
+        application = $null
       }
     }
 
     'SetMute' {
       $updatedCount = [FaderDeck.Audio.AudioSessionNative]::SetMute($processName, $mute)
-      $applications = @(Group-Sessions -Sessions ([FaderDeck.Audio.AudioSessionNative]::GetSessions()) -ProcessNames @($processName))
 
       return [PSCustomObject]@{
         success = $true
         updatedCount = $updatedCount
-        application = if ($applications.Count -gt 0) { $applications[0] } else { $null }
+        application = $null
       }
     }
 
@@ -476,6 +474,14 @@ function Invoke-CommandPayload {
       throw "Unknown action: $action"
     }
   }
+}
+
+function Write-JsonLine {
+  param([object]$Payload)
+
+  $json = $Payload | ConvertTo-Json -Compress -Depth 8
+  [Console]::Out.WriteLine($json)
+  [Console]::Out.Flush()
 }
 
 while ($true) {
@@ -496,16 +502,16 @@ while ($true) {
     $commandId = $command.id
     $result = Invoke-CommandPayload -Command $command
 
-    [PSCustomObject]@{
+    Write-JsonLine ([PSCustomObject]@{
       id = $commandId
       success = $true
       result = $result
-    } | ConvertTo-Json -Compress -Depth 8
+    })
   } catch {
-    [PSCustomObject]@{
+    Write-JsonLine ([PSCustomObject]@{
       id = $commandId
       success = $false
       error = $_.Exception.Message
-    } | ConvertTo-Json -Compress -Depth 8
+    })
   }
 }

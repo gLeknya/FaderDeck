@@ -2,6 +2,7 @@ let audioApps = [];
 let contextTarget = null;
 let menuScrollVisibilitySnapshot = null;
 let menuPanelMetricsTimeout = null;
+const audioAppIconCache = new Map();
 
 const dom = {};
 const VOLUME_CURVE_MAX = 100;
@@ -20,6 +21,7 @@ const VOLUME_CURVE_DEMO_PEAK_POSITION = 100;
 const VOLUME_CURVE_DEMO_END_POSITION = 0;
 const MENU_PANEL_SIZE_SETTLE_DELAY_MS = 260;
 const SETTINGS_SCROLLBAR_HIDE_DELAY_MS = 2000;
+const AUDIO_APPS_REFRESH_MIN_INTERVAL_MS = 1500;
 const SETTINGS_SECTION_HIDE_THRESHOLD = 2 / 3;
 const SETTINGS_SECTION_MIN_SCALE = 0.86;
 const SETTINGS_SECTION_MAX_SHIFT = 8;
@@ -37,11 +39,15 @@ let volumeCurveDemoTimer = null;
 let volumeCurveDemoFrame = null;
 let volumeCurveDemoDragging = false;
 let menuPanelMetricsFrame = null;
-let settingsScrollSyncFrame = null;
-let activeSettingsScrollDrag = null;
 let activeSettingsTooltipTarget = null;
-let settingsScrollbarHideTimeout = null;
+let settingsScrollController = null;
+let settingsScrollSyncFrame = null;
+let settingsScrollSyncTimeout = null;
+let contentScrollController = null;
 let uiStateSyncInitialized = false;
+let audioAppsRefreshInFlight = null;
+let audioAppsRefreshQueued = false;
+let audioAppsLastRefreshAt = 0;
 
 function logTest(...args) {
   console.log('[TEST]', ...args);
@@ -56,11 +62,127 @@ function getApi() {
 }
 
 function buildAudioAppsList(applications = []) {
-  const localizedMaster = { name: t('audio.systemVolume'), process: 'master' };
+  const localizedMaster = { name: t('audio.systemVolume'), process: 'master', iconDataUrl: '' };
   const externalApps = Array.isArray(applications)
     ? applications.filter((app) => app.process !== 'master')
     : [];
   return [localizedMaster, ...externalApps];
+}
+
+function getAvailableAudioApps() {
+  return Array.isArray(audioApps)
+    ? audioApps.map((app) => ({ ...app }))
+    : [];
+}
+
+function getAudioAppIconCacheKey(application = {}) {
+  const pathKey = String(application?.path || '').trim().toLowerCase();
+
+  if (pathKey) {
+    return pathKey;
+  }
+
+  return String(application?.process || '').trim().toLowerCase();
+}
+
+function areAudioAppsEqual(nextApplications = [], previousApplications = []) {
+  if (nextApplications.length !== previousApplications.length) {
+    return false;
+  }
+
+  return nextApplications.every((application, index) => {
+    const previousApplication = previousApplications[index] || {};
+    return (
+      String(application?.name || '') === String(previousApplication?.name || '')
+      && String(application?.process || '') === String(previousApplication?.process || '')
+      && String(application?.path || '') === String(previousApplication?.path || '')
+      && String(application?.iconDataUrl || '') === String(previousApplication?.iconDataUrl || '')
+    );
+  });
+}
+
+function setAudioApps(nextApplications = []) {
+  const normalizedApplications = Array.isArray(nextApplications)
+    ? nextApplications.map((application) => ({ ...application }))
+    : [];
+  const hasChanged = !areAudioAppsEqual(normalizedApplications, audioApps);
+
+  audioApps = normalizedApplications;
+
+  if (hasChanged) {
+    notifyAudioAppsUpdated();
+  }
+
+  return hasChanged;
+}
+
+function applyCachedAudioAppIcons(applications = []) {
+  return applications.map((application) => {
+    const cacheKey = getAudioAppIconCacheKey(application);
+
+    if (!cacheKey || !audioAppIconCache.has(cacheKey)) {
+      return { ...application };
+    }
+
+    return {
+      ...application,
+      iconDataUrl: audioAppIconCache.get(cacheKey)
+    };
+  });
+}
+
+function notifyAudioAppsUpdated() {
+  renderMixer();
+  window.dispatchEvent(new CustomEvent('audio-apps-updated', {
+    detail: {
+      apps: getAvailableAudioApps()
+    }
+  }));
+  scheduleContentMetricsUpdate();
+}
+
+async function enrichAudioAppsWithIcons(applications = []) {
+  const api = getApi();
+
+  if (!api?.get_application_icons || !Array.isArray(applications) || !applications.length) {
+    return applyCachedAudioAppIcons(applications);
+  }
+
+  const uncachedPaths = [];
+
+  applications.forEach((application) => {
+    const cacheKey = getAudioAppIconCacheKey(application);
+    const applicationPath = String(application?.path || '').trim();
+
+    if (!cacheKey || !applicationPath || audioAppIconCache.has(cacheKey)) {
+      return;
+    }
+
+    uncachedPaths.push(applicationPath);
+  });
+
+  if (uncachedPaths.length > 0) {
+    try {
+      const response = await api.get_application_icons([...new Set(uncachedPaths)]);
+      const iconMap = response?.success && response?.icons && typeof response.icons === 'object'
+        ? response.icons
+        : {};
+
+      applications.forEach((application) => {
+        const cacheKey = getAudioAppIconCacheKey(application);
+        const applicationPath = String(application?.path || '').trim();
+        const iconDataUrl = applicationPath ? iconMap[applicationPath] : '';
+
+        if (cacheKey && iconDataUrl) {
+          audioAppIconCache.set(cacheKey, iconDataUrl);
+        }
+      });
+    } catch (error) {
+      console.error('loadAudioAppIcons error', error);
+    }
+  }
+
+  return applyCachedAudioAppIcons(applications);
 }
 
 function cacheDomElements() {
@@ -105,7 +227,8 @@ function cacheDomElements() {
   dom.settingsTooltipBubble = $('settingsTooltipBubble');
   dom.mainContentViewport = $('mainContentViewport');
   dom.contentScrollBar = $('contentScrollBar');
-  dom.contentScrollRange = $('contentScrollRange');
+  dom.contentScrollTrack = $('contentScrollTrack');
+  dom.contentScrollThumb = $('contentScrollThumb');
 }
 
 function getUiSettings() {
@@ -168,10 +291,46 @@ function normalizeVolumeValue(value) {
   return Math.round(clampPercent(value) * precisionFactor) / precisionFactor;
 }
 
-function formatVolumeValue(value) {
+function getDefaultChannelCustomSettings() {
+  return typeof createDefaultChannelCustomSettingsState === 'function'
+    ? createDefaultChannelCustomSettingsState()
+    : {
+      faderInterpolationEnabled: false,
+      softTakeoverEnabled: false,
+      softTakeoverThreshold: 5,
+      volumeCurveEnabled: false,
+      volumeCurveType: 'ease-in-out',
+      volumeCurveAmount: 0,
+      showFractionalNumbers: false
+    };
+}
+
+function resolveChannelFaderSettings(channelOrId = null) {
+  const globalSettings = getUiSettings();
+  const channel = typeof channelOrId === 'object' && channelOrId
+    ? channelOrId
+    : findChannelState?.(channelOrId);
+
+  if (!channel?.customSettingsEnabled) {
+    return {
+      ...globalSettings
+    };
+  }
+
+  return {
+    ...globalSettings,
+    ...getDefaultChannelCustomSettings(),
+    ...(channel.customSettings || {}),
+    showFractionalOnlyLow: globalSettings.showFractionalOnlyLow
+  };
+}
+
+function formatVolumeValue(value, options = {}) {
   const normalizedValue = normalizeVolumeValue(value);
-  const shouldShowFractions = getShowFractionalNumbersEnabled()
-    && (!getShowFractionalOnlyLowEnabled() || normalizedValue < LOW_FRACTIONAL_VOLUME_THRESHOLD);
+  const showFractionalNumbers = options.showFractionalNumbers ?? getShowFractionalNumbersEnabled();
+  const showFractionalOnlyLow = options.showFractionalOnlyLow ?? getShowFractionalOnlyLowEnabled();
+  const shouldShowFractions = showFractionalNumbers
+    && (!showFractionalOnlyLow || normalizedValue < LOW_FRACTIONAL_VOLUME_THRESHOLD);
   const formattedValue = shouldShowFractions
     ? normalizedValue.toFixed(1).replace(/\.0$/, '')
     : String(Math.round(normalizedValue));
@@ -179,38 +338,39 @@ function formatVolumeValue(value) {
   return `${formattedValue}%`;
 }
 
-function getVolumeCurveAmount() {
-  return getVolumeCurveAmountState?.() ?? getUiSettings().volumeCurveAmount;
+function getVolumeCurveAmount(options = {}) {
+  return options.volumeCurveAmount ?? (getVolumeCurveAmountState?.() ?? getUiSettings().volumeCurveAmount);
 }
 
-function getVolumeCurveEnabled() {
-  return getVolumeCurveEnabledState?.() ?? getUiSettings().volumeCurveEnabled;
+function getVolumeCurveEnabled(options = {}) {
+  return options.volumeCurveEnabled ?? (getVolumeCurveEnabledState?.() ?? getUiSettings().volumeCurveEnabled);
 }
 
-function getVolumeCurveType() {
-  return getVolumeCurveTypeState?.() ?? getUiSettings().volumeCurveType;
+function getVolumeCurveType(options = {}) {
+  return options.volumeCurveType ?? (getVolumeCurveTypeState?.() ?? getUiSettings().volumeCurveType);
 }
 
-function getFaderInterpolationEnabled() {
-  return getFaderInterpolationEnabledState?.() ?? getUiSettings().faderInterpolationEnabled;
+function getFaderInterpolationEnabled(options = {}) {
+  return options.faderInterpolationEnabled
+    ?? (getFaderInterpolationEnabledState?.() ?? getUiSettings().faderInterpolationEnabled);
 }
 
-function getVolumeCurveExponent() {
-  return 1 + (getVolumeCurveAmount() / VOLUME_CURVE_MAX) * VOLUME_CURVE_EXPONENT_RANGE;
+function getVolumeCurveExponent(options = {}) {
+  return 1 + (getVolumeCurveAmount(options) / VOLUME_CURVE_MAX) * VOLUME_CURVE_EXPONENT_RANGE;
 }
 
-function applySelectedVolumeCurve(normalizedPosition) {
-  const exponent = getVolumeCurveExponent();
+function applySelectedVolumeCurve(normalizedPosition, options = {}) {
+  const exponent = getVolumeCurveExponent(options);
 
-  if (!getVolumeCurveEnabled()) {
+  if (!getVolumeCurveEnabled(options)) {
     return normalizedPosition;
   }
 
-  if (getVolumeCurveType() === 'ease-in') {
+  if (getVolumeCurveType(options) === 'ease-in') {
     return normalizedPosition ** exponent;
   }
 
-  if (getVolumeCurveType() === 'ease-out') {
+  if (getVolumeCurveType(options) === 'ease-out') {
     return 1 - ((1 - normalizedPosition) ** exponent);
   }
 
@@ -221,7 +381,7 @@ function applySelectedVolumeCurve(normalizedPosition) {
   return 1 - 0.5 * (((1 - normalizedPosition) * 2) ** exponent);
 }
 
-function mapFaderPositionToVolume(position) {
+function mapFaderPositionToVolume(position, options = {}) {
   const normalizedPosition = clampPercent(position) / 100;
 
   if (normalizedPosition <= 0) {
@@ -232,21 +392,23 @@ function mapFaderPositionToVolume(position) {
     return 100;
   }
 
-  if (!getVolumeCurveEnabled() || getVolumeCurveAmount() <= 0) {
+  if (!getVolumeCurveEnabled(options) || getVolumeCurveAmount(options) <= 0) {
     return normalizeVolumeValue(normalizedPosition * 100);
   }
 
-  const curvedValue = applySelectedVolumeCurve(normalizedPosition);
+  const curvedValue = applySelectedVolumeCurve(normalizedPosition, options);
   return normalizeVolumeValue(curvedValue * 100);
 }
+
+window.getAvailableAudioApps = getAvailableAudioApps;
+window.getDefaultChannelCustomSettings = getDefaultChannelCustomSettings;
+window.resolveChannelFaderSettings = resolveChannelFaderSettings;
 
 function isMenuOpen() {
   return getIsMenuOpenState?.() ?? getUiMenu().open;
 }
 
 function transitionMenuView(view, shouldBeActive) {
-  clearTimeout(view.__hideTimer);
-
   if (shouldBeActive) {
     view.hidden = false;
     view.classList.add('is-active');
@@ -258,16 +420,7 @@ function transitionMenuView(view, shouldBeActive) {
   }
 
   view.classList.remove('is-active', 'is-visible');
-
-  if (view.hidden) {
-    return;
-  }
-
-  view.__hideTimer = setTimeout(() => {
-    if (!view.classList.contains('is-active')) {
-      view.hidden = true;
-    }
-  }, 180);
+  view.hidden = true;
 }
 
 function syncMenuPanelCardSize() {
@@ -300,10 +453,12 @@ function syncMenuPanelCardSize() {
   const nextContentHeight = activeMenuTab === 'settings'
     ? measureMenuViewContentHeight(activeView, nextContentWidth)
     : activeView.scrollHeight;
-  const nextHeight = Math.min(
-    maxHeight,
-    Math.ceil(nextContentHeight + verticalPadding)
-  );
+  const nextHeight = activeMenuTab === 'settings'
+    ? Math.round(maxHeight)
+    : Math.min(
+      maxHeight,
+      Math.ceil(nextContentHeight + verticalPadding)
+    );
 
   dom.menuPanelCard.style.width = `${nextWidth}px`;
   dom.menuPanelCard.style.height = `${nextHeight}px`;
@@ -320,6 +475,8 @@ function measureMenuViewContentHeight(view, width) {
   probe.style.position = 'fixed';
   probe.style.left = '-10000px';
   probe.style.top = '0';
+  probe.style.right = 'auto';
+  probe.style.bottom = 'auto';
   probe.style.width = `${Math.max(0, width)}px`;
   probe.style.height = 'auto';
   probe.style.maxHeight = 'none';
@@ -357,12 +514,14 @@ function scheduleMenuPanelCardSizeSync() {
     menuPanelMetricsFrame = null;
     syncMenuPanelCardSize();
     scheduleSettingsScrollSync();
+    window.scheduleProfilesScrollSync?.();
   });
 
   menuPanelMetricsTimeout = window.setTimeout(() => {
     menuPanelMetricsTimeout = null;
     syncMenuPanelCardSize();
     scheduleSettingsScrollSync();
+    window.scheduleProfilesScrollSync?.();
   }, MENU_PANEL_SIZE_SETTLE_DELAY_MS);
 }
 
@@ -379,6 +538,24 @@ function syncMenuTabUi() {
 
   dom.menuPanelOverlay?.classList.toggle('hidden', !activeMenuTab);
   scheduleMenuPanelCardSizeSync();
+
+  requestAnimationFrame(() => {
+    scheduleSettingsScrollSync();
+    window.scheduleProfilesScrollSync?.();
+  });
+
+  if (activeMenuTab === 'settings') {
+    requestAnimationFrame(() => {
+      settingsScrollController?.scheduleSync?.();
+      requestAnimationFrame(() => {
+        settingsScrollController?.scheduleSync?.();
+        requestAnimationFrame(() => {
+          settingsScrollController?.scheduleSync?.();
+          settingsScrollController?.showForActivity?.();
+        });
+      });
+    });
+  }
 }
 
 function setActiveMenuTab(tabName) {
@@ -397,8 +574,17 @@ function openMainMenu() {
 }
 
 function closeMainMenu() {
+  hideSettingsTooltip();
   setMenuOpenState?.(false, { source: 'ui' });
   setActiveMenuTab(null);
+
+  dom.menuPanelOverlay?.classList.add('hidden');
+  dom.menuViews?.forEach((view) => {
+    clearTimeout(view.__hideTimer);
+    view.classList.remove('is-active', 'is-visible');
+    view.hidden = true;
+  });
+  settingsScrollController?.clearActivity?.();
 
   if (menuScrollVisibilitySnapshot === false) {
     dom.contentScrollBar?.classList.add('hidden');
@@ -409,6 +595,7 @@ function closeMainMenu() {
     }
     menuScrollVisibilitySnapshot = null;
     scheduleContentMetricsUpdate();
+    window.scheduleProfilesScrollSync?.();
   });
 }
 
@@ -803,110 +990,76 @@ function refreshCurveDrivenUi() {
   }
 }
 
-function syncContentScrollUi() {
-  if (!dom.mainContentViewport || !dom.contentScrollRange || !dom.contentScrollBar) {
-    return;
+function getContentBaseOverflow() {
+  if (!dom.mainContentViewport) {
+    return 0;
   }
 
-  const actualMaxScroll = Math.max(
-    0,
-    dom.mainContentViewport.scrollWidth - dom.mainContentViewport.clientWidth
-  );
   const railCompensation = isMenuOpen() ? (dom.menuRail?.offsetWidth || 0) : 0;
   const baseVisibleWidth = dom.mainContentViewport.clientWidth + railCompensation;
-  const baseOverflow = Math.max(0, dom.mainContentViewport.scrollWidth - baseVisibleWidth);
-  const shouldShowScroll = menuScrollVisibilitySnapshot === false
-    ? false
-    : baseOverflow > 0;
-
-  dom.contentScrollBar.classList.toggle('hidden', !shouldShowScroll);
-  dom.contentScrollRange.max = String(actualMaxScroll);
-  dom.contentScrollRange.value = String(
-    Math.min(actualMaxScroll, Math.round(dom.mainContentViewport.scrollLeft))
-  );
+  return Math.max(0, dom.mainContentViewport.scrollWidth - baseVisibleWidth);
 }
 
-function syncSettingsScrollUi() {
-  if (!dom.settingsContent || !dom.settingsScrollBar || !dom.settingsScrollTrack || !dom.settingsScrollThumb) {
+function syncContentScrollUi() {
+  return contentScrollController?.sync() || null;
+}
+
+function handleSettingsScrollbarSync(metrics) {
+  const settingsScroller = dom.settingsContent || dom.settingsScrollShell;
+
+  if (!settingsScroller) {
     return;
   }
 
-  const isSettingsTabActive = isMenuOpen() && getActiveMenuTab() === 'settings';
-  const maxScrollTop = Math.max(
-    0,
-    dom.settingsContent.scrollHeight - dom.settingsContent.clientHeight
-  );
-  const shouldShowScroll = isSettingsTabActive && maxScrollTop > 0;
+  const isAtTop = settingsScroller.scrollTop <= 1;
+  const isAtBottom = !metrics?.shouldShow || settingsScroller.scrollTop >= (metrics.maxScroll - 1);
 
-  dom.settingsScrollShell?.classList.toggle('has-overflow', shouldShowScroll);
-  dom.settingsScrollShell?.classList.toggle('at-top', dom.settingsContent.scrollTop <= 1);
-  dom.settingsScrollShell?.classList.toggle(
-    'at-bottom',
-    !shouldShowScroll || dom.settingsContent.scrollTop >= (maxScrollTop - 1)
-  );
-  dom.menuPanelCard?.classList.toggle('settings-fade-active', shouldShowScroll && isSettingsTabActive);
-  dom.menuPanelCard?.classList.toggle('settings-at-top', dom.settingsContent.scrollTop <= 1);
-  dom.menuPanelCard?.classList.toggle(
-    'settings-at-bottom',
-    !shouldShowScroll || dom.settingsContent.scrollTop >= (maxScrollTop - 1)
-  );
-  dom.settingsScrollBar.classList.toggle('hidden', !shouldShowScroll);
+  dom.settingsScrollShell?.classList.toggle('has-overflow', Boolean(metrics?.shouldShow));
+  dom.settingsScrollShell?.classList.toggle('at-top', isAtTop);
+  dom.settingsScrollShell?.classList.toggle('at-bottom', isAtBottom);
+  dom.menuPanelCard?.classList.toggle('settings-fade-active', Boolean(metrics?.shouldShow));
+  dom.menuPanelCard?.classList.toggle('settings-at-top', isAtTop);
+  dom.menuPanelCard?.classList.toggle('settings-at-bottom', isAtBottom);
 
-  if (!shouldShowScroll) {
-    window.clearTimeout(settingsScrollbarHideTimeout);
-    settingsScrollbarHideTimeout = null;
-    dom.settingsScrollBar.classList.remove('is-active');
-    dom.menuPanelCard?.classList.remove('settings-fade-active', 'settings-at-top', 'settings-at-bottom');
-    dom.settingsScrollThumb.style.removeProperty('height');
-    dom.settingsScrollThumb.style.removeProperty('transform');
+  if (!metrics?.shouldShow) {
     resetSettingsSectionEffects();
     return;
   }
 
-  if (dom.settingsContent.scrollTop > maxScrollTop) {
-    dom.settingsContent.scrollTop = maxScrollTop;
-  }
-
-  const trackHeight = dom.settingsScrollTrack.clientHeight || 0;
-  const visibleRatio = dom.settingsContent.clientHeight / Math.max(dom.settingsContent.scrollHeight, 1);
-  const thumbHeight = Math.max(34, Math.round(trackHeight * visibleRatio));
-  const thumbTravel = Math.max(0, trackHeight - thumbHeight);
-  const scrollProgress = maxScrollTop > 0
-    ? dom.settingsContent.scrollTop / maxScrollTop
-    : 0;
-  const thumbOffset = thumbTravel * scrollProgress;
-
-  dom.settingsScrollThumb.style.height = `${thumbHeight}px`;
-  dom.settingsScrollThumb.style.transform = `translate(-50%, ${thumbOffset}px)`;
   syncSettingsSectionEffects();
 }
 
+function syncSettingsScrollUi() {
+  return settingsScrollController?.sync() || null;
+}
+
 function scheduleSettingsScrollSync() {
+  settingsScrollController?.scheduleSync?.();
+
   if (settingsScrollSyncFrame) {
     cancelAnimationFrame(settingsScrollSyncFrame);
   }
 
+  if (settingsScrollSyncTimeout) {
+    clearTimeout(settingsScrollSyncTimeout);
+  }
+
   settingsScrollSyncFrame = requestAnimationFrame(() => {
     settingsScrollSyncFrame = null;
-    syncSettingsScrollUi();
+    settingsScrollController?.scheduleSync?.();
+    requestAnimationFrame(() => {
+      settingsScrollController?.scheduleSync?.();
+    });
   });
+
+  settingsScrollSyncTimeout = window.setTimeout(() => {
+    settingsScrollSyncTimeout = null;
+    settingsScrollController?.scheduleSync?.();
+  }, MENU_PANEL_SIZE_SETTLE_DELAY_MS + 40);
 }
 
 function showSettingsScrollbarForActivity() {
-  if (!dom.settingsScrollBar || dom.settingsScrollBar.classList.contains('hidden')) {
-    return;
-  }
-
-  dom.settingsScrollBar.classList.add('is-active');
-
-  if (settingsScrollbarHideTimeout) {
-    clearTimeout(settingsScrollbarHideTimeout);
-  }
-
-  settingsScrollbarHideTimeout = window.setTimeout(() => {
-    settingsScrollbarHideTimeout = null;
-    dom.settingsScrollBar?.classList.remove('is-active');
-  }, SETTINGS_SCROLLBAR_HIDE_DELAY_MS);
+  settingsScrollController?.showForActivity();
 }
 
 function resetSettingsSectionEffects() {
@@ -918,12 +1071,14 @@ function resetSettingsSectionEffects() {
 }
 
 function syncSettingsSectionEffects() {
-  if (!dom.settingsContent || !dom.settingsSections?.length) {
+  const settingsScroller = dom.settingsContent || dom.settingsScrollShell;
+
+  if (!settingsScroller || !dom.settingsSections?.length) {
     return;
   }
 
-  const viewportTop = dom.settingsContent.scrollTop;
-  const viewportBottom = viewportTop + dom.settingsContent.clientHeight;
+  const viewportTop = settingsScroller.scrollTop;
+  const viewportBottom = viewportTop + settingsScroller.clientHeight;
 
   dom.settingsSections.forEach((section) => {
     const sectionTop = section.offsetTop;
@@ -1025,73 +1180,6 @@ function positionSettingsTooltip(target) {
   });
 }
 
-function getSettingsScrollTopFromPointer(clientY) {
-  if (!dom.settingsContent || !dom.settingsScrollTrack || !dom.settingsScrollThumb) {
-    return 0;
-  }
-
-  const rect = dom.settingsScrollTrack.getBoundingClientRect();
-  const thumbHeight = dom.settingsScrollThumb.offsetHeight || 34;
-  const maxScrollTop = Math.max(
-    0,
-    dom.settingsContent.scrollHeight - dom.settingsContent.clientHeight
-  );
-  const thumbTravel = Math.max(0, rect.height - thumbHeight);
-  const normalizedOffset = Math.max(
-    0,
-    Math.min(
-      thumbTravel,
-      clientY - rect.top - (thumbHeight / 2)
-    )
-  );
-
-  if (thumbTravel <= 0 || maxScrollTop <= 0) {
-    return 0;
-  }
-
-  return (normalizedOffset / thumbTravel) * maxScrollTop;
-}
-
-function handleSettingsScrollDrag(event) {
-  if (!activeSettingsScrollDrag || !dom.settingsContent) {
-    return;
-  }
-
-  dom.settingsContent.scrollTop = getSettingsScrollTopFromPointer(event.clientY);
-  showSettingsScrollbarForActivity();
-  scheduleSettingsScrollSync();
-}
-
-function stopSettingsScrollDrag() {
-  if (!activeSettingsScrollDrag) {
-    return;
-  }
-
-  activeSettingsScrollDrag = null;
-  dom.settingsScrollThumb?.classList.remove('is-dragging');
-  document.removeEventListener('pointermove', handleSettingsScrollDrag);
-  document.removeEventListener('pointerup', stopSettingsScrollDrag);
-  document.removeEventListener('pointercancel', stopSettingsScrollDrag);
-}
-
-function startSettingsScrollDrag(event) {
-  if (!dom.settingsContent || !dom.settingsScrollBar || dom.settingsScrollBar.classList.contains('hidden')) {
-    return;
-  }
-
-  event.preventDefault();
-  activeSettingsScrollDrag = {
-    pointerId: event.pointerId
-  };
-  dom.settingsScrollThumb?.classList.add('is-dragging');
-  dom.settingsContent.scrollTop = getSettingsScrollTopFromPointer(event.clientY);
-  showSettingsScrollbarForActivity();
-  scheduleSettingsScrollSync();
-  document.addEventListener('pointermove', handleSettingsScrollDrag);
-  document.addEventListener('pointerup', stopSettingsScrollDrag);
-  document.addEventListener('pointercancel', stopSettingsScrollDrag);
-}
-
 function scheduleContentMetricsUpdate() {
   if (contentMetricsFrame) {
     cancelAnimationFrame(contentMetricsFrame);
@@ -1104,15 +1192,21 @@ function scheduleContentMetricsUpdate() {
 }
 
 function setupContentScroller() {
-  if (!dom.contentScrollRange || !dom.mainContentViewport) {
+  if (!dom.mainContentViewport || typeof createAppScrollbar !== 'function') {
     return;
   }
 
-  dom.contentScrollRange.addEventListener('input', (event) => {
-    dom.mainContentViewport.scrollLeft = Number(event.target.value);
+  contentScrollController?.destroy?.();
+  contentScrollController = createAppScrollbar({
+    orientation: 'horizontal',
+    hideDelay: 1800,
+    getScroller: () => dom.mainContentViewport,
+    getScrollbar: () => dom.contentScrollBar,
+    getTrack: () => dom.contentScrollTrack,
+    getThumb: () => dom.contentScrollThumb,
+    getEnabled: () => menuScrollVisibilitySnapshot !== false && getContentBaseOverflow() > 0
   });
 
-  dom.mainContentViewport.addEventListener('scroll', syncContentScrollUi);
   dom.mainContentViewport.addEventListener('wheel', (event) => {
     const maxScrollLeft = Math.max(
       0,
@@ -1143,24 +1237,28 @@ function setupContentScroller() {
     event.preventDefault();
     dom.mainContentViewport.scrollLeft = nextScrollLeft;
   }, { passive: false });
-  window.addEventListener('resize', scheduleContentMetricsUpdate);
 }
 
 function setupSettingsScroller() {
-  if (!dom.settingsContent || !dom.settingsScrollTrack) {
+  if (!dom.settingsContent || typeof createAppScrollbar !== 'function') {
     return;
   }
 
-  dom.settingsContent.addEventListener('scroll', () => {
-    showSettingsScrollbarForActivity();
-    scheduleSettingsScrollSync();
-    hideSettingsTooltip();
+  settingsScrollController?.destroy?.();
+  settingsScrollController = createAppScrollbar({
+    orientation: 'vertical',
+    alwaysVisible: true,
+    hideDelay: SETTINGS_SCROLLBAR_HIDE_DELAY_MS,
+    getScroller: () => dom.settingsContent,
+    getScrollbar: () => dom.settingsScrollBar,
+    getTrack: () => dom.settingsScrollTrack,
+    getThumb: () => dom.settingsScrollThumb,
+    getEnabled: () => isMenuOpen() && getActiveMenuTab() === 'settings',
+    onSync: handleSettingsScrollbarSync,
+    onScroll: () => {
+      hideSettingsTooltip();
+    }
   });
-  dom.settingsContent.addEventListener('wheel', () => {
-    showSettingsScrollbarForActivity();
-  }, { passive: true });
-  dom.settingsScrollTrack.addEventListener('pointerdown', startSettingsScrollDrag);
-  window.addEventListener('resize', scheduleSettingsScrollSync);
   window.addEventListener('resize', hideSettingsTooltip);
 }
 
@@ -1260,26 +1358,70 @@ function setupSettings() {
   dom.volumeCurveDemoTrack?.addEventListener('pointerdown', startVolumeCurveDemoDrag);
 }
 
-async function loadAudioApps() {
-  try {
-    const api = getApi();
+async function loadAudioApps(options = {}) {
+  const force = Boolean(options?.force);
+  const now = Date.now();
 
-    if (!api) {
-      console.warn('pywebview.api not ready in loadAudioApps');
-      return;
+  if (audioAppsRefreshInFlight) {
+    if (force) {
+      audioAppsRefreshQueued = true;
     }
-
-    const response = await api.get_audio_applications();
-    audioApps = buildAudioAppsList(
-      response?.applications?.length ? response.applications : FALLBACK_AUDIO_APPS
-    );
-  } catch (error) {
-    console.error(error);
-    audioApps = buildAudioAppsList(FALLBACK_AUDIO_APPS);
+    return audioAppsRefreshInFlight;
   }
 
-  renderMixer();
-  scheduleContentMetricsUpdate();
+  if (!force && audioApps.length && (now - audioAppsLastRefreshAt) < AUDIO_APPS_REFRESH_MIN_INTERVAL_MS) {
+    return audioApps;
+  }
+
+  audioAppsRefreshInFlight = (async () => {
+    let nextApplications;
+
+    try {
+      const api = getApi();
+
+      if (!api) {
+        console.warn('pywebview.api not ready in loadAudioApps');
+        return audioApps;
+      }
+
+      const response = await api.get_audio_applications();
+      nextApplications = buildAudioAppsList(
+        response?.applications?.length ? response.applications : FALLBACK_AUDIO_APPS
+      );
+    } catch (error) {
+      console.error(error);
+      nextApplications = buildAudioAppsList(FALLBACK_AUDIO_APPS);
+    }
+
+    nextApplications = applyCachedAudioAppIcons(nextApplications);
+    setAudioApps(nextApplications);
+
+    const enrichedApplications = await enrichAudioAppsWithIcons(nextApplications);
+    setAudioApps(enrichedApplications);
+    audioAppsLastRefreshAt = Date.now();
+    return audioApps;
+  })();
+
+  try {
+    return await audioAppsRefreshInFlight;
+  } finally {
+    audioAppsRefreshInFlight = null;
+
+    if (audioAppsRefreshQueued) {
+      audioAppsRefreshQueued = false;
+      requestAudioAppsRefresh('queued-refresh', { force: true });
+    }
+  }
+}
+
+function requestAudioAppsRefresh(reason = 'runtime', options = {}) {
+  const force = Boolean(options?.force);
+
+  if (!force && document.visibilityState === 'hidden') {
+    return Promise.resolve(audioApps);
+  }
+
+  return loadAudioApps({ force });
 }
 
 function hideContextMenu() {
@@ -1511,11 +1653,13 @@ function initUiStateSync() {
       syncMenuShellUi();
       scheduleContentMetricsUpdate();
       scheduleSettingsScrollSync();
+      window.scheduleProfilesScrollSync?.();
     }
 
     if (nextMenu.activeTab !== previousMenu.activeTab) {
       syncMenuTabUi();
       scheduleSettingsScrollSync();
+      window.scheduleProfilesScrollSync?.();
     }
   });
 
@@ -1532,9 +1676,15 @@ function handleLanguageChanged() {
   syncFractionalNumberUi();
   syncVolumeCurveUi();
   audioApps = buildAudioAppsList(audioApps);
+  audioApps = applyCachedAudioAppIcons(audioApps);
   renderMixer();
   renderStandaloneButtons();
   refreshProfilesLanguage?.();
+  window.dispatchEvent(new CustomEvent('audio-apps-updated', {
+    detail: {
+      apps: getAvailableAudioApps()
+    }
+  }));
 
   if (typeof refreshMidiUiLanguage === 'function') {
     refreshMidiUiLanguage();
@@ -1542,6 +1692,7 @@ function handleLanguageChanged() {
 
   scheduleContentMetricsUpdate();
   scheduleMenuPanelCardSizeSync();
+  window.scheduleProfilesScrollSync?.();
 }
 
 function bindGlobalUi() {
@@ -1563,6 +1714,20 @@ function bindGlobalUi() {
   window.addEventListener('app:language-changed', handleLanguageChanged);
   window.addEventListener('beforeunload', stopVolumeCurveDemo);
   window.addEventListener('resize', scheduleMenuPanelCardSizeSync);
+  window.addEventListener('focus', () => {
+    requestAudioAppsRefresh('window-focus');
+  });
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      requestAudioAppsRefresh('document-visible');
+    }
+  });
+  window.addEventListener('audio-apps-refresh-requested', (event) => {
+    requestAudioAppsRefresh(
+      event?.detail?.reason || 'external-request',
+      event?.detail || {}
+    );
+  });
   document.addEventListener('click', (event) => {
     if (!event.target.closest('.settings-help')) {
       hideSettingsTooltip();
@@ -1583,6 +1748,7 @@ function init() {
   initStandaloneButtonsStateSync?.();
   initUiStateSync();
   initButtonModal?.();
+  initEntityEditor?.();
   bindGlobalUi();
   setupSettings();
   setupSettingsScroller();
@@ -1604,10 +1770,13 @@ function init() {
   scheduleSettingsScrollSync();
   loadProfileFromLocal();
   initProfilesUi?.();
-  loadAudioApps();
+  requestAudioAppsRefresh('init', { force: true });
   initWebMIDI();
   scheduleContentMetricsUpdate();
+  window.scheduleProfilesScrollSync?.();
 }
+
+window.requestAudioAppsRefresh = requestAudioAppsRefresh;
 
 function safeInit() {
   try {

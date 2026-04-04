@@ -110,6 +110,23 @@
     return Math.max(0, Math.min(15, Number(rawThreshold) || 0));
   }
 
+  function getChannelSoftTakeoverSettings(channel) {
+    const resolvedSettings = typeof window.resolveChannelFaderSettings === 'function'
+      ? window.resolveChannelFaderSettings(channel)
+      : null;
+
+    return {
+      enabled: resolvedSettings?.softTakeoverEnabled ?? getSoftTakeoverEnabled(),
+      threshold: Math.max(
+        0,
+        Math.min(
+          15,
+          Number(resolvedSettings?.softTakeoverThreshold ?? getSoftTakeoverThreshold()) || 0
+        )
+      )
+    };
+  }
+
   function clampRuntimeVolume(value) {
     return Math.max(0, Math.min(100, Number(value) || 0));
   }
@@ -343,8 +360,9 @@
 
   function resolveMidiVolumeForChannel(channel, message) {
     const incomingValue = clampRuntimeVolume((message.normalizedValue || 0) * 100);
+    const channelSoftTakeover = getChannelSoftTakeoverSettings(channel);
 
-    if (!getSoftTakeoverEnabled()) {
+    if (!channelSoftTakeover.enabled) {
       resetPickupRuntime(channel.id);
       return {
         shouldApply: true,
@@ -367,7 +385,7 @@
       runtime,
       channelValue,
       incomingValue,
-      getSoftTakeoverThreshold()
+      channelSoftTakeover.threshold
     );
 
     runtime.lastPhysicalValue = incomingValue;

@@ -20,6 +20,7 @@ const api = Object.freeze({
   import_profile: (filePath, options) => invoke('api:import_profile', filePath, options),
   get_profile_template: (options) => invoke('api:get_profile_template', options),
   get_profiles_directory: () => invoke('api:get_profiles_directory'),
+  get_application_icons: (applicationPaths) => invoke('api:get_application_icons', applicationPaths),
   open_profiles_folder: () => invoke('api:open_profiles_folder'),
   show_profile_in_folder: (profilePath) => invoke('api:show_profile_in_folder', profilePath),
   pick_profile_file: () => invoke('api:pick_profile_file'),

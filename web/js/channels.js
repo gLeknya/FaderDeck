@@ -65,6 +65,13 @@ function changeChannelApp(channelId, appProcess) {
     return;
   }
 
+  if (!appProcess) {
+    resetChannelVolumePushState(channelId);
+    clearChannelAppTargetState?.(channelId, { source: 'ui' });
+    saveProfileToLocal();
+    return;
+  }
+
   const selectedApp = audioApps.find((app) => app.process === appProcess);
   resetChannelVolumePushState(channelId);
   const updatedChannel = typeof assignChannelAppState === 'function'
@@ -81,24 +88,7 @@ function changeChannelApp(channelId, appProcess) {
 }
 
 function editChannelTitle(channelId) {
-  const channel = getChannelById(channelId);
-
-  if (!channel) {
-    return;
-  }
-
-  const currentTitle = channel.title || channel.appName;
-  const name = prompt(t('channels.channelNamePrompt'), currentTitle);
-
-  if (name === null) {
-    return;
-  }
-
-  if (typeof renameChannelState === 'function') {
-    renameChannelState(channelId, name, channel.appName, { source: 'ui' });
-  }
-
-  saveProfileToLocal();
+  openChannelEditor?.(channelId);
 }
 
 function dismissFaderBindHint(channelId) {
@@ -126,12 +116,40 @@ function clampVolume(value) {
   return Math.round(clampedValue * 1000) / 1000;
 }
 
-function formatChannelVolume(value) {
+function formatChannelVolume(value, channel = null) {
+  const channelSettings = channel ? getChannelRuntimeSettings(channel) : {};
+
   if (typeof formatVolumeValue === 'function') {
-    return formatVolumeValue(value);
+    return formatVolumeValue(value, channelSettings);
   }
 
   return `${clampVolume(value)}%`;
+}
+
+function getChannelRuntimeSettings(channel) {
+  return typeof resolveChannelFaderSettings === 'function'
+    ? resolveChannelFaderSettings(channel)
+    : {};
+}
+
+function getChannelTargetProcess(channel) {
+  const process = String(channel?.app || '').trim();
+  return process || null;
+}
+
+function getChannelTargetProcesses(channel) {
+  const explicitTargets = Array.isArray(channel?.targets)
+    ? channel.targets
+        .map((target) => String(target?.process || '').trim())
+        .filter(Boolean)
+    : [];
+
+  if (explicitTargets.length > 0) {
+    return [...new Set(explicitTargets)];
+  }
+
+  const fallbackProcess = getChannelTargetProcess(channel);
+  return fallbackProcess ? [fallbackProcess] : [];
 }
 
 function getChannelOutputVolume(channel) {
@@ -139,8 +157,10 @@ function getChannelOutputVolume(channel) {
     return 0;
   }
 
+  const channelSettings = getChannelRuntimeSettings(channel);
+
   if (typeof mapFaderPositionToVolume === 'function') {
-    return clampVolume(mapFaderPositionToVolume(channel.volume));
+    return clampVolume(mapFaderPositionToVolume(channel.volume, channelSettings));
   }
 
   return clampVolume(channel.volume);
@@ -167,6 +187,16 @@ function resetChannelVolumePushState(channelId) {
   }
 
   channelVolumePushState.delete(channelId);
+}
+
+function pushVolumeToTargets(api, targetProcesses, volume) {
+  if (!api?.set_app_volume || !Array.isArray(targetProcesses) || !targetProcesses.length) {
+    return Promise.resolve();
+  }
+
+  return Promise.all(
+    targetProcesses.map((targetProcess) => api.set_app_volume(targetProcess, volume))
+  );
 }
 
 async function flushChannelVolumePush(channelId) {
@@ -196,9 +226,15 @@ async function flushChannelVolumePush(channelId) {
 
   try {
     const api = typeof getApi === 'function' ? getApi() : window.pywebview?.api ?? null;
+    const channelSettings = getChannelRuntimeSettings(channel);
+    const targetProcesses = getChannelTargetProcesses(channel);
+
+    if (!targetProcesses.length || !api?.set_app_volume) {
+      return;
+    }
+
     const shouldInterpolate = (
-      typeof getFaderInterpolationEnabled === 'function'
-      && getFaderInterpolationEnabled()
+      channelSettings.faderInterpolationEnabled
       && state.lastSentVolume !== null
       && Math.abs(volumeToSend - state.lastSentVolume) > 1
     );
@@ -211,7 +247,7 @@ async function flushChannelVolumePush(channelId) {
           startVolume + ((volumeToSend - startVolume) * (step / CHANNEL_INTERPOLATION_STEPS))
         );
 
-        await api?.set_app_volume?.(channel.app || 'master', interpolatedVolume);
+        await pushVolumeToTargets(api, targetProcesses, interpolatedVolume);
         state.lastSentVolume = interpolatedVolume;
 
         if (step < CHANNEL_INTERPOLATION_STEPS) {
@@ -219,7 +255,7 @@ async function flushChannelVolumePush(channelId) {
         }
       }
     } else {
-      await api?.set_app_volume?.(channel.app || 'master', volumeToSend);
+      await pushVolumeToTargets(api, targetProcesses, volumeToSend);
       state.lastSentVolume = volumeToSend;
     }
   } catch (error) {
@@ -353,9 +389,10 @@ function updateChannelFaderUi(channel) {
   }
 
   const outputVolume = getChannelOutputVolume(channel);
+  const channelSettings = getChannelRuntimeSettings(channel);
   thumb.style.bottom = `calc(${channel.volume}% - 25px)`;
   fill.style.height = `${channel.volume}%`;
-  value.textContent = formatChannelVolume(outputVolume);
+  value.textContent = formatVolumeValue(outputVolume, channelSettings);
 }
 
 function updateFadersFromState() {
@@ -442,13 +479,17 @@ function getFaderMappingLabel(mapping) {
 }
 
 function renderAppOptions(selectedProcess) {
-  return audioApps
+  const placeholderOption = !selectedProcess
+    ? `<option value="" selected>${t('editor.noTargetAssigned')}</option>`
+    : '';
+
+  return `${placeholderOption}${audioApps
     .map((app) => `
       <option value="${app.process}" ${app.process === selectedProcess ? 'selected' : ''}>
         ${app.name}
       </option>
     `)
-    .join('');
+    .join('')}`;
 }
 
 function renderChannelButtonSlot(channel, button) {
@@ -544,7 +585,7 @@ function renderChannel(channel) {
               ${renderChannelButtons(channel)}
             </div>
 
-            <div class="volume-value">${formatChannelVolume(outputVolume)}</div>
+            <div class="volume-value">${formatChannelVolume(outputVolume, channel)}</div>
           </div>
         </div>
 

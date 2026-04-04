@@ -40,18 +40,29 @@
     document.body.classList.toggle('modal-open', Boolean(activeModalId));
   }
 
-  function closeModal(modalId = activeModalId, meta = {}) {
-    const entry = getEntry(modalId);
+  function getVisibleClassName(entry) {
+    return entry.options.visibleClassName || 'is-visible';
+  }
 
-    if (!entry || !entry.element.classList.contains('active')) {
-      return false;
+  function getClosingClassName(entry) {
+    return entry.options.closingClassName || 'is-closing';
+  }
+
+  function clearCloseTimer(entry) {
+    if (!entry?.state?.closeTimerId) {
+      return;
     }
 
-    const { onClose } = entry.options;
-    const payload = entry.state.payload;
-    const opener = entry.state.opener;
+    clearTimeout(entry.state.closeTimerId);
+    entry.state.closeTimerId = null;
+  }
 
-    entry.element.classList.remove('active');
+  function finalizeClose(entry, payload, meta, opener) {
+    const visibleClassName = getVisibleClassName(entry);
+    const closingClassName = getClosingClassName(entry);
+
+    clearCloseTimer(entry);
+    entry.element.classList.remove('active', visibleClassName, closingClassName);
     entry.element.setAttribute('aria-hidden', 'true');
     entry.state.payload = null;
     entry.state.opener = null;
@@ -61,13 +72,41 @@
     }
 
     syncBodyState();
-    onClose?.(payload, meta, entry);
+    entry.options.onClose?.(payload, meta, entry);
 
     if (opener && opener.isConnected && typeof opener.focus === 'function') {
       requestAnimationFrame(() => {
         opener.focus({ preventScroll: true });
       });
     }
+  }
+
+  function closeModal(modalId = activeModalId, meta = {}) {
+    const entry = getEntry(modalId);
+
+    if (!entry || !entry.element.classList.contains('active')) {
+      return false;
+    }
+
+    const payload = entry.state.payload;
+    const opener = entry.state.opener;
+    const transitionDuration = Math.max(0, Number(entry.options.transitionDuration) || 0);
+    const visibleClassName = getVisibleClassName(entry);
+    const closingClassName = getClosingClassName(entry);
+
+    clearCloseTimer(entry);
+    entry.options.onBeforeClose?.(payload, meta, entry);
+
+    if (transitionDuration > 0) {
+      entry.element.classList.add(closingClassName);
+      entry.element.classList.remove(visibleClassName);
+      entry.state.closeTimerId = setTimeout(() => {
+        finalizeClose(entry, payload, meta, opener);
+      }, transitionDuration);
+      return true;
+    }
+
+    finalizeClose(entry, payload, meta, opener);
 
     return true;
   }
@@ -84,19 +123,21 @@
       closeModal(activeModalId, { reason: 'switch', nextModalId: modalId });
     }
 
+    clearCloseTimer(entry);
     entry.state.payload = payload;
     entry.state.opener = document.activeElement instanceof HTMLElement
       ? document.activeElement
       : null;
-
-    entry.options.onOpen?.(payload, meta, entry);
     entry.element.classList.add('active');
+    entry.element.classList.remove(getClosingClassName(entry));
     entry.element.setAttribute('aria-hidden', 'false');
     activeModalId = entry.id;
     syncBodyState();
+    entry.options.onOpen?.(payload, meta, entry);
 
     requestAnimationFrame(() => {
       if (activeModalId === entry.id) {
+        entry.element.classList.add(getVisibleClassName(entry));
         focusModal(entry);
       }
     });
@@ -146,7 +187,8 @@
       options,
       state: {
         payload: null,
-        opener: null
+        opener: null,
+        closeTimerId: null
       }
     };
 
@@ -183,4 +225,5 @@
   globalScope.openModal = openModal;
   globalScope.closeModal = closeModal;
   globalScope.closeActiveModal = closeActiveModal;
+  globalScope.getActiveModalId = () => activeModalId;
 })(window);

@@ -24,6 +24,45 @@ class AudioSessionBridge {
     this._pendingRequests = new Map();
   }
 
+  createWorkerError(reason = 'Audio worker unavailable') {
+    return reason instanceof Error ? reason : new Error(String(reason));
+  }
+
+  rejectPendingRequests(error) {
+    const workerError = this.createWorkerError(error);
+
+    for (const pendingRequest of this._pendingRequests.values()) {
+      clearTimeout(pendingRequest.timeoutId);
+      pendingRequest.reject(workerError);
+    }
+
+    this._pendingRequests.clear();
+  }
+
+  stopWorker(reason = 'Audio worker stopped') {
+    const worker = this._worker;
+
+    if (!worker) {
+      return;
+    }
+
+    this._worker = null;
+    this._workerBuffer = '';
+    this.rejectPendingRequests(reason);
+
+    worker.removeAllListeners();
+    worker.stdout?.removeAllListeners();
+    worker.stderr?.removeAllListeners();
+
+    try {
+      if (!worker.killed) {
+        worker.kill();
+      }
+    } catch (error) {
+      this._log('audio_session_worker kill error:', error);
+    }
+  }
+
   async runWithScript(action, options = {}) {
     const args = [
       '-NoProfile',
@@ -107,6 +146,11 @@ class AudioSessionBridge {
       }
     });
 
+    worker.stdin.on('error', (error) => {
+      this._log('audio_session_worker stdin error:', error);
+      this.stopWorker(error);
+    });
+
     worker.stderr.on('data', (chunk) => {
       const text = String(chunk || '').trim();
 
@@ -115,15 +159,18 @@ class AudioSessionBridge {
       }
     });
 
+    worker.on('error', (error) => {
+      this._log('audio_session_worker process error:', error);
+      this.stopWorker(error);
+    });
+
     worker.on('exit', (code, signal) => {
       const error = new Error(`Audio worker exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
 
-      for (const pendingRequest of this._pendingRequests.values()) {
-        clearTimeout(pendingRequest.timeoutId);
-        pendingRequest.reject(error);
+      if (this._worker === worker) {
+        this.rejectPendingRequests(error);
       }
 
-      this._pendingRequests.clear();
       this._worker = null;
       this._workerBuffer = '';
     });
@@ -163,8 +210,7 @@ class AudioSessionBridge {
 
       const responsePromise = new Promise((resolve, reject) => {
         const timeoutId = setTimeout(() => {
-          this._pendingRequests.delete(requestId);
-          reject(new Error(`Audio worker request timeout for action "${action}"`));
+          this.stopWorker(new Error(`Audio worker request timeout for action "${action}"`));
         }, WORKER_REQUEST_TIMEOUT_MS);
 
         this._pendingRequests.set(requestId, { resolve, reject, timeoutId });
@@ -204,6 +250,10 @@ class AudioSessionBridge {
       this._log('audio_session_set_mute error:', error);
       return null;
     }
+  }
+
+  shutdown() {
+    this.stopWorker('Audio worker shutdown');
   }
 }
 

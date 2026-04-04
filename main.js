@@ -113,6 +113,29 @@ function registerIpcHandlers() {
     'api:import_profile': (_event, filePath, options) => ensureApi().importProfile(filePath, options),
     'api:get_profile_template': (_event, options) => ensureApi().getProfileTemplate(options),
     'api:get_profiles_directory': () => ensureApi().getProfilesDirectory(),
+    'api:get_application_icons': async (_event, applicationPaths = []) => {
+      const icons = {};
+      const uniquePaths = Array.isArray(applicationPaths)
+        ? [...new Set(applicationPaths.filter((entry) => typeof entry === 'string' && entry.trim()))]
+        : [];
+
+      await Promise.all(uniquePaths.map(async (applicationPath) => {
+        try {
+          const icon = await app.getFileIcon(applicationPath, { size: 'normal' });
+
+          if (icon && !icon.isEmpty()) {
+            icons[applicationPath] = icon.toDataURL();
+          }
+        } catch (_error) {
+          // Some processes do not expose a retrievable shell icon; skip them silently.
+        }
+      }));
+
+      return {
+        success: true,
+        icons
+      };
+    },
     'api:open_profiles_folder': async () => {
       const { path: profilesPath } = ensureApi().getProfilesDirectory();
       await shell.openPath(profilesPath);

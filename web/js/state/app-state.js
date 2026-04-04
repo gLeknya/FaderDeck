@@ -1,13 +1,72 @@
 (function initAppState(window) {
+  function createDefaultChannelCustomSettings() {
+    return {
+      faderInterpolationEnabled: false,
+      softTakeoverEnabled: false,
+      softTakeoverThreshold: 5,
+      volumeCurveEnabled: false,
+      volumeCurveType: 'ease-in-out',
+      volumeCurveAmount: 0,
+      showFractionalNumbers: false
+    };
+  }
+
   function cloneButtonEntity(button = {}) {
     return {
       ...button
     };
   }
 
+  function createChannelTarget(process = '', name = '') {
+    const normalizedProcess = String(process || '').trim();
+
+    if (!normalizedProcess) {
+      return null;
+    }
+
+    return {
+      process: normalizedProcess,
+      name: String(name || normalizedProcess).trim() || normalizedProcess
+    };
+  }
+
+  function cloneChannelTarget(target = {}) {
+    return createChannelTarget(target.process, target.name);
+  }
+
+  function normalizeChannelTargets(channel = {}) {
+    const explicitTargets = Array.isArray(channel.targets)
+      ? channel.targets
+          .map(cloneChannelTarget)
+          .filter(Boolean)
+      : [];
+
+    if (explicitTargets.length > 0) {
+      return explicitTargets;
+    }
+
+    const fallbackTarget = createChannelTarget(channel.app, channel.appName);
+    return fallbackTarget ? [fallbackTarget] : [];
+  }
+
+  function cloneChannelCustomSettings(customSettings = {}) {
+    return {
+      ...createDefaultChannelCustomSettings(),
+      ...(customSettings || {})
+    };
+  }
+
   function cloneChannelEntity(channel = {}) {
+    const targets = normalizeChannelTargets(channel);
+    const primaryTarget = targets[0] || null;
+
     return {
       ...channel,
+      app: primaryTarget?.process || '',
+      appName: primaryTarget?.name || '',
+      targets,
+      customSettingsEnabled: Boolean(channel.customSettingsEnabled),
+      customSettings: cloneChannelCustomSettings(channel.customSettings),
       buttons: Array.isArray(channel.buttons)
         ? channel.buttons.map(cloneButtonEntity)
         : []

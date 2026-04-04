@@ -110,9 +110,9 @@ class AudioManager {
   }
 
   async listApplications() {
-    const runningApplications = await this.listRunningApplications();
+    const runningApplications = await this._processCatalog.listRunningApplications();
     const visibleApplications = runningApplications.length
-      ? runningApplications
+      ? runningApplications.map((application) => this.withApplicationState(application))
       : STATIC_APPLICATIONS.map((application) => this.withApplicationState(application));
     const applications = [
       this.buildMasterApplication(),
@@ -140,6 +140,7 @@ class AudioManager {
 
     return this._audioSessions.setVolume(processName, nextVolume).then((result) => {
       const detectedState = result?.application || null;
+      const hasAudioSession = Boolean(detectedState) || Number(result?.updatedCount) > 0;
 
       if (detectedState) {
         this.rememberApplicationState(processName, detectedState);
@@ -151,7 +152,7 @@ class AudioManager {
         process: processName,
         muted: detectedState?.muted ?? state.muted,
         updatedCount: result?.updatedCount ?? 0,
-        hasAudioSession: Boolean(detectedState)
+        hasAudioSession
       };
     });
   }
@@ -174,6 +175,7 @@ class AudioManager {
 
     return this._audioSessions.setMute(processName, nextMuted).then((result) => {
       const detectedState = result?.application || null;
+      const hasAudioSession = Boolean(detectedState) || Number(result?.updatedCount) > 0;
 
       if (detectedState) {
         this.rememberApplicationState(processName, detectedState);
@@ -184,7 +186,7 @@ class AudioManager {
         muted: detectedState?.muted ?? nextMuted,
         process: processName,
         updatedCount: result?.updatedCount ?? 0,
-        hasAudioSession: Boolean(detectedState)
+        hasAudioSession
       };
     });
   }
@@ -241,6 +243,10 @@ class AudioManager {
       success: true,
       applications
     };
+  }
+
+  shutdown() {
+    this._audioSessions.shutdown();
   }
 
   list_applications() {

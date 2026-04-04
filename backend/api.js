@@ -80,7 +80,7 @@ class FaderDeckAPI {
   }
 
   shutdown() {
-    // Reserved for future resource cleanup.
+    this.audioManager.shutdown();
   }
 
   get_audio_applications() {

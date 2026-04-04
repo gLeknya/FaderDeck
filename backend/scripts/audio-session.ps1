@@ -463,26 +463,22 @@ try {
 
     'SetVolume' {
       $updatedCount = [FaderDeck.Audio.AudioSessionNative]::SetVolume($ProcessName, [float]$Volume)
-      $applications = @(Group-Sessions -Sessions ([FaderDeck.Audio.AudioSessionNative]::GetSessions()) -ProcessNames @($ProcessName))
-      $application = if ($applications.Count -gt 0) { $applications[0] } else { $null }
 
       [PSCustomObject]@{
         success = $true
         updatedCount = $updatedCount
-        application = $application
+        application = $null
       } | ConvertTo-Json -Compress -Depth 6
       exit 0
     }
 
     'SetMute' {
       $updatedCount = [FaderDeck.Audio.AudioSessionNative]::SetMute($ProcessName, $Mute)
-      $applications = @(Group-Sessions -Sessions ([FaderDeck.Audio.AudioSessionNative]::GetSessions()) -ProcessNames @($ProcessName))
-      $application = if ($applications.Count -gt 0) { $applications[0] } else { $null }
 
       [PSCustomObject]@{
         success = $true
         updatedCount = $updatedCount
-        application = $application
+        application = $null
       } | ConvertTo-Json -Compress -Depth 6
       exit 0
     }
