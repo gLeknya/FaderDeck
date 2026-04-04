@@ -1,7 +1,5 @@
-let audioApps = [];
 let contextTarget = null;
 let menuPanelMetricsTimeout = null;
-const audioAppIconCache = new Map();
 
 const dom = {};
 const VOLUME_CURVE_MAX = 100;
@@ -19,17 +17,9 @@ const VOLUME_CURVE_DEMO_START_POSITION = 0;
 const VOLUME_CURVE_DEMO_PEAK_POSITION = 100;
 const VOLUME_CURVE_DEMO_END_POSITION = 0;
 const MENU_PANEL_SIZE_SETTLE_DELAY_MS = 260;
-const AUDIO_APPS_REFRESH_MIN_INTERVAL_MS = 1500;
 const SETTINGS_SECTION_HIDE_THRESHOLD = 1 / 3;
 const SETTINGS_SECTION_MIN_SCALE = 0.86;
 const SETTINGS_SECTION_MAX_SHIFT = 8;
-const FALLBACK_AUDIO_APPS = [
-  { name: 'Chrome', process: 'chrome.exe' },
-  { name: 'Spotify', process: 'spotify.exe' },
-  { name: 'Discord', process: 'discord.exe' },
-  { name: 'OBS Studio', process: 'obs64.exe' },
-  { name: 'VLC', process: 'vlc.exe' }
-];
 
 let volumeCurveDemoPosition = 0;
 let volumeCurveDemoTimer = null;
@@ -38,9 +28,7 @@ let volumeCurveDemoDragging = false;
 let menuPanelMetricsFrame = null;
 let activeSettingsTooltipTarget = null;
 let uiStateSyncInitialized = false;
-let audioAppsRefreshInFlight = null;
-let audioAppsRefreshQueued = false;
-let audioAppsLastRefreshAt = 0;
+let audioRuntimeBridgeInitialized = false;
 
 function logTest(...args) {
   console.log('[TEST]', ...args);
@@ -52,130 +40,6 @@ function $(id) {
 
 function getApi() {
   return window.pywebview?.api ?? null;
-}
-
-function buildAudioAppsList(applications = []) {
-  const localizedMaster = { name: t('audio.systemVolume'), process: 'master', iconDataUrl: '' };
-  const externalApps = Array.isArray(applications)
-    ? applications.filter((app) => app.process !== 'master')
-    : [];
-  return [localizedMaster, ...externalApps];
-}
-
-function getAvailableAudioApps() {
-  return Array.isArray(audioApps)
-    ? audioApps.map((app) => ({ ...app }))
-    : [];
-}
-
-function getAudioAppIconCacheKey(application = {}) {
-  const pathKey = String(application?.path || '').trim().toLowerCase();
-
-  if (pathKey) {
-    return pathKey;
-  }
-
-  return String(application?.process || '').trim().toLowerCase();
-}
-
-function areAudioAppsEqual(nextApplications = [], previousApplications = []) {
-  if (nextApplications.length !== previousApplications.length) {
-    return false;
-  }
-
-  return nextApplications.every((application, index) => {
-    const previousApplication = previousApplications[index] || {};
-    return (
-      String(application?.name || '') === String(previousApplication?.name || '')
-      && String(application?.process || '') === String(previousApplication?.process || '')
-      && String(application?.path || '') === String(previousApplication?.path || '')
-      && String(application?.iconDataUrl || '') === String(previousApplication?.iconDataUrl || '')
-    );
-  });
-}
-
-function setAudioApps(nextApplications = []) {
-  const normalizedApplications = Array.isArray(nextApplications)
-    ? nextApplications.map((application) => ({ ...application }))
-    : [];
-  const hasChanged = !areAudioAppsEqual(normalizedApplications, audioApps);
-
-  audioApps = normalizedApplications;
-
-  if (hasChanged) {
-    notifyAudioAppsUpdated();
-  }
-
-  return hasChanged;
-}
-
-function applyCachedAudioAppIcons(applications = []) {
-  return applications.map((application) => {
-    const cacheKey = getAudioAppIconCacheKey(application);
-
-    if (!cacheKey || !audioAppIconCache.has(cacheKey)) {
-      return { ...application };
-    }
-
-    return {
-      ...application,
-      iconDataUrl: audioAppIconCache.get(cacheKey)
-    };
-  });
-}
-
-function notifyAudioAppsUpdated() {
-  renderMixer();
-  window.dispatchEvent(new CustomEvent('audio-apps-updated', {
-    detail: {
-      apps: getAvailableAudioApps()
-    }
-  }));
-  scheduleContentMetricsUpdate();
-}
-
-async function enrichAudioAppsWithIcons(applications = []) {
-  const api = getApi();
-
-  if (!api?.get_application_icons || !Array.isArray(applications) || !applications.length) {
-    return applyCachedAudioAppIcons(applications);
-  }
-
-  const uncachedPaths = [];
-
-  applications.forEach((application) => {
-    const cacheKey = getAudioAppIconCacheKey(application);
-    const applicationPath = String(application?.path || '').trim();
-
-    if (!cacheKey || !applicationPath || audioAppIconCache.has(cacheKey)) {
-      return;
-    }
-
-    uncachedPaths.push(applicationPath);
-  });
-
-  if (uncachedPaths.length > 0) {
-    try {
-      const response = await api.get_application_icons([...new Set(uncachedPaths)]);
-      const iconMap = response?.success && response?.icons && typeof response.icons === 'object'
-        ? response.icons
-        : {};
-
-      applications.forEach((application) => {
-        const cacheKey = getAudioAppIconCacheKey(application);
-        const applicationPath = String(application?.path || '').trim();
-        const iconDataUrl = applicationPath ? iconMap[applicationPath] : '';
-
-        if (cacheKey && iconDataUrl) {
-          audioAppIconCache.set(cacheKey, iconDataUrl);
-        }
-      });
-    } catch (error) {
-      console.error('loadAudioAppIcons error', error);
-    }
-  }
-
-  return applyCachedAudioAppIcons(applications);
 }
 
 function cacheDomElements() {
@@ -463,7 +327,6 @@ function mapFaderPositionToVolume(position, options = {}) {
   return normalizeVolumeValue(curvedValue * 100);
 }
 
-window.getAvailableAudioApps = getAvailableAudioApps;
 window.getDefaultChannelCustomSettings = getDefaultChannelCustomSettings;
 window.resolveChannelFaderSettings = resolveChannelFaderSettings;
 
@@ -1304,6 +1167,32 @@ function scheduleContentMetricsUpdate() {
   // calling this safely without any JS-driven scrollbar sync work.
 }
 
+function notifyAudioRuntimeUi(audioApps = window.getAvailableAudioApps?.() || []) {
+  renderMixer();
+  window.dispatchEvent(new CustomEvent('audio-apps-updated', {
+    detail: {
+      apps: audioApps
+    }
+  }));
+  scheduleContentMetricsUpdate();
+}
+
+function initAudioRuntimeBridge() {
+  if (audioRuntimeBridgeInitialized || typeof window.subscribeAudioRuntime !== 'function') {
+    return;
+  }
+
+  window.subscribeAudioRuntime((audioRuntimeState, meta = {}) => {
+    if (!['audio-runtime/apps-updated', 'audio-runtime/localization-refresh'].includes(meta.type)) {
+      return;
+    }
+
+    notifyAudioRuntimeUi(audioRuntimeState.apps || []);
+  });
+
+  audioRuntimeBridgeInitialized = true;
+}
+
 function setupSettingsTooltips() {
   document.querySelectorAll('.settings-help').forEach((button) => {
     button.addEventListener('mouseenter', () => {
@@ -1434,72 +1323,6 @@ function setupSettings() {
     hideSettingsTooltip();
     syncSettingsViewportUi();
   }, { passive: true });
-}
-
-async function loadAudioApps(options = {}) {
-  const force = Boolean(options?.force);
-  const now = Date.now();
-
-  if (audioAppsRefreshInFlight) {
-    if (force) {
-      audioAppsRefreshQueued = true;
-    }
-    return audioAppsRefreshInFlight;
-  }
-
-  if (!force && audioApps.length && (now - audioAppsLastRefreshAt) < AUDIO_APPS_REFRESH_MIN_INTERVAL_MS) {
-    return audioApps;
-  }
-
-  audioAppsRefreshInFlight = (async () => {
-    let nextApplications;
-
-    try {
-      const api = getApi();
-
-      if (!api) {
-        console.warn('pywebview.api not ready in loadAudioApps');
-        return audioApps;
-      }
-
-      const response = await api.get_audio_applications();
-      nextApplications = buildAudioAppsList(
-        response?.applications?.length ? response.applications : FALLBACK_AUDIO_APPS
-      );
-    } catch (error) {
-      console.error(error);
-      nextApplications = buildAudioAppsList(FALLBACK_AUDIO_APPS);
-    }
-
-    nextApplications = applyCachedAudioAppIcons(nextApplications);
-    setAudioApps(nextApplications);
-
-    const enrichedApplications = await enrichAudioAppsWithIcons(nextApplications);
-    setAudioApps(enrichedApplications);
-    audioAppsLastRefreshAt = Date.now();
-    return audioApps;
-  })();
-
-  try {
-    return await audioAppsRefreshInFlight;
-  } finally {
-    audioAppsRefreshInFlight = null;
-
-    if (audioAppsRefreshQueued) {
-      audioAppsRefreshQueued = false;
-      requestAudioAppsRefresh('queued-refresh', { force: true });
-    }
-  }
-}
-
-function requestAudioAppsRefresh(reason = 'runtime', options = {}) {
-  const force = Boolean(options?.force);
-
-  if (!force && document.visibilityState === 'hidden') {
-    return Promise.resolve(audioApps);
-  }
-
-  return loadAudioApps({ force });
 }
 
 function hideContextMenu() {
@@ -1718,16 +1541,10 @@ function handleLanguageChanged() {
   syncVolumeHudUi();
   syncFractionalNumberUi();
   syncVolumeCurveUi();
-  audioApps = buildAudioAppsList(audioApps);
-  audioApps = applyCachedAudioAppIcons(audioApps);
+  window.refreshAudioRuntimeLocalization?.({ source: 'app-language-changed' });
   renderMixer();
   renderStandaloneButtons();
   refreshProfilesLanguage?.();
-  window.dispatchEvent(new CustomEvent('audio-apps-updated', {
-    detail: {
-      apps: getAvailableAudioApps()
-    }
-  }));
 
   if (typeof refreshMidiUiLanguage === 'function') {
     refreshMidiUiLanguage();
@@ -1758,15 +1575,15 @@ function bindGlobalUi() {
   window.addEventListener('beforeunload', stopVolumeCurveDemo);
   window.addEventListener('resize', scheduleMenuPanelCardSizeSync);
   window.addEventListener('focus', () => {
-    requestAudioAppsRefresh('window-focus');
+    window.requestAudioAppsRefresh?.('window-focus');
   });
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      requestAudioAppsRefresh('document-visible');
+      window.requestAudioAppsRefresh?.('document-visible');
     }
   });
   window.addEventListener('audio-apps-refresh-requested', (event) => {
-    requestAudioAppsRefresh(
+    window.requestAudioAppsRefresh?.(
       event?.detail?.reason || 'external-request',
       event?.detail || {}
     );
@@ -1786,11 +1603,13 @@ function init() {
   cacheDomElements();
   hideLegacyVolumeHudSettingsUi();
   initUiStore?.();
+  window.audioRuntime?.init?.();
   applyTranslations();
   enhanceCustomSelects?.(document);
   initChannelUiStateSync?.();
   initStandaloneButtonsStateSync?.();
   initUiStateSync();
+  initAudioRuntimeBridge();
   initButtonModal?.();
   initEntityEditor?.();
   bindGlobalUi();
@@ -1813,12 +1632,10 @@ function init() {
   syncSettingsViewportUi();
   window.profileActions?.loadRendererProfileFromLocal?.();
   initProfilesUi?.();
-  requestAudioAppsRefresh('init', { force: true });
+  window.requestAudioAppsRefresh?.('init', { force: true });
   initWebMIDI();
   scheduleContentMetricsUpdate();
 }
-
-window.requestAudioAppsRefresh = requestAudioAppsRefresh;
 window.getVolumeHudPresentationSettings = getVolumeHudPresentationSettings;
 window.getApi = getApi;
 window.logTest = logTest;

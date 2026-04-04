@@ -110,7 +110,7 @@ function getHudAvailableAudioApps() {
     return getAvailableAudioApps();
   }
 
-  return Array.isArray(audioApps) ? audioApps : [];
+  return [];
 }
 
 function isVolumeHudSelfTarget(target = {}) {
@@ -572,11 +572,14 @@ function getFaderMappingLabel(mapping) {
 }
 
 function renderAppOptions(selectedProcess) {
+  const availableApps = typeof getAvailableAudioApps === 'function'
+    ? getAvailableAudioApps()
+    : [];
   const placeholderOption = !selectedProcess
     ? `<option value="" selected>${t('editor.noTargetAssigned')}</option>`
     : '';
 
-  return `${placeholderOption}${audioApps
+  return `${placeholderOption}${availableApps
     .map((app) => `
       <option value="${app.process}" ${app.process === selectedProcess ? 'selected' : ''}>
         ${app.name}

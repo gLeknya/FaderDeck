@@ -66,12 +66,18 @@
     }
   }
 
+  // This slice is renderer session/local app state for profile UX and should
+  // not be confused with the persisted renderer profile payload.
   function getProfileSlice() {
     return window.getAppState?.().profile || {
       currentName: '',
       list: [],
       preferences: createDefaultProfilePreferences()
     };
+  }
+
+  function getProfileSessionState() {
+    return getProfileSlice();
   }
 
   function getCurrentProfileNameRuntime() {
@@ -387,6 +393,7 @@
 
   window.getProfilesListState = getProfilesListState;
   window.getProfilePreferencesState = getProfilePreferencesState;
+  window.getProfileSessionState = getProfileSessionState;
   window.getCurrentProfileNameRuntime = getCurrentProfileNameRuntime;
   window.setCurrentProfileNameRuntime = setCurrentProfileNameRuntime;
   window.setProfilesListState = setProfilesListState;

@@ -179,6 +179,9 @@
     return {
       channels: [],
       standaloneButtons: [],
+      // Profile slice is session/local renderer state for profile UX metadata
+      // (current name, loaded list, local preferences). It is not serialized
+      // into persisted renderer profile payloads.
       profile: {
         ...DEFAULT_SESSION_PROFILE_STATE,
         preferences: {
