@@ -5,23 +5,41 @@
   const ENTITY_EDITOR_PREVIEW_MOVE_MS = 250;
 
   const dom = {};
-  const editorState = {
-    initialized: false,
-    entityType: null,
-    channelId: null,
-    buttonId: null,
-    standalone: false,
-    sourceSelector: '',
-    sidePanelOpen: false,
-    sidePanelClosing: false,
-    sidePanelCloseTimerId: null,
-    titleDraft: '',
-    titleDirty: false,
-    previewTimerId: null,
-    previewDrag: null,
-    previewDragFrameId: null,
-    sourceHidden: false
-  };
+
+  // Entity editor state is transient renderer session state for the active modal.
+  function createDefaultEditorSessionState() {
+    return {
+      initialized: false,
+      entityType: null,
+      channelId: null,
+      buttonId: null,
+      standalone: false,
+      sourceSelector: '',
+      sidePanelOpen: false,
+      sidePanelClosing: false,
+      sidePanelCloseTimerId: null,
+      titleDraft: '',
+      titleDirty: false,
+      previewTimerId: null,
+      previewDrag: null,
+      previewDragFrameId: null,
+      sourceHidden: false
+    };
+  }
+
+  const editorState = createDefaultEditorSessionState();
+
+  function resetEditorSessionState(overrides = {}) {
+    Object.assign(editorState, createDefaultEditorSessionState(), {
+      initialized: editorState.initialized,
+      ...overrides
+    });
+    return editorState;
+  }
+
+  function isTargetsPanelVisible() {
+    return editorState.sidePanelOpen || editorState.sidePanelClosing;
+  }
 
   function $(id) {
     return document.getElementById(id);
@@ -216,7 +234,7 @@
   }
 
   function requestTargetsPanelApplicationsRefresh(options = {}) {
-    if (!editorState.sidePanelOpen && !editorState.sidePanelClosing) {
+    if (!isTargetsPanelVisible()) {
       return Promise.resolve();
     }
 
@@ -1096,7 +1114,7 @@
   function closeTargetsPanel() {
     clearSidePanelCloseTimer();
 
-    if (!editorState.sidePanelOpen && !editorState.sidePanelClosing) {
+    if (!isTargetsPanelVisible()) {
       return;
     }
 
@@ -1290,16 +1308,14 @@
     cleanupPreviewState({ restoreSource: true });
     clearSidePanelCloseTimer();
 
-    editorState.entityType = payload.entityType || 'fader';
-    editorState.channelId = payload.channelId ?? null;
-    editorState.buttonId = payload.buttonId ?? null;
-    editorState.standalone = Boolean(payload.standalone);
-    editorState.sourceSelector = resolveEntitySourceSelector(payload);
-    editorState.sidePanelOpen = false;
-    editorState.sidePanelClosing = false;
-    editorState.titleDirty = false;
-    editorState.previewDrag = null;
-    editorState.sourceHidden = false;
+    resetEditorSessionState({
+      initialized: editorState.initialized,
+      entityType: payload.entityType || 'fader',
+      channelId: payload.channelId ?? null,
+      buttonId: payload.buttonId ?? null,
+      standalone: Boolean(payload.standalone),
+      sourceSelector: resolveEntitySourceSelector(payload)
+    });
 
     const channel = getEditorChannel();
     editorState.titleDraft = channel?.title || channel?.appName || t('channels.unnamed');
@@ -1332,17 +1348,9 @@
     cleanupPreviewState({ restoreSource: true });
     clearSidePanelCloseTimer();
 
-    editorState.entityType = null;
-    editorState.channelId = null;
-    editorState.buttonId = null;
-    editorState.standalone = false;
-    editorState.sourceSelector = '';
-    editorState.sidePanelOpen = false;
-    editorState.sidePanelClosing = false;
-    editorState.titleDraft = '';
-    editorState.titleDirty = false;
-    editorState.previewDragFrameId = null;
-    editorState.sourceHidden = false;
+    resetEditorSessionState({
+      initialized: editorState.initialized
+    });
 
     if (dom.main) {
       dom.main.innerHTML = '';
@@ -1448,7 +1456,7 @@
         ) {
           syncTargetSelectionUi(channel);
 
-          if (editorState.sidePanelOpen || editorState.sidePanelClosing) {
+          if (isTargetsPanelVisible()) {
             syncSidePanelOptions(channel);
           }
 
@@ -1490,7 +1498,7 @@
       syncEditorTargetsBody(channel);
       syncPreviewFromChannel(channel);
 
-      if (editorState.sidePanelOpen || editorState.sidePanelClosing) {
+      if (isTargetsPanelVisible()) {
         syncSidePanelOptions(channel);
       }
     });

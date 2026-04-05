@@ -65,6 +65,10 @@
     activeTab: null
   });
 
+  const DEFAULT_SESSION_UI_STATE = Object.freeze({
+    menu: DEFAULT_SESSION_UI_MENU
+  });
+
   let uiStoreInitialized = false;
 
   function readUiBooleanSetting(key, fallback = false) {
@@ -156,19 +160,35 @@
     };
   }
 
+  function normalizeUiSessionState(session = {}, legacyMenu = undefined) {
+    const nextMenu = session?.menu ?? legacyMenu;
+
+    return {
+      ...DEFAULT_SESSION_UI_STATE,
+      ...(session || {}),
+      menu: normalizeUiMenu(nextMenu)
+    };
+  }
+
   function getUiState() {
-    return window.getAppState?.().ui || {
-      settings: { ...DEFAULT_PERSISTED_UI_SETTINGS },
-      menu: { ...DEFAULT_SESSION_UI_MENU }
+    const rawUiState = window.getAppState?.().ui || {};
+
+    return {
+      settings: normalizeUiSettings(rawUiState.settings),
+      session: normalizeUiSessionState(rawUiState.session, rawUiState.menu)
     };
   }
 
   function getUiSettingsState() {
-    return normalizeUiSettings(getUiState().settings);
+    return getUiState().settings;
+  }
+
+  function getUiSessionState() {
+    return getUiState().session;
   }
 
   function getUiMenuState() {
-    return normalizeUiMenu(getUiState().menu);
+    return getUiSessionState().menu;
   }
 
   function updateUiState(updater, meta = {}) {
@@ -177,19 +197,22 @@
     window.setAppState?.((previousState) => {
       const currentUiState = {
         settings: normalizeUiSettings(previousState.ui?.settings),
-        menu: normalizeUiMenu(previousState.ui?.menu)
+        session: normalizeUiSessionState(previousState.ui?.session, previousState.ui?.menu)
       };
-      nextUiState = typeof updater === 'function'
+      const draftUiState = typeof updater === 'function'
         ? updater(currentUiState) || currentUiState
         : {
           ...currentUiState,
           ...(updater || {})
         };
+      nextUiState = {
+        settings: normalizeUiSettings(draftUiState.settings),
+        session: normalizeUiSessionState(draftUiState.session, draftUiState.menu)
+      };
 
       return {
         ...previousState,
         ui: {
-          ...previousState.ui,
           ...nextUiState
         }
       };
@@ -306,12 +329,32 @@
     return setUiSettingsState(nextSettings, meta);
   }
 
-  function setUiMenuState(menu, meta = {}) {
-    const nextMenu = normalizeUiMenu(menu);
+  function setUiSessionState(session, meta = {}) {
+    const nextSession = normalizeUiSessionState(session);
     updateUiState((uiState) => ({
       ...uiState,
-      menu: nextMenu
+      session: nextSession
     }), {
+      type: 'ui/set-session',
+      source: 'ui-store',
+      ...meta
+    });
+    return nextSession;
+  }
+
+  function patchUiSessionState(patch, meta = {}) {
+    const currentSession = getUiSessionState();
+    return setUiSessionState({
+      ...currentSession,
+      ...(patch || {})
+    }, meta);
+  }
+
+  function setUiMenuState(menu, meta = {}) {
+    const nextMenu = normalizeUiMenu(menu);
+    patchUiSessionState({
+      menu: nextMenu
+    }, {
       type: 'ui/set-menu',
       source: 'ui-store',
       ...meta
@@ -340,11 +383,11 @@
       listener(
         {
           settings: normalizeUiSettings(nextState.ui?.settings),
-          menu: normalizeUiMenu(nextState.ui?.menu)
+          session: normalizeUiSessionState(nextState.ui?.session, nextState.ui?.menu)
         },
         {
           settings: normalizeUiSettings(previousState.ui?.settings),
-          menu: normalizeUiMenu(previousState.ui?.menu)
+          session: normalizeUiSessionState(previousState.ui?.session, previousState.ui?.menu)
         },
         meta
       );
@@ -390,7 +433,7 @@
       source: 'ui-store'
     });
 
-    setUiMenuState(DEFAULT_SESSION_UI_MENU, {
+    setUiSessionState(DEFAULT_SESSION_UI_STATE, {
       type: 'ui/init-menu',
       source: 'ui-store'
     });
@@ -641,10 +684,13 @@
   window.initUiStore = initUiStore;
   window.getUiState = getUiState;
   window.getUiSettingsState = getUiSettingsState;
+  window.getUiSessionState = getUiSessionState;
   window.getUiMenuState = getUiMenuState;
   window.subscribeUiState = subscribeUiState;
   window.setUiSettingsState = setUiSettingsState;
   window.patchUiSettingsState = patchUiSettingsState;
+  window.setUiSessionState = setUiSessionState;
+  window.patchUiSessionState = patchUiSessionState;
   window.setUiMenuState = setUiMenuState;
   window.patchUiMenuState = patchUiMenuState;
   window.resetSessionUiMenuState = resetSessionUiMenuState;

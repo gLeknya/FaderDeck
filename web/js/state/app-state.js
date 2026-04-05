@@ -114,28 +114,29 @@
     }
   });
 
+  const DEFAULT_PERSISTED_UI_SETTINGS = Object.freeze({
+    advancedMode: false,
+    developerMode: false,
+    faderInterpolationEnabled: false,
+    softTakeoverEnabled: false,
+    softTakeoverThreshold: 5,
+    showFractionalNumbers: false,
+    showFractionalOnlyLow: false,
+    volumeCurveEnabled: false,
+    volumeCurveType: 'ease-in-out',
+    volumeCurveAmount: 0,
+    profileToolbarSwitcherEnabled: true,
+    volumeHudEnabled: true,
+    volumeHudPosition: 'bottom-center',
+    volumeHudOrientation: 'horizontal',
+    volumeHudShowIcon: true,
+    volumeHudShowTitle: true,
+    volumeHudShowSubtitle: true,
+    volumeHudShowPercent: true,
+    volumeHudShowMeter: true
+  });
+
   const DEFAULT_SESSION_UI_STATE = Object.freeze({
-    settings: {
-      advancedMode: false,
-      developerMode: false,
-      faderInterpolationEnabled: false,
-      softTakeoverEnabled: false,
-      softTakeoverThreshold: 5,
-      showFractionalNumbers: false,
-      showFractionalOnlyLow: false,
-      volumeCurveEnabled: false,
-      volumeCurveType: 'ease-in-out',
-      volumeCurveAmount: 0,
-      profileToolbarSwitcherEnabled: true,
-      volumeHudEnabled: true,
-      volumeHudPosition: 'bottom-center',
-      volumeHudOrientation: 'horizontal',
-      volumeHudShowIcon: true,
-      volumeHudShowTitle: true,
-      volumeHudShowSubtitle: true,
-      volumeHudShowPercent: true,
-      volumeHudShowMeter: true
-    },
     menu: {
       open: false,
       activeTab: null
@@ -188,14 +189,16 @@
           ...DEFAULT_SESSION_PROFILE_STATE.preferences
         }
       },
-      // Session UI state lives in the renderer store, but menu state must never
-      // leak into profile serialization. Persisted UI settings are managed by ui-store.
+      // UI settings are persisted locally by ui-store. Transient UI state stays
+      // under ui.session and must never leak into profile serialization.
       ui: {
         settings: {
-          ...DEFAULT_SESSION_UI_STATE.settings
+          ...DEFAULT_PERSISTED_UI_SETTINGS
         },
-        menu: {
-          ...DEFAULT_SESSION_UI_STATE.menu
+        session: {
+          menu: {
+            ...DEFAULT_SESSION_UI_STATE.menu
+          }
         }
       },
       // Saved MIDI selection is persisted intentionally; live MIDI discovery/runtime
@@ -295,6 +298,9 @@
     const state = getAppState();
     const midiState = normalizeMidiState(state.midi);
 
+    // Only persisted renderer/profile data belongs in this payload.
+    // Session UI state (ui.session, profile UX metadata, modal/editor state)
+    // is intentionally excluded.
     return normalizePersistedRendererPayload({
       channels: state.channels,
       standaloneButtons: state.standaloneButtons,

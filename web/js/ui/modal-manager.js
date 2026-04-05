@@ -1,6 +1,8 @@
 (function initModalManager(globalScope) {
   const registry = new Map();
-  let activeModalId = null;
+  const modalSessionState = {
+    activeModalId: null
+  };
 
   function resolveElement(reference) {
     if (!reference) {
@@ -19,7 +21,7 @@
   }
 
   function getActiveEntry() {
-    return activeModalId ? getEntry(activeModalId) : null;
+    return modalSessionState.activeModalId ? getEntry(modalSessionState.activeModalId) : null;
   }
 
   function focusModal(entry) {
@@ -37,7 +39,7 @@
   }
 
   function syncBodyState() {
-    document.body.classList.toggle('modal-open', Boolean(activeModalId));
+    document.body.classList.toggle('modal-open', Boolean(modalSessionState.activeModalId));
   }
 
   function getVisibleClassName(entry) {
@@ -67,8 +69,8 @@
     entry.state.payload = null;
     entry.state.opener = null;
 
-    if (activeModalId === entry.id) {
-      activeModalId = null;
+    if (modalSessionState.activeModalId === entry.id) {
+      modalSessionState.activeModalId = null;
     }
 
     syncBodyState();
@@ -81,7 +83,7 @@
     }
   }
 
-  function closeModal(modalId = activeModalId, meta = {}) {
+  function closeModal(modalId = modalSessionState.activeModalId, meta = {}) {
     const entry = getEntry(modalId);
 
     if (!entry || !entry.element.classList.contains('active')) {
@@ -119,8 +121,8 @@
       return false;
     }
 
-    if (activeModalId && activeModalId !== modalId) {
-      closeModal(activeModalId, { reason: 'switch', nextModalId: modalId });
+    if (modalSessionState.activeModalId && modalSessionState.activeModalId !== modalId) {
+      closeModal(modalSessionState.activeModalId, { reason: 'switch', nextModalId: modalId });
     }
 
     clearCloseTimer(entry);
@@ -131,12 +133,12 @@
     entry.element.classList.add('active');
     entry.element.classList.remove(getClosingClassName(entry));
     entry.element.setAttribute('aria-hidden', 'false');
-    activeModalId = entry.id;
+    modalSessionState.activeModalId = entry.id;
     syncBodyState();
     entry.options.onOpen?.(payload, meta, entry);
 
     requestAnimationFrame(() => {
-      if (activeModalId === entry.id) {
+      if (modalSessionState.activeModalId === entry.id) {
         entry.element.classList.add(getVisibleClassName(entry));
         focusModal(entry);
       }
@@ -146,7 +148,7 @@
   }
 
   function closeActiveModal(meta = {}) {
-    return closeModal(activeModalId, meta);
+    return closeModal(modalSessionState.activeModalId, meta);
   }
 
   function bindEntry(entry) {
@@ -217,7 +219,8 @@
     open: openModal,
     close: closeModal,
     closeActive: closeActiveModal,
-    getActiveModalId: () => activeModalId,
+    getActiveModalId: () => modalSessionState.activeModalId,
+    getSessionState: () => ({ activeModalId: modalSessionState.activeModalId }),
     getRegisteredModal: getEntry
   };
 
@@ -225,5 +228,6 @@
   globalScope.openModal = openModal;
   globalScope.closeModal = closeModal;
   globalScope.closeActiveModal = closeActiveModal;
-  globalScope.getActiveModalId = () => activeModalId;
+  globalScope.getActiveModalId = () => modalSessionState.activeModalId;
+  globalScope.getModalSessionState = () => ({ activeModalId: modalSessionState.activeModalId });
 })(window);

@@ -1,6 +1,3 @@
-let contextTarget = null;
-let menuPanelMetricsTimeout = null;
-
 const dom = {};
 const VOLUME_CURVE_MAX = 100;
 const VOLUME_CURVE_EXPONENT_RANGE = 2.2;
@@ -21,12 +18,28 @@ const SETTINGS_SECTION_HIDE_THRESHOLD = 1 / 3;
 const SETTINGS_SECTION_MIN_SCALE = 0.86;
 const SETTINGS_SECTION_MAX_SHIFT = 8;
 
-let volumeCurveDemoPosition = 0;
-let volumeCurveDemoTimer = null;
-let volumeCurveDemoFrame = null;
-let volumeCurveDemoDragging = false;
-let menuPanelMetricsFrame = null;
-let activeSettingsTooltipTarget = null;
+const appSessionState = {
+  contextMenu: {
+    open: false,
+    target: null,
+    anchorX: 0,
+    anchorY: 0
+  },
+  menuPanelMetrics: {
+    timeoutId: null,
+    frameId: null
+  },
+  settingsTooltip: {
+    activeTarget: null
+  },
+  volumeCurveDemo: {
+    position: 0,
+    timerId: null,
+    frameId: null,
+    dragging: false
+  }
+};
+
 let uiStateSyncInitialized = false;
 let audioRuntimeBridgeInitialized = false;
 
@@ -428,22 +441,22 @@ function measureMenuViewContentHeight(view, width) {
 }
 
 function scheduleMenuPanelCardSizeSync() {
-  if (menuPanelMetricsFrame) {
-    cancelAnimationFrame(menuPanelMetricsFrame);
+  if (appSessionState.menuPanelMetrics.frameId) {
+    cancelAnimationFrame(appSessionState.menuPanelMetrics.frameId);
   }
 
-  if (menuPanelMetricsTimeout) {
-    clearTimeout(menuPanelMetricsTimeout);
+  if (appSessionState.menuPanelMetrics.timeoutId) {
+    clearTimeout(appSessionState.menuPanelMetrics.timeoutId);
   }
 
-  menuPanelMetricsFrame = requestAnimationFrame(() => {
-    menuPanelMetricsFrame = null;
+  appSessionState.menuPanelMetrics.frameId = requestAnimationFrame(() => {
+    appSessionState.menuPanelMetrics.frameId = null;
     syncMenuPanelCardSize();
     syncSettingsViewportUi();
   });
 
-  menuPanelMetricsTimeout = window.setTimeout(() => {
-    menuPanelMetricsTimeout = null;
+  appSessionState.menuPanelMetrics.timeoutId = window.setTimeout(() => {
+    appSessionState.menuPanelMetrics.timeoutId = null;
     syncMenuPanelCardSize();
     syncSettingsViewportUi();
   }, MENU_PANEL_SIZE_SETTLE_DELAY_MS);
@@ -783,7 +796,7 @@ function updateSettingsRangeFill(rangeElement) {
   rangeElement.style.setProperty('--settings-range-fill', `${clampPercent(fillPercent)}%`);
 }
 
-function updateVolumeCurveDemoUi(position = volumeCurveDemoPosition, { showPoint = false } = {}) {
+function updateVolumeCurveDemoUi(position = appSessionState.volumeCurveDemo.position, { showPoint = false } = {}) {
   const previewPoint = getVolumeCurvePreviewPoint(position);
   const trackHeight = dom.volumeCurveDemoTrack?.clientHeight || 164;
   const thumbHeight = dom.volumeCurveDemoThumb?.offsetHeight || 44;
@@ -791,7 +804,7 @@ function updateVolumeCurveDemoUi(position = volumeCurveDemoPosition, { showPoint
   const thumbBottom = (previewPoint.input / 100) * thumbTravel;
   const fillHeight = (previewPoint.output / 100) * trackHeight;
 
-  volumeCurveDemoPosition = previewPoint.input;
+  appSessionState.volumeCurveDemo.position = previewPoint.input;
 
   if (dom.volumeCurvePoint) {
     dom.volumeCurvePoint.setAttribute('cx', previewPoint.x.toFixed(1));
@@ -814,14 +827,14 @@ function updateVolumeCurveDemoUi(position = volumeCurveDemoPosition, { showPoint
 }
 
 function stopVolumeCurveDemo() {
-  if (volumeCurveDemoTimer) {
-    clearTimeout(volumeCurveDemoTimer);
-    volumeCurveDemoTimer = null;
+  if (appSessionState.volumeCurveDemo.timerId) {
+    clearTimeout(appSessionState.volumeCurveDemo.timerId);
+    appSessionState.volumeCurveDemo.timerId = null;
   }
 
-  if (volumeCurveDemoFrame) {
-    cancelAnimationFrame(volumeCurveDemoFrame);
-    volumeCurveDemoFrame = null;
+  if (appSessionState.volumeCurveDemo.frameId) {
+    cancelAnimationFrame(appSessionState.volumeCurveDemo.frameId);
+    appSessionState.volumeCurveDemo.frameId = null;
   }
 
   dom.volumeCurveDemoOutput?.classList.remove('is-live');
@@ -857,18 +870,18 @@ function getVolumeCurveDemoPosition(progress, startPosition = VOLUME_CURVE_DEMO_
 function startVolumeCurveDemo() {
   stopVolumeCurveDemo();
 
-  if (!getVolumeCurveEnabled() || volumeCurveDemoDragging || !dom.volumeCurveDemoTrack) {
+  if (!getVolumeCurveEnabled() || appSessionState.volumeCurveDemo.dragging || !dom.volumeCurveDemoTrack) {
     return;
   }
 
   const startedAt = performance.now();
-  const startPosition = volumeCurveDemoPosition;
+  const startPosition = appSessionState.volumeCurveDemo.position;
   dom.volumeCurveDemoOutput?.classList.add('is-live');
   updateVolumeCurveDemoUi(startPosition, { showPoint: true });
 
   const tick = (timestamp) => {
-    if (!getVolumeCurveEnabled() || volumeCurveDemoDragging) {
-      volumeCurveDemoFrame = null;
+    if (!getVolumeCurveEnabled() || appSessionState.volumeCurveDemo.dragging) {
+      appSessionState.volumeCurveDemo.frameId = null;
       dom.volumeCurveDemoOutput?.classList.remove('is-live');
       setVolumeCurvePointVisible(false);
       return;
@@ -880,34 +893,34 @@ function startVolumeCurveDemo() {
     });
 
     if (progress < 1) {
-      volumeCurveDemoFrame = requestAnimationFrame(tick);
+      appSessionState.volumeCurveDemo.frameId = requestAnimationFrame(tick);
       return;
     }
 
-    volumeCurveDemoFrame = null;
+    appSessionState.volumeCurveDemo.frameId = null;
     dom.volumeCurveDemoOutput?.classList.remove('is-live');
     setVolumeCurvePointVisible(false);
   };
 
-  volumeCurveDemoFrame = requestAnimationFrame(tick);
+  appSessionState.volumeCurveDemo.frameId = requestAnimationFrame(tick);
 }
 
 function scheduleVolumeCurveDemo() {
   stopVolumeCurveDemo();
 
-  if (!getVolumeCurveEnabled() || volumeCurveDemoDragging || !dom.volumeCurveDemoTrack) {
+  if (!getVolumeCurveEnabled() || appSessionState.volumeCurveDemo.dragging || !dom.volumeCurveDemoTrack) {
     return;
   }
 
-  volumeCurveDemoTimer = setTimeout(() => {
-    volumeCurveDemoTimer = null;
+  appSessionState.volumeCurveDemo.timerId = setTimeout(() => {
+    appSessionState.volumeCurveDemo.timerId = null;
     startVolumeCurveDemo();
   }, VOLUME_CURVE_DEMO_DELAY_MS);
 }
 
 function getVolumeCurveDemoPointerPosition(clientY) {
   if (!dom.volumeCurveDemoTrack) {
-    return volumeCurveDemoPosition;
+    return appSessionState.volumeCurveDemo.position;
   }
 
   const rect = dom.volumeCurveDemoTrack.getBoundingClientRect();
@@ -916,7 +929,7 @@ function getVolumeCurveDemoPointerPosition(clientY) {
 }
 
 function onVolumeCurveDemoPointerMove(event) {
-  if (!volumeCurveDemoDragging) {
+  if (!appSessionState.volumeCurveDemo.dragging) {
     return;
   }
 
@@ -926,11 +939,11 @@ function onVolumeCurveDemoPointerMove(event) {
 }
 
 function stopVolumeCurveDemoDrag() {
-  if (!volumeCurveDemoDragging) {
+  if (!appSessionState.volumeCurveDemo.dragging) {
     return;
   }
 
-  volumeCurveDemoDragging = false;
+  appSessionState.volumeCurveDemo.dragging = false;
   dom.volumeCurveDemoTrack?.classList.remove('is-dragging');
   dom.volumeCurveDemoOutput?.classList.remove('is-live');
   setVolumeCurvePointVisible(false);
@@ -946,7 +959,7 @@ function startVolumeCurveDemoDrag(event) {
 
   event.preventDefault();
   stopVolumeCurveDemo();
-  volumeCurveDemoDragging = true;
+  appSessionState.volumeCurveDemo.dragging = true;
   dom.volumeCurveDemoTrack.classList.add('is-dragging');
   dom.volumeCurveDemoOutput?.classList.add('is-live');
   updateVolumeCurveDemoUi(getVolumeCurveDemoPointerPosition(event.clientY), {
@@ -986,7 +999,7 @@ function syncVolumeCurveUi() {
     dom.volumeCurvePath.setAttribute('d', buildVolumeCurvePreviewPath());
   }
 
-  updateVolumeCurveDemoUi(volumeCurveDemoPosition, { showPoint: false });
+  updateVolumeCurveDemoUi(appSessionState.volumeCurveDemo.position, { showPoint: false });
 
   if (!volumeCurveEnabled) {
     stopVolumeCurveDemo();
@@ -1103,7 +1116,7 @@ function syncSettingsSectionEffects() {
 }
 
 function hideSettingsTooltip() {
-  activeSettingsTooltipTarget = null;
+  appSessionState.settingsTooltip.activeTarget = null;
 
   if (!dom.settingsTooltipLayer || !dom.settingsTooltipBubble) {
     return;
@@ -1128,13 +1141,13 @@ function positionSettingsTooltip(target) {
     return;
   }
 
-  activeSettingsTooltipTarget = target;
+  appSessionState.settingsTooltip.activeTarget = target;
   dom.settingsTooltipBubble.textContent = tooltipText;
   dom.settingsTooltipLayer.classList.remove('hidden');
   dom.settingsTooltipLayer.setAttribute('aria-hidden', 'false');
 
   requestAnimationFrame(() => {
-    if (activeSettingsTooltipTarget !== target) {
+    if (appSessionState.settingsTooltip.activeTarget !== target) {
       return;
     }
 
@@ -1326,6 +1339,9 @@ function setupSettings() {
 }
 
 function hideContextMenu() {
+  appSessionState.contextMenu.open = false;
+  appSessionState.contextMenu.target = null;
+
   if (dom.contextMenu) {
     dom.contextMenu.style.display = 'none';
   }
@@ -1343,18 +1359,18 @@ function onContextMenu(event) {
   event.preventDefault();
 
   if (buttonEl && buttonEl.dataset.buttonId) {
-    contextTarget = {
+    appSessionState.contextMenu.target = {
       type: 'button',
       channelId: Number.parseInt(buttonEl.closest('.channel-strip').dataset.channelId, 10),
       buttonId: Number.parseInt(buttonEl.dataset.buttonId, 10)
     };
   } else if (standaloneEl) {
-    contextTarget = {
+    appSessionState.contextMenu.target = {
       type: 'standalone',
       buttonId: Number.parseInt(standaloneEl.dataset.buttonId, 10)
     };
   } else if (channelEl) {
-    contextTarget = {
+    appSessionState.contextMenu.target = {
       type: 'channel',
       channelId: Number.parseInt(channelEl.dataset.channelId, 10)
     };
@@ -1366,16 +1382,19 @@ function onContextMenu(event) {
     return;
   }
 
+  appSessionState.contextMenu.open = true;
+  appSessionState.contextMenu.anchorX = event.clientX;
+  appSessionState.contextMenu.anchorY = event.clientY;
   dom.contextMenu.style.display = 'block';
 
   const menuRect = dom.contextMenu.getBoundingClientRect();
   const nextLeft = Math.min(
     window.innerWidth - menuRect.width - 8,
-    event.clientX + 10
+    appSessionState.contextMenu.anchorX + 10
   );
   const nextTop = Math.min(
     window.innerHeight - menuRect.height - 8,
-    event.clientY + 10
+    appSessionState.contextMenu.anchorY + 10
   );
 
   dom.contextMenu.style.left = `${Math.max(8, nextLeft)}px`;
@@ -1389,6 +1408,8 @@ function onContextItemClick(event) {
 }
 
 function handleContextAction(action) {
+  const contextTarget = appSessionState.contextMenu.target;
+
   if (!contextTarget) {
     return;
   }
@@ -1457,8 +1478,8 @@ function initUiStateSync() {
   subscribeUiState((nextUiState, previousUiState) => {
     const nextSettings = nextUiState.settings;
     const previousSettings = previousUiState.settings;
-    const nextMenu = nextUiState.menu;
-    const previousMenu = previousUiState.menu;
+    const nextMenu = nextUiState.session.menu;
+    const previousMenu = previousUiState.session.menu;
 
     if (nextSettings.advancedMode !== previousSettings.advancedMode) {
       syncAdvancedModeUi();
@@ -1503,7 +1524,7 @@ function initUiStateSync() {
     ) {
       syncFractionalNumberUi();
       refreshCurveDrivenUi();
-      updateVolumeCurveDemoUi(volumeCurveDemoPosition, { showPoint: false });
+      updateVolumeCurveDemoUi(appSessionState.volumeCurveDemo.position, { showPoint: false });
     }
 
     if (

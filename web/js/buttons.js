@@ -2,7 +2,9 @@ const MAX_CHANNEL_BUTTONS = 4;
 const MAX_STANDALONE_BUTTONS = 24;
 let standaloneButtonsUiStateSyncInitialized = false;
 let buttonModalInitialized = false;
-let currentButtonConfig = null;
+const buttonModalSessionState = {
+  currentConfig: null
+};
 
 function findChannel(channelId) {
   return typeof findChannelState === 'function' ? findChannelState(channelId) : null;
@@ -169,14 +171,14 @@ function applyButtonConfig(button, config) {
 }
 
 function saveButtonConfig() {
-  if (!currentButtonConfig) {
+  if (!buttonModalSessionState.currentConfig) {
     return;
   }
 
   const nextConfig = readButtonFormState();
 
-  if (currentButtonConfig.standalone) {
-    updateStandaloneButtonState?.(currentButtonConfig.buttonId, (standaloneButton) => {
+  if (buttonModalSessionState.currentConfig.standalone) {
+    updateStandaloneButtonState?.(buttonModalSessionState.currentConfig.buttonId, (standaloneButton) => {
       applyButtonConfig(standaloneButton, nextConfig);
       return standaloneButton;
     }, {
@@ -185,8 +187,8 @@ function saveButtonConfig() {
     });
   } else {
     window.channelActions?.updateChannelButton(
-      currentButtonConfig.channelId,
-      currentButtonConfig.buttonId,
+      buttonModalSessionState.currentConfig.channelId,
+      buttonModalSessionState.currentConfig.buttonId,
       (channelButton) => {
         applyButtonConfig(channelButton, nextConfig);
         return channelButton;
@@ -218,11 +220,11 @@ function initButtonModal() {
     element: buttonModal,
     initialFocusSelector: '#buttonText',
     onOpen(payload) {
-      currentButtonConfig = payload?.config || null;
+      buttonModalSessionState.currentConfig = payload?.config || null;
       fillButtonModal(payload?.button || createDefaultButton());
     },
     onClose() {
-      currentButtonConfig = null;
+      buttonModalSessionState.currentConfig = null;
     }
   });
 
