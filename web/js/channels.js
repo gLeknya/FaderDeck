@@ -16,6 +16,55 @@ function getChannelById(channelId) {
   return typeof findChannelState === 'function' ? findChannelState(channelId) : null;
 }
 
+function getMixerLayoutItems() {
+  return typeof getLayoutItemsByZoneState === 'function'
+    ? getLayoutItemsByZoneState(window.LAYOUT_ZONES?.mixer || 'mixer')
+    : getChannels().map((channel) => ({
+      id: `layout-channel-${channel.id}`,
+      type: window.LAYOUT_ITEM_TYPES?.channel || 'channel',
+      zone: window.LAYOUT_ZONES?.mixer || 'mixer',
+      entityId: channel.id
+    }));
+}
+
+function getChannelLayoutEditModeEnabled() {
+  return typeof isLayoutEditModeEnabledState === 'function'
+    ? isLayoutEditModeEnabledState()
+    : false;
+}
+
+function getSelectedChannelLayoutItemId() {
+  return typeof getSelectedLayoutItemIdState === 'function'
+    ? getSelectedLayoutItemIdState()
+    : null;
+}
+
+function getHoveredChannelLayoutItemId() {
+  return typeof getHoveredLayoutItemIdState === 'function'
+    ? getHoveredLayoutItemIdState()
+    : null;
+}
+
+function renderChannelLayoutEditOverlay(layoutItem, labelKey) {
+  if (!layoutItem || !getChannelLayoutEditModeEnabled()) {
+    return '';
+  }
+
+  const isSelected = getSelectedChannelLayoutItemId() === layoutItem.id;
+  const isHovered = getHoveredChannelLayoutItemId() === layoutItem.id;
+
+  return `
+    <button
+      class="layout-edit-overlay ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+      type="button"
+      onclick="selectLayoutSurfaceItem('${layoutItem.id}')"
+      onmouseenter="hoverLayoutSurfaceItem('${layoutItem.id}')"
+      onmouseleave="clearLayoutSurfaceHover()">
+      <span class="layout-edit-overlay__label">${t(labelKey)}</span>
+    </button>
+  `;
+}
+
 function createChannelModel(index) {
   if (typeof createChannelStateModel === 'function') {
     return createChannelStateModel(index);
@@ -635,8 +684,10 @@ function renderBindHint(channel) {
 }
 
 function renderAddChannelStrip() {
+  const layoutEditModeEnabled = getChannelLayoutEditModeEnabled();
+
   return `
-    <div class="add-channel-strip" onclick="createChannel()">
+    <div class="add-channel-strip ${layoutEditModeEnabled ? 'is-disabled' : ''}" ${layoutEditModeEnabled ? '' : 'onclick="createChannel()"'} >
       <div class="add-channel-plus">+</div>
     </div>
   `;
@@ -651,46 +702,74 @@ function renderEmptyMixerState() {
   `;
 }
 
-function renderChannel(channel) {
+function renderMixerSpacer(layoutItem) {
+  const isSelected = getSelectedChannelLayoutItemId() === layoutItem.id;
+  const isHovered = getHoveredChannelLayoutItemId() === layoutItem.id;
+
+  return `
+    <div
+      class="surface-layout-item surface-layout-item--channel layout-spacer-shell ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+      data-layout-item-id="${layoutItem.id}"
+      data-layout-item-type="${layoutItem.type}">
+      <div class="layout-spacer layout-spacer--channel" data-layout-spacer-size="${layoutItem.size || 1}"></div>
+      ${renderChannelLayoutEditOverlay(layoutItem, 'layout.itemTypes.spacer')}
+    </div>
+  `;
+}
+
+function renderChannel(channel, layoutItem = null) {
   const title = channel.title || channel.appName || t('channels.unnamed');
   const mappingLabel = getAdvancedModeEnabled?.()
     ? getFaderMappingLabel(channel.faderMapping)
     : '';
   const outputVolume = getChannelOutputVolume(channel);
+  const resolvedLayoutItem = layoutItem || {
+    id: `layout-channel-${channel.id}`,
+    type: window.LAYOUT_ITEM_TYPES?.channel || 'channel',
+    entityId: channel.id
+  };
+  const isSelected = getSelectedChannelLayoutItemId() === resolvedLayoutItem.id;
+  const isHovered = getHoveredChannelLayoutItemId() === resolvedLayoutItem.id;
 
   return `
-    <div class="channel-strip" data-channel-id="${channel.id}">
-      <div class="channel-body">
-        <div class="channel-main">
-          <div class="fader-column">
-            <div class="fader-track" data-channel="${channel.id}">
-              <div class="fader-rail"></div>
-              <div class="fader-fill" style="height: ${channel.volume}%"></div>
-              <div class="fader-thumb" style="bottom: calc(${channel.volume}% - 25px)"></div>
+    <div
+      class="surface-layout-item surface-layout-item--channel ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+      data-layout-item-id="${resolvedLayoutItem.id}"
+      data-layout-item-type="${resolvedLayoutItem.type}">
+      <div class="channel-strip" data-channel-id="${channel.id}">
+        <div class="channel-body">
+          <div class="channel-main">
+            <div class="fader-column">
+              <div class="fader-track" data-channel="${channel.id}">
+                <div class="fader-rail"></div>
+                <div class="fader-fill" style="height: ${channel.volume}%"></div>
+                <div class="fader-thumb" style="bottom: calc(${channel.volume}% - 25px)"></div>
+              </div>
+            </div>
+
+            <div class="channel-side-column">
+              <div class="channel-title" title="${title}" ondblclick="editChannelTitle(${channel.id})">
+                ${title}
+              </div>
+
+              ${mappingLabel ? `<div class="fader-meta">${mappingLabel}</div>` : '<div class="fader-meta"></div>'}
+
+              <div class="channel-buttons-grid">
+                ${renderChannelButtons(channel)}
+              </div>
+
+              <div class="volume-value">${formatChannelVolume(outputVolume, channel)}</div>
             </div>
           </div>
 
-          <div class="channel-side-column">
-            <div class="channel-title" title="${title}" ondblclick="editChannelTitle(${channel.id})">
-              ${title}
-            </div>
+          ${renderBindHint(channel)}
 
-            ${mappingLabel ? `<div class="fader-meta">${mappingLabel}</div>` : '<div class="fader-meta"></div>'}
-
-            <div class="channel-buttons-grid">
-              ${renderChannelButtons(channel)}
-            </div>
-
-            <div class="volume-value">${formatChannelVolume(outputVolume, channel)}</div>
-          </div>
+          <select class="app-selector" onchange="changeChannelApp(${channel.id}, this.value)">
+            ${renderAppOptions(channel.app)}
+          </select>
         </div>
-
-        ${renderBindHint(channel)}
-
-        <select class="app-selector" onchange="changeChannelApp(${channel.id}, this.value)">
-          ${renderAppOptions(channel.app)}
-        </select>
       </div>
+      ${renderChannelLayoutEditOverlay(resolvedLayoutItem, 'layout.itemTypes.channel')}
     </div>
   `;
 }
@@ -730,12 +809,14 @@ function triggerNewChannelFlash(container) {
 function renderMixer() {
   const container = document.getElementById('mixerContainer');
   const channels = getChannels();
+  const layoutItems = getMixerLayoutItems();
+  const channelsById = new Map(channels.map((channel) => [channel.id, channel]));
 
   if (!container) {
     return;
   }
 
-  if (channels.length === 0) {
+  if (channels.length === 0 && layoutItems.length === 0) {
     container.innerHTML = `
       ${renderEmptyMixerState()}
       ${renderAddChannelStrip()}
@@ -745,7 +826,14 @@ function renderMixer() {
   }
 
   container.innerHTML = `
-    ${channels.map(renderChannel).join('')}
+    ${layoutItems.map((layoutItem) => {
+      if (layoutItem.type === (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
+        return renderMixerSpacer(layoutItem);
+      }
+
+      const channel = channelsById.get(layoutItem.entityId);
+      return channel ? renderChannel(channel, layoutItem) : '';
+    }).join('')}
     ${renderAddChannelStrip()}
   `;
 
@@ -763,11 +851,15 @@ function initChannelUiStateSync() {
   }
 
   subscribeAppState((nextState, previousState, meta = {}) => {
-    if (nextState.channels === previousState.channels) {
+    const channelsChanged = nextState.channels !== previousState.channels;
+    const layoutChanged = nextState.layout !== previousState.layout;
+    const layoutEditorChanged = nextState.layoutEditor !== previousState.layoutEditor;
+
+    if (!channelsChanged && !layoutChanged && !layoutEditorChanged) {
       return;
     }
 
-    if (meta.type === 'channels/set-volume') {
+    if (channelsChanged && !layoutChanged && !layoutEditorChanged && meta.type === 'channels/set-volume') {
       const channel = getChannelById(meta.channelId);
 
       if (channel) {
@@ -777,7 +869,7 @@ function initChannelUiStateSync() {
       return;
     }
 
-    if (meta.type === 'channels/clear-flash') {
+    if (channelsChanged && !layoutChanged && !layoutEditorChanged && meta.type === 'channels/clear-flash') {
       return;
     }
 

@@ -34,6 +34,10 @@
         </select>
       </div>
 
+      <button class="btn icon-btn layout-edit-toggle" id="layoutEditModeToggle" onclick="toggleLayoutEditMode()" type="button">
+        Layout
+      </button>
+
       <div class="window-controls">
         <button class="window-btn" data-action="minimize" aria-label="Minimize">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -536,11 +540,13 @@
   <script src="js/i18n.js"></script>
   <script src="js/toasts.js"></script>
   <script src="js/state/store.js"></script>
+  <script src="js/state/layout-store.js"></script>
   <script src="js/state/app-state.js"></script>
   <script src="js/state/ui-store.js"></script>
   <script src="js/state/channel-store.js"></script>
   <script src="js/runtime/audio-runtime.js"></script>
   <script src="js/actions/profile-actions.js"></script>
+  <script src="js/actions/layout-actions.js"></script>
   <script src="js/actions/channel-actions.js"></script>
   <script src="js/actions/ui-actions.js"></script>
   <script src="js/actions/midi-actions.js"></script>

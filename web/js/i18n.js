@@ -122,6 +122,16 @@ const TRANSLATIONS = Object.freeze({
       standaloneLimit: 'Можно добавить максимум 24 отдельные кнопки.',
       channelLimit: 'В одном канале доступно только 4 кнопки.'
     },
+    layout: {
+      modeOn: 'Расклад',
+      modeOff: 'Расклад',
+      exitMode: 'Выйти из режима раскладки',
+      itemTypes: {
+        channel: 'Канал',
+        standaloneButton: 'Кнопка',
+        spacer: 'Разделитель'
+      }
+    },
     channels: {
       defaultTitle: 'Канал {index}',
       unnamed: 'Без названия',
@@ -315,6 +325,16 @@ const TRANSLATIONS = Object.freeze({
       standaloneLearnMissing: 'Standalone button MIDI learn is not implemented yet.',
       standaloneLimit: 'You can add up to 24 standalone buttons.',
       channelLimit: 'Only 4 buttons are available per channel.'
+    },
+    layout: {
+      modeOn: 'Layout',
+      modeOff: 'Layout',
+      exitMode: 'Exit layout edit mode',
+      itemTypes: {
+        channel: 'Channel',
+        standaloneButton: 'Button',
+        spacer: 'Spacer'
+      }
     },
     channels: {
       defaultTitle: 'Channel {index}',

@@ -157,6 +157,9 @@
       },
       channels: [],
       standaloneButtons: [],
+      layout: typeof window.createEmptyLayoutState === 'function'
+        ? window.createEmptyLayoutState()
+        : { items: [] },
       settings: {
         ...DEFAULT_PERSISTED_RENDERER_SETTINGS
       }
@@ -164,14 +167,25 @@
   }
 
   function normalizePersistedRendererPayload(payload = {}) {
+    const normalizedChannels = normalizeChannels(payload.channels);
+    const normalizedStandaloneButtons = normalizeStandaloneButtons(payload.standaloneButtons);
     const normalizedSettings = normalizePersistedRendererSettings(payload.settings);
+    const normalizedLayout = typeof window.normalizeLayoutState === 'function'
+      ? window.normalizeLayoutState(payload.layout, {
+        channels: normalizedChannels,
+        standaloneButtons: normalizedStandaloneButtons
+      })
+      : {
+        items: []
+      };
 
     return {
       meta: {
         name: String(payload?.meta?.name || '').trim()
       },
-      channels: normalizeChannels(payload.channels),
-      standaloneButtons: normalizeStandaloneButtons(payload.standaloneButtons),
+      channels: normalizedChannels,
+      standaloneButtons: normalizedStandaloneButtons,
+      layout: normalizedLayout,
       settings: normalizedSettings
     };
   }
@@ -180,6 +194,17 @@
     return {
       channels: [],
       standaloneButtons: [],
+      layout: typeof window.createEmptyLayoutState === 'function'
+        ? window.createEmptyLayoutState()
+        : { items: [] },
+      layoutEditor: typeof window.createDefaultLayoutEditorSessionState === 'function'
+        ? window.createDefaultLayoutEditorSessionState()
+        : {
+          enabled: false,
+          selectedItemId: null,
+          hoveredItemId: null,
+          dropPreview: null
+        },
       // Profile slice is session/local renderer state for profile UX metadata
       // (current name, loaded list, local preferences). It is not serialized
       // into persisted renderer profile payloads.
@@ -297,13 +322,22 @@
   function getPersistedRendererState() {
     const state = getAppState();
     const midiState = normalizeMidiState(state.midi);
+    const layoutState = typeof window.normalizeLayoutState === 'function'
+      ? window.normalizeLayoutState(state.layout, {
+        channels: state.channels,
+        standaloneButtons: state.standaloneButtons
+      })
+      : {
+        items: []
+      };
 
     // Only persisted renderer/profile data belongs in this payload.
-    // Session UI state (ui.session, profile UX metadata, modal/editor state)
+    // Session UI state (ui.session, layoutEditor, profile UX metadata, modal/editor state)
     // is intentionally excluded.
     return normalizePersistedRendererPayload({
       channels: state.channels,
       standaloneButtons: state.standaloneButtons,
+      layout: layoutState,
       settings: {
         midiInputId: midiState.selectedInputId || null,
         midiInputName: midiState.selectedInputName || ''
@@ -322,6 +356,7 @@
       ...previousState,
       channels: persistedPayload.channels,
       standaloneButtons: persistedPayload.standaloneButtons,
+      layout: persistedPayload.layout,
       midi: nextMidiState
     }), {
       type: 'renderer/hydrate',

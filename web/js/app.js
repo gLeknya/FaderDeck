@@ -108,6 +108,7 @@ function cacheDomElements() {
   dom.volumeCurveDemoValue = $('volumeCurveDemoValue');
   dom.buttonKey = $('buttonKey');
   dom.contextMenu = $('contextMenu');
+  dom.layoutEditModeToggle = $('layoutEditModeToggle');
   dom.menuTabs = Array.from(document.querySelectorAll('.menu-icon-tab'));
   dom.menuViews = Array.from(document.querySelectorAll('.menu-panel-view'));
   dom.languageSelect = $('languageSelect');
@@ -147,6 +148,19 @@ function getUiMenu() {
     open: false,
     activeTab: null
   };
+}
+
+function getLayoutEditorSession() {
+  return getLayoutEditorSessionState?.() || {
+    enabled: false,
+    selectedItemId: null,
+    hoveredItemId: null,
+    dropPreview: null
+  };
+}
+
+function getLayoutEditModeEnabled() {
+  return isLayoutEditModeEnabledState?.() ?? getLayoutEditorSession().enabled;
 }
 
 function getAdvancedModeEnabled() {
@@ -220,6 +234,29 @@ function getVolumeHudPresentationSettings() {
 
 function getActiveMenuTab() {
   return getActiveMenuTabState?.() ?? getUiMenu().activeTab;
+}
+
+function syncLayoutEditModeUi() {
+  const layoutEditModeEnabled = getLayoutEditModeEnabled();
+
+  document.body.classList.toggle('layout-edit-mode', layoutEditModeEnabled);
+
+  if (!dom.layoutEditModeToggle) {
+    return;
+  }
+
+  dom.layoutEditModeToggle.classList.toggle('active', layoutEditModeEnabled);
+  dom.layoutEditModeToggle.textContent = t(
+    layoutEditModeEnabled
+      ? 'layout.modeOn'
+      : 'layout.modeOff'
+  );
+  dom.layoutEditModeToggle.setAttribute('aria-pressed', String(layoutEditModeEnabled));
+  dom.layoutEditModeToggle.setAttribute('title', t(
+    layoutEditModeEnabled
+      ? 'layout.exitMode'
+      : 'layout.modeOff'
+  ));
 }
 
 function clampPercent(value) {
@@ -1552,7 +1589,22 @@ function initUiStateSync() {
   uiStateSyncInitialized = true;
 }
 
+function initLayoutEditorUiSync() {
+  if (initLayoutEditorUiSync.initialized || typeof subscribeLayoutEditorSessionState !== 'function') {
+    return;
+  }
+
+  subscribeLayoutEditorSessionState((nextState, previousState) => {
+    if (nextState.enabled !== previousState.enabled) {
+      syncLayoutEditModeUi();
+    }
+  });
+
+  initLayoutEditorUiSync.initialized = true;
+}
+
 function handleLanguageChanged() {
+  syncLayoutEditModeUi();
   syncLanguageUi();
   syncAdvancedModeUi();
   syncDeveloperModeUi();
@@ -1588,6 +1640,16 @@ function bindGlobalUi() {
 
     event.preventDefault();
     getApi()?.toggle_devtools?.();
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (
+      event.key === 'Escape'
+      && getLayoutEditModeEnabled()
+      && !window.getActiveModalId?.()
+    ) {
+      window.layoutActions?.exitLayoutEditMode({ source: 'ui' });
+    }
   });
 
   document.addEventListener('contextmenu', onContextMenu);
@@ -1630,6 +1692,7 @@ function init() {
   initChannelUiStateSync?.();
   initStandaloneButtonsStateSync?.();
   initUiStateSync();
+  initLayoutEditorUiSync();
   initAudioRuntimeBridge();
   initButtonModal?.();
   initEntityEditor?.();
@@ -1647,6 +1710,7 @@ function init() {
   syncVolumeHudUi();
   syncFractionalNumberUi();
   syncVolumeCurveUi();
+  syncLayoutEditModeUi();
   syncLanguageUi();
   syncMenuTabUi();
   scheduleMenuPanelCardSizeSync();
@@ -1660,6 +1724,18 @@ function init() {
 window.getVolumeHudPresentationSettings = getVolumeHudPresentationSettings;
 window.getApi = getApi;
 window.logTest = logTest;
+window.toggleLayoutEditMode = function toggleLayoutEditMode() {
+  return window.layoutActions?.toggleLayoutEditMode({ source: 'ui' }) || null;
+};
+window.selectLayoutSurfaceItem = function selectLayoutSurfaceItem(itemId) {
+  return window.layoutActions?.selectLayoutItem(itemId, { source: 'ui' }) || null;
+};
+window.hoverLayoutSurfaceItem = function hoverLayoutSurfaceItem(itemId) {
+  return window.layoutActions?.hoverLayoutItem(itemId, { source: 'ui' }) || null;
+};
+window.clearLayoutSurfaceHover = function clearLayoutSurfaceHover() {
+  return window.layoutActions?.clearLayoutHover({ source: 'ui' }) || null;
+};
 
 function safeInit() {
   try {

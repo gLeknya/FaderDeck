@@ -14,6 +14,55 @@ function findStandaloneButton(buttonId) {
   return typeof findStandaloneButtonState === 'function' ? findStandaloneButtonState(buttonId) : null;
 }
 
+function getStandaloneLayoutItems() {
+  return typeof getLayoutItemsByZoneState === 'function'
+    ? getLayoutItemsByZoneState(window.LAYOUT_ZONES?.standalone || 'standalone')
+    : (getStandaloneButtonsState?.() || []).map((button) => ({
+      id: `layout-standalone-button-${button.id}`,
+      type: window.LAYOUT_ITEM_TYPES?.standaloneButton || 'standalone-button',
+      zone: window.LAYOUT_ZONES?.standalone || 'standalone',
+      entityId: button.id
+    }));
+}
+
+function getStandaloneLayoutEditModeEnabled() {
+  return typeof isLayoutEditModeEnabledState === 'function'
+    ? isLayoutEditModeEnabledState()
+    : false;
+}
+
+function getSelectedStandaloneLayoutItemId() {
+  return typeof getSelectedLayoutItemIdState === 'function'
+    ? getSelectedLayoutItemIdState()
+    : null;
+}
+
+function getHoveredStandaloneLayoutItemId() {
+  return typeof getHoveredLayoutItemIdState === 'function'
+    ? getHoveredLayoutItemIdState()
+    : null;
+}
+
+function renderStandaloneLayoutEditOverlay(layoutItem, labelKey) {
+  if (!layoutItem || !getStandaloneLayoutEditModeEnabled()) {
+    return '';
+  }
+
+  const isSelected = getSelectedStandaloneLayoutItemId() === layoutItem.id;
+  const isHovered = getHoveredStandaloneLayoutItemId() === layoutItem.id;
+
+  return `
+    <button
+      class="layout-edit-overlay ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+      type="button"
+      onclick="selectLayoutSurfaceItem('${layoutItem.id}')"
+      onmouseenter="hoverLayoutSurfaceItem('${layoutItem.id}')"
+      onmouseleave="clearLayoutSurfaceHover()">
+      <span class="layout-edit-overlay__label">${t(labelKey)}</span>
+    </button>
+  `;
+}
+
 function createDefaultButton() {
   return {
     id: Date.now() + Math.floor(Math.random() * 1000),
@@ -90,26 +139,61 @@ function addStandaloneButton() {
 function renderStandaloneButtons() {
   const container = document.getElementById('standaloneButtons');
   const standaloneButtonsList = getStandaloneButtonsState?.() || [];
+  const layoutItems = getStandaloneLayoutItems();
+  const buttonsById = new Map(standaloneButtonsList.map((button) => [button.id, button]));
+  const layoutEditModeEnabled = getStandaloneLayoutEditModeEnabled();
 
   if (!container) {
     return;
   }
 
-  const buttonsMarkup = standaloneButtonsList
-    .map((button) => `
-      <div class="standalone-button ${button.active ? 'active' : ''}"
-           data-button-id="${button.id}"
-           onclick="toggleStandaloneButton(${button.id})"
-           ondblclick="configureStandaloneButton(${button.id})">
-        <div class="button-icon">${button.icon}</div>
-        <div class="button-label">${button.text}</div>
-      </div>
-    `)
+  const buttonsMarkup = layoutItems
+    .map((layoutItem) => {
+      if (layoutItem.type === (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
+        const isSelected = getSelectedStandaloneLayoutItemId() === layoutItem.id;
+        const isHovered = getHoveredStandaloneLayoutItemId() === layoutItem.id;
+
+        return `
+          <div
+            class="surface-layout-item surface-layout-item--standalone layout-spacer-shell ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+            data-layout-item-id="${layoutItem.id}"
+            data-layout-item-type="${layoutItem.type}">
+            <div class="layout-spacer layout-spacer--standalone" data-layout-spacer-size="${layoutItem.size || 1}"></div>
+            ${renderStandaloneLayoutEditOverlay(layoutItem, 'layout.itemTypes.spacer')}
+          </div>
+        `;
+      }
+
+      const button = buttonsById.get(layoutItem.entityId);
+
+      if (!button) {
+        return '';
+      }
+
+      const isSelected = getSelectedStandaloneLayoutItemId() === layoutItem.id;
+      const isHovered = getHoveredStandaloneLayoutItemId() === layoutItem.id;
+
+      return `
+        <div
+          class="surface-layout-item surface-layout-item--standalone ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+          data-layout-item-id="${layoutItem.id}"
+          data-layout-item-type="${layoutItem.type}">
+          <div class="standalone-button ${button.active ? 'active' : ''}"
+               data-button-id="${button.id}"
+               onclick="toggleStandaloneButton(${button.id})"
+               ondblclick="configureStandaloneButton(${button.id})">
+            <div class="button-icon">${button.icon}</div>
+            <div class="button-label">${button.text}</div>
+          </div>
+          ${renderStandaloneLayoutEditOverlay(layoutItem, 'layout.itemTypes.standaloneButton')}
+        </div>
+      `;
+    })
     .join('');
 
   const addMarkup = standaloneButtonsList.length < MAX_STANDALONE_BUTTONS
     ? `
-      <div class="standalone-add-strip" onclick="addStandaloneButton()">
+      <div class="standalone-add-strip ${layoutEditModeEnabled ? 'is-disabled' : ''}" ${layoutEditModeEnabled ? '' : 'onclick="addStandaloneButton()"'} >
         <div class="add-channel-plus">+</div>
       </div>
     `
@@ -251,7 +335,11 @@ function initStandaloneButtonsStateSync() {
   }
 
   subscribeAppState((nextState, previousState) => {
-    if (nextState.standaloneButtons === previousState.standaloneButtons) {
+    if (
+      nextState.standaloneButtons === previousState.standaloneButtons
+      && nextState.layout === previousState.layout
+      && nextState.layoutEditor === previousState.layoutEditor
+    ) {
       return;
     }
 

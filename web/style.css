@@ -180,6 +180,12 @@ body.menu-open .toolbar::after {
   background: #2a2a2a;
 }
 
+.layout-edit-toggle.active {
+  background: #f5f5f5;
+  color: #111;
+  border-color: rgba(255, 255, 255, 0.8);
+}
+
 .window-controls {
   display: flex;
   align-items: center;
@@ -841,6 +847,102 @@ select {
   flex-wrap: nowrap;
   align-items: flex-start;
   width: max-content;
+}
+
+.surface-layout-item {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.surface-layout-item--standalone {
+  width: 92px;
+  height: 92px;
+}
+
+.layout-edit-overlay {
+  position: absolute;
+  inset: 0;
+  border: 1px dashed rgba(255, 255, 255, 0.28);
+  border-radius: 20px;
+  background: rgba(10, 10, 10, 0.6);
+  color: #fff;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 10px;
+  cursor: pointer;
+  z-index: 3;
+  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.surface-layout-item--standalone .layout-edit-overlay {
+  border-radius: 16px;
+  padding: 8px;
+}
+
+.layout-edit-overlay:hover,
+.layout-edit-overlay.is-hovered {
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(10, 10, 10, 0.68);
+}
+
+.layout-edit-overlay.is-selected,
+.surface-layout-item.is-selected .layout-edit-overlay {
+  border-color: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+  background: rgba(20, 20, 20, 0.72);
+}
+
+.layout-edit-overlay__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.layout-spacer-shell {
+  display: flex;
+}
+
+.layout-spacer {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 18px;
+}
+
+.layout-spacer--channel {
+  width: calc(36px * var(--layout-spacer-size, 1));
+  min-height: 332px;
+}
+
+.layout-spacer--standalone {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+}
+
+.layout-spacer[data-layout-spacer-size="2"] {
+  --layout-spacer-size: 2;
+}
+
+.layout-spacer[data-layout-spacer-size="3"] {
+  --layout-spacer-size: 3;
+}
+
+.layout-spacer[data-layout-spacer-size="4"] {
+  --layout-spacer-size: 4;
+}
+
+.add-channel-strip.is-disabled,
+.standalone-add-strip.is-disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.add-channel-strip.is-disabled:hover,
+.standalone-add-strip.is-disabled:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  color: var(--color-text-secondary);
+  background: transparent;
 }
 
 .channel-strip {
