@@ -155,6 +155,7 @@ function getLayoutEditorSession() {
     enabled: false,
     selectedItemId: null,
     hoveredItemId: null,
+    dragItemId: null,
     dropPreview: null
   };
 }
@@ -1735,6 +1736,68 @@ window.hoverLayoutSurfaceItem = function hoverLayoutSurfaceItem(itemId) {
 };
 window.clearLayoutSurfaceHover = function clearLayoutSurfaceHover() {
   return window.layoutActions?.clearLayoutHover({ source: 'ui' }) || null;
+};
+window.insertLayoutSpacerIntoZone = function insertLayoutSpacerIntoZone(zone) {
+  return window.layoutActions?.insertSpacer({ zone }, { source: 'ui' }) || null;
+};
+window.removeLayoutSpacer = function removeLayoutSpacer(itemId) {
+  return window.layoutActions?.removeLayoutItem(itemId, { source: 'ui' }) || null;
+};
+window.startLayoutSurfaceDrag = function startLayoutSurfaceDrag(event, itemId) {
+  if (!getLayoutEditModeEnabled()) {
+    return null;
+  }
+
+  event.stopPropagation();
+
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('text/plain', itemId);
+  }
+
+  return window.layoutActions?.beginLayoutItemDrag(itemId, { source: 'ui' }) || null;
+};
+window.previewLayoutSurfaceDrop = function previewLayoutSurfaceDrop(event, zone, itemId) {
+  if (!getLayoutEditModeEnabled()) {
+    return null;
+  }
+
+  event.preventDefault();
+  event.stopPropagation();
+
+  const targetElement = event.currentTarget;
+  const targetRect = targetElement?.getBoundingClientRect?.();
+
+  if (!targetRect) {
+    return null;
+  }
+
+  const position = zone === (window.LAYOUT_ZONES?.standalone || 'standalone')
+    ? (event.clientY <= (targetRect.top + (targetRect.height / 2)) ? 'before' : 'after')
+    : (event.clientX <= (targetRect.left + (targetRect.width / 2)) ? 'before' : 'after');
+
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+
+  return window.layoutActions?.previewLayoutDrop({
+    zone,
+    itemId,
+    position
+  }, {
+    source: 'ui'
+  }) || null;
+};
+window.dropLayoutSurfaceItem = function dropLayoutSurfaceItem(event, zone, itemId) {
+  if (!getLayoutEditModeEnabled()) {
+    return null;
+  }
+
+  window.previewLayoutSurfaceDrop(event, zone, itemId);
+  return window.layoutActions?.commitLayoutDrop({ source: 'ui' }) || null;
+};
+window.endLayoutSurfaceDrag = function endLayoutSurfaceDrag() {
+  return window.layoutActions?.cancelLayoutItemDrag({ source: 'ui' }) || null;
 };
 
 function safeInit() {

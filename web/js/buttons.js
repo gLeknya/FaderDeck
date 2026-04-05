@@ -43,6 +43,64 @@ function getHoveredStandaloneLayoutItemId() {
     : null;
 }
 
+function getDraggedStandaloneLayoutItemId() {
+  return typeof getDraggedLayoutItemIdState === 'function'
+    ? getDraggedLayoutItemIdState()
+    : null;
+}
+
+function getStandaloneLayoutDropPreview() {
+  return typeof getLayoutDropPreviewState === 'function'
+    ? getLayoutDropPreviewState()
+    : null;
+}
+
+function getStandaloneLayoutItemClassName(layoutItem) {
+  const classNames = ['surface-layout-item', 'surface-layout-item--standalone'];
+  const selectedItemId = getSelectedStandaloneLayoutItemId();
+  const hoveredItemId = getHoveredStandaloneLayoutItemId();
+  const draggedItemId = getDraggedStandaloneLayoutItemId();
+  const dropPreview = getStandaloneLayoutDropPreview();
+
+  if (selectedItemId === layoutItem.id) {
+    classNames.push('is-selected');
+  }
+
+  if (hoveredItemId === layoutItem.id) {
+    classNames.push('is-hovered');
+  }
+
+  if (draggedItemId === layoutItem.id) {
+    classNames.push('is-dragging-layout-item');
+  }
+
+  if (dropPreview?.itemId === layoutItem.id) {
+    classNames.push(dropPreview.position === 'before' ? 'is-drop-before' : 'is-drop-after');
+  }
+
+  if (layoutItem.type === (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
+    classNames.push('layout-spacer-shell');
+  }
+
+  return classNames.join(' ');
+}
+
+function getStandaloneLayoutInteractionAttributes(layoutItem) {
+  if (!layoutItem || !getStandaloneLayoutEditModeEnabled()) {
+    return '';
+  }
+
+  const zone = layoutItem.zone || window.LAYOUT_ZONES?.standalone || 'standalone';
+
+  return `
+    draggable="true"
+    ondragstart="startLayoutSurfaceDrag(event, '${layoutItem.id}')"
+    ondragend="endLayoutSurfaceDrag(event)"
+    ondragover="previewLayoutSurfaceDrop(event, '${zone}', '${layoutItem.id}')"
+    ondrop="dropLayoutSurfaceItem(event, '${zone}', '${layoutItem.id}')"
+  `;
+}
+
 function renderStandaloneLayoutEditOverlay(layoutItem, labelKey) {
   if (!layoutItem || !getStandaloneLayoutEditModeEnabled()) {
     return '';
@@ -59,6 +117,47 @@ function renderStandaloneLayoutEditOverlay(layoutItem, labelKey) {
       onmouseenter="hoverLayoutSurfaceItem('${layoutItem.id}')"
       onmouseleave="clearLayoutSurfaceHover()">
       <span class="layout-edit-overlay__label">${t(labelKey)}</span>
+    </button>
+  `;
+}
+
+function renderStandaloneLayoutItemActions(layoutItem) {
+  if (!layoutItem || !getStandaloneLayoutEditModeEnabled()) {
+    return '';
+  }
+
+  if (layoutItem.type !== (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
+    return '';
+  }
+
+  return `
+    <div class="layout-item-mini-actions">
+      <button
+        class="layout-item-mini-action"
+        type="button"
+        title="${t('layout.removeSpacer')}"
+        aria-label="${t('layout.removeSpacer')}"
+        onclick="removeLayoutSpacer('${layoutItem.id}')">
+        &times;
+      </button>
+    </div>
+  `;
+}
+
+function renderStandaloneLayoutInsertControl() {
+  if (!getStandaloneLayoutEditModeEnabled()) {
+    return '';
+  }
+
+  return `
+    <button
+      class="layout-zone-insert layout-zone-insert--standalone"
+      type="button"
+      title="${t('layout.addSpacer')}"
+      aria-label="${t('layout.addSpacer')}"
+      onclick="insertLayoutSpacerIntoZone('${window.LAYOUT_ZONES?.standalone || 'standalone'}')">
+      <span class="layout-zone-insert__plus">+</span>
+      <span class="layout-zone-insert__label">${t('layout.addSpacer')}</span>
     </button>
   `;
 }
@@ -150,16 +249,16 @@ function renderStandaloneButtons() {
   const buttonsMarkup = layoutItems
     .map((layoutItem) => {
       if (layoutItem.type === (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
-        const isSelected = getSelectedStandaloneLayoutItemId() === layoutItem.id;
-        const isHovered = getHoveredStandaloneLayoutItemId() === layoutItem.id;
-
         return `
           <div
-            class="surface-layout-item surface-layout-item--standalone layout-spacer-shell ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+            class="${getStandaloneLayoutItemClassName(layoutItem)}"
             data-layout-item-id="${layoutItem.id}"
-            data-layout-item-type="${layoutItem.type}">
+            data-layout-item-type="${layoutItem.type}"
+            data-layout-zone="${layoutItem.zone || window.LAYOUT_ZONES?.standalone || 'standalone'}"
+            ${getStandaloneLayoutInteractionAttributes(layoutItem)}>
             <div class="layout-spacer layout-spacer--standalone" data-layout-spacer-size="${layoutItem.size || 1}"></div>
             ${renderStandaloneLayoutEditOverlay(layoutItem, 'layout.itemTypes.spacer')}
+            ${renderStandaloneLayoutItemActions(layoutItem)}
           </div>
         `;
       }
@@ -170,14 +269,13 @@ function renderStandaloneButtons() {
         return '';
       }
 
-      const isSelected = getSelectedStandaloneLayoutItemId() === layoutItem.id;
-      const isHovered = getHoveredStandaloneLayoutItemId() === layoutItem.id;
-
       return `
         <div
-          class="surface-layout-item surface-layout-item--standalone ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+          class="${getStandaloneLayoutItemClassName(layoutItem)}"
           data-layout-item-id="${layoutItem.id}"
-          data-layout-item-type="${layoutItem.type}">
+          data-layout-item-type="${layoutItem.type}"
+          data-layout-zone="${layoutItem.zone || window.LAYOUT_ZONES?.standalone || 'standalone'}"
+          ${getStandaloneLayoutInteractionAttributes(layoutItem)}>
           <div class="standalone-button ${button.active ? 'active' : ''}"
                data-button-id="${button.id}"
                onclick="toggleStandaloneButton(${button.id})"
@@ -186,6 +284,7 @@ function renderStandaloneButtons() {
             <div class="button-label">${button.text}</div>
           </div>
           ${renderStandaloneLayoutEditOverlay(layoutItem, 'layout.itemTypes.standaloneButton')}
+          ${renderStandaloneLayoutItemActions(layoutItem)}
         </div>
       `;
     })
@@ -199,7 +298,7 @@ function renderStandaloneButtons() {
     `
     : '';
 
-  container.innerHTML = `${buttonsMarkup}${addMarkup}`;
+  container.innerHTML = `${buttonsMarkup}${renderStandaloneLayoutInsertControl()}${addMarkup}`;
   scheduleContentMetricsUpdate();
 }
 

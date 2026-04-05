@@ -7,6 +7,10 @@
     return window.findLayoutItemState?.(itemId) || null;
   }
 
+  function getLayoutZoneItems(zone) {
+    return window.getLayoutItemsByZoneState?.(zone) || [];
+  }
+
   function enterLayoutEditMode(meta = {}) {
     return window.patchLayoutEditorSessionState?.({
       enabled: true
@@ -22,6 +26,7 @@
       enabled: false,
       selectedItemId: null,
       hoveredItemId: null,
+      dragItemId: null,
       dropPreview: null
     }, {
       type: 'layout-actions/exit-edit-mode',
@@ -87,6 +92,91 @@
     }) || null;
   }
 
+  function beginLayoutItemDrag(itemId, meta = {}) {
+    const item = getLayoutItem(itemId);
+
+    if (!item) {
+      return null;
+    }
+
+    if (!(window.isLayoutEditModeEnabledState?.() ?? false)) {
+      enterLayoutEditMode(meta);
+    }
+
+    window.patchLayoutEditorSessionState?.({
+      selectedItemId: item.id,
+      dragItemId: item.id,
+      dropPreview: null
+    }, {
+      type: 'layout-actions/begin-drag',
+      source: 'layout-actions',
+      itemId: item.id,
+      ...meta
+    });
+
+    return item;
+  }
+
+  function previewLayoutDrop(target = {}, meta = {}) {
+    const dragItemId = window.getDraggedLayoutItemIdState?.() || null;
+    const dragItem = dragItemId ? getLayoutItem(dragItemId) : null;
+    const targetItem = target.itemId ? getLayoutItem(target.itemId) : null;
+    const targetZone = target.zone || targetItem?.zone || null;
+    const targetPosition = ['before', 'after'].includes(target.position)
+      ? target.position
+      : null;
+
+    if (
+      !dragItem
+      || !targetItem
+      || !targetZone
+      || !targetPosition
+      || dragItem.zone !== targetZone
+      || targetItem.zone !== targetZone
+      || dragItem.id === targetItem.id
+    ) {
+      window.clearLayoutDropPreviewState?.({
+        type: 'layout-actions/clear-drop-preview',
+        source: 'layout-actions',
+        ...meta
+      });
+      return null;
+    }
+
+    const nextPreview = {
+      itemId: targetItem.id,
+      zone: targetZone,
+      position: targetPosition
+    };
+
+    return window.setLayoutDropPreviewState?.(nextPreview, {
+      type: 'layout-actions/preview-drop',
+      source: 'layout-actions',
+      itemId: targetItem.id,
+      dragItemId: dragItem.id,
+      ...meta
+    }) || null;
+  }
+
+  function clearLayoutDropPreview(meta = {}) {
+    return window.clearLayoutDropPreviewState?.({
+      type: 'layout-actions/clear-drop-preview',
+      source: 'layout-actions',
+      ...meta
+    }) || null;
+  }
+
+  function cancelLayoutItemDrag(meta = {}) {
+    return window.patchLayoutEditorSessionState?.({
+      dragItemId: null,
+      dropPreview: null
+    }, {
+      type: 'layout-actions/cancel-drag',
+      source: 'layout-actions',
+      ...meta
+    }) || null;
+  }
+
   function moveLayoutItem(itemId, targetIndex, options = {}, meta = {}) {
     const movedItem = window.moveLayoutItemState?.(itemId, targetIndex, options, {
       type: 'layout-actions/move-item',
@@ -101,6 +191,57 @@
     }
 
     persistProfile();
+    return movedItem;
+  }
+
+  function commitLayoutDrop(meta = {}) {
+    const dragItemId = window.getDraggedLayoutItemIdState?.() || null;
+    const dropPreview = window.getLayoutDropPreviewState?.() || null;
+    const dragItem = dragItemId ? getLayoutItem(dragItemId) : null;
+    const targetItem = dropPreview?.itemId ? getLayoutItem(dropPreview.itemId) : null;
+
+    if (
+      !dragItem
+      || !targetItem
+      || dragItem.zone !== targetItem.zone
+      || dragItem.zone !== dropPreview?.zone
+    ) {
+      cancelLayoutItemDrag(meta);
+      return null;
+    }
+
+    const zoneItems = getLayoutZoneItems(dragItem.zone);
+    const dragIndex = zoneItems.findIndex((item) => item.id === dragItem.id);
+    const targetIndex = zoneItems.findIndex((item) => item.id === targetItem.id);
+
+    if (dragIndex === -1 || targetIndex === -1) {
+      cancelLayoutItemDrag(meta);
+      return null;
+    }
+
+    let nextIndex = dropPreview.position === 'after'
+      ? targetIndex + 1
+      : targetIndex;
+
+    if (dragIndex < nextIndex) {
+      nextIndex -= 1;
+    }
+
+    const movedItem = moveLayoutItem(dragItem.id, nextIndex, {
+      zone: dragItem.zone
+    }, meta);
+
+    window.patchLayoutEditorSessionState?.({
+      selectedItemId: movedItem?.id || dragItem.id,
+      dragItemId: null,
+      dropPreview: null
+    }, {
+      type: 'layout-actions/commit-drop',
+      source: 'layout-actions',
+      itemId: dragItem.id,
+      ...meta
+    });
+
     return movedItem;
   }
 
@@ -154,7 +295,12 @@
     clearLayoutSelection,
     hoverLayoutItem,
     clearLayoutHover,
+    beginLayoutItemDrag,
+    previewLayoutDrop,
+    clearLayoutDropPreview,
+    cancelLayoutItemDrag,
     moveLayoutItem,
+    commitLayoutDrop,
     insertSpacer,
     removeLayoutItem
   };

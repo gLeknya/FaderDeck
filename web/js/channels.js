@@ -45,6 +45,64 @@ function getHoveredChannelLayoutItemId() {
     : null;
 }
 
+function getDraggedChannelLayoutItemId() {
+  return typeof getDraggedLayoutItemIdState === 'function'
+    ? getDraggedLayoutItemIdState()
+    : null;
+}
+
+function getChannelLayoutDropPreview() {
+  return typeof getLayoutDropPreviewState === 'function'
+    ? getLayoutDropPreviewState()
+    : null;
+}
+
+function getChannelLayoutItemClassName(layoutItem) {
+  const classNames = ['surface-layout-item', 'surface-layout-item--channel'];
+  const selectedItemId = getSelectedChannelLayoutItemId();
+  const hoveredItemId = getHoveredChannelLayoutItemId();
+  const draggedItemId = getDraggedChannelLayoutItemId();
+  const dropPreview = getChannelLayoutDropPreview();
+
+  if (selectedItemId === layoutItem.id) {
+    classNames.push('is-selected');
+  }
+
+  if (hoveredItemId === layoutItem.id) {
+    classNames.push('is-hovered');
+  }
+
+  if (draggedItemId === layoutItem.id) {
+    classNames.push('is-dragging-layout-item');
+  }
+
+  if (dropPreview?.itemId === layoutItem.id) {
+    classNames.push(dropPreview.position === 'before' ? 'is-drop-before' : 'is-drop-after');
+  }
+
+  if (layoutItem.type === (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
+    classNames.push('layout-spacer-shell');
+  }
+
+  return classNames.join(' ');
+}
+
+function getChannelLayoutInteractionAttributes(layoutItem) {
+  if (!layoutItem || !getChannelLayoutEditModeEnabled()) {
+    return '';
+  }
+
+  const zone = layoutItem.zone || window.LAYOUT_ZONES?.mixer || 'mixer';
+
+  return `
+    draggable="true"
+    ondragstart="startLayoutSurfaceDrag(event, '${layoutItem.id}')"
+    ondragend="endLayoutSurfaceDrag(event)"
+    ondragover="previewLayoutSurfaceDrop(event, '${zone}', '${layoutItem.id}')"
+    ondrop="dropLayoutSurfaceItem(event, '${zone}', '${layoutItem.id}')"
+  `;
+}
+
 function renderChannelLayoutEditOverlay(layoutItem, labelKey) {
   if (!layoutItem || !getChannelLayoutEditModeEnabled()) {
     return '';
@@ -61,6 +119,47 @@ function renderChannelLayoutEditOverlay(layoutItem, labelKey) {
       onmouseenter="hoverLayoutSurfaceItem('${layoutItem.id}')"
       onmouseleave="clearLayoutSurfaceHover()">
       <span class="layout-edit-overlay__label">${t(labelKey)}</span>
+    </button>
+  `;
+}
+
+function renderChannelLayoutItemActions(layoutItem) {
+  if (!layoutItem || !getChannelLayoutEditModeEnabled()) {
+    return '';
+  }
+
+  if (layoutItem.type !== (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
+    return '';
+  }
+
+  return `
+    <div class="layout-item-mini-actions">
+      <button
+        class="layout-item-mini-action"
+        type="button"
+        title="${t('layout.removeSpacer')}"
+        aria-label="${t('layout.removeSpacer')}"
+        onclick="removeLayoutSpacer('${layoutItem.id}')">
+        &times;
+      </button>
+    </div>
+  `;
+}
+
+function renderMixerLayoutInsertControl() {
+  if (!getChannelLayoutEditModeEnabled()) {
+    return '';
+  }
+
+  return `
+    <button
+      class="layout-zone-insert layout-zone-insert--channel"
+      type="button"
+      title="${t('layout.addSpacer')}"
+      aria-label="${t('layout.addSpacer')}"
+      onclick="insertLayoutSpacerIntoZone('${window.LAYOUT_ZONES?.mixer || 'mixer'}')">
+      <span class="layout-zone-insert__plus">+</span>
+      <span class="layout-zone-insert__label">${t('layout.addSpacer')}</span>
     </button>
   `;
 }
@@ -703,16 +802,16 @@ function renderEmptyMixerState() {
 }
 
 function renderMixerSpacer(layoutItem) {
-  const isSelected = getSelectedChannelLayoutItemId() === layoutItem.id;
-  const isHovered = getHoveredChannelLayoutItemId() === layoutItem.id;
-
   return `
     <div
-      class="surface-layout-item surface-layout-item--channel layout-spacer-shell ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+      class="${getChannelLayoutItemClassName(layoutItem)}"
       data-layout-item-id="${layoutItem.id}"
-      data-layout-item-type="${layoutItem.type}">
+      data-layout-item-type="${layoutItem.type}"
+      data-layout-zone="${layoutItem.zone || window.LAYOUT_ZONES?.mixer || 'mixer'}"
+      ${getChannelLayoutInteractionAttributes(layoutItem)}>
       <div class="layout-spacer layout-spacer--channel" data-layout-spacer-size="${layoutItem.size || 1}"></div>
       ${renderChannelLayoutEditOverlay(layoutItem, 'layout.itemTypes.spacer')}
+      ${renderChannelLayoutItemActions(layoutItem)}
     </div>
   `;
 }
@@ -728,14 +827,14 @@ function renderChannel(channel, layoutItem = null) {
     type: window.LAYOUT_ITEM_TYPES?.channel || 'channel',
     entityId: channel.id
   };
-  const isSelected = getSelectedChannelLayoutItemId() === resolvedLayoutItem.id;
-  const isHovered = getHoveredChannelLayoutItemId() === resolvedLayoutItem.id;
 
   return `
     <div
-      class="surface-layout-item surface-layout-item--channel ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
+      class="${getChannelLayoutItemClassName(resolvedLayoutItem)}"
       data-layout-item-id="${resolvedLayoutItem.id}"
-      data-layout-item-type="${resolvedLayoutItem.type}">
+      data-layout-item-type="${resolvedLayoutItem.type}"
+      data-layout-zone="${resolvedLayoutItem.zone || window.LAYOUT_ZONES?.mixer || 'mixer'}"
+      ${getChannelLayoutInteractionAttributes(resolvedLayoutItem)}>
       <div class="channel-strip" data-channel-id="${channel.id}">
         <div class="channel-body">
           <div class="channel-main">
@@ -770,6 +869,7 @@ function renderChannel(channel, layoutItem = null) {
         </div>
       </div>
       ${renderChannelLayoutEditOverlay(resolvedLayoutItem, 'layout.itemTypes.channel')}
+      ${renderChannelLayoutItemActions(resolvedLayoutItem)}
     </div>
   `;
 }
@@ -819,6 +919,7 @@ function renderMixer() {
   if (channels.length === 0 && layoutItems.length === 0) {
     container.innerHTML = `
       ${renderEmptyMixerState()}
+      ${renderMixerLayoutInsertControl()}
       ${renderAddChannelStrip()}
     `;
     scheduleContentMetricsUpdate();
@@ -834,6 +935,7 @@ function renderMixer() {
       const channel = channelsById.get(layoutItem.entityId);
       return channel ? renderChannel(channel, layoutItem) : '';
     }).join('')}
+    ${renderMixerLayoutInsertControl()}
     ${renderAddChannelStrip()}
   `;
 

@@ -23,6 +23,7 @@
     enabled: false,
     selectedItemId: null,
     hoveredItemId: null,
+    dragItemId: null,
     dropPreview: null
   });
 
@@ -37,6 +38,7 @@
       enabled: false,
       selectedItemId: null,
       hoveredItemId: null,
+      dragItemId: null,
       dropPreview: null
     };
   }
@@ -247,6 +249,7 @@
       enabled: Boolean(layoutEditor.enabled),
       selectedItemId: layoutEditor.selectedItemId || null,
       hoveredItemId: layoutEditor.hoveredItemId || null,
+      dragItemId: layoutEditor.dragItemId || null,
       dropPreview: normalizeLayoutDropPreview(layoutEditor.dropPreview)
     };
   }
@@ -292,6 +295,7 @@
       && nextState.enabled === previousState.enabled
       && nextState.selectedItemId === previousState.selectedItemId
       && nextState.hoveredItemId === previousState.hoveredItemId
+      && nextState.dragItemId === previousState.dragItemId
       && areLayoutDropPreviewsEqual(nextState.dropPreview, previousState.dropPreview);
   }
 
@@ -351,6 +355,10 @@
 
   function getHoveredLayoutItemIdState() {
     return getLayoutEditorSessionState().hoveredItemId;
+  }
+
+  function getDraggedLayoutItemIdState() {
+    return getLayoutEditorSessionState().dragItemId;
   }
 
   function getLayoutDropPreviewState() {
@@ -652,6 +660,15 @@
     });
   }
 
+  function setDraggedLayoutItemIdState(itemId, meta = {}) {
+    return patchLayoutEditorSessionState({
+      dragItemId: itemId || null
+    }, {
+      type: 'layout-editor/set-drag-item',
+      ...meta
+    });
+  }
+
   function setLayoutDropPreviewState(dropPreview, meta = {}) {
     return patchLayoutEditorSessionState({
       dropPreview: normalizeLayoutDropPreview(dropPreview)
@@ -728,6 +745,7 @@
   window.isLayoutEditModeEnabledState = isLayoutEditModeEnabledState;
   window.getSelectedLayoutItemIdState = getSelectedLayoutItemIdState;
   window.getHoveredLayoutItemIdState = getHoveredLayoutItemIdState;
+  window.getDraggedLayoutItemIdState = getDraggedLayoutItemIdState;
   window.getLayoutDropPreviewState = getLayoutDropPreviewState;
   window.subscribeLayoutState = subscribeLayoutState;
   window.subscribeLayoutEditorSessionState = subscribeLayoutEditorSessionState;
@@ -743,6 +761,7 @@
   window.setLayoutEditModeEnabledState = setLayoutEditModeEnabledState;
   window.setSelectedLayoutItemIdState = setSelectedLayoutItemIdState;
   window.setHoveredLayoutItemIdState = setHoveredLayoutItemIdState;
+  window.setDraggedLayoutItemIdState = setDraggedLayoutItemIdState;
   window.setLayoutDropPreviewState = setLayoutDropPreviewState;
   window.clearLayoutDropPreviewState = clearLayoutDropPreviewState;
 })(window);

@@ -854,9 +854,59 @@ select {
   flex: 0 0 auto;
 }
 
+.layout-edit-mode .surface-layout-item {
+  cursor: grab;
+}
+
+.surface-layout-item.is-dragging-layout-item {
+  opacity: 0.48;
+}
+
 .surface-layout-item--standalone {
   width: 92px;
   height: 92px;
+}
+
+.surface-layout-item.is-drop-before::before,
+.surface-layout-item.is-drop-after::after {
+  content: '';
+  position: absolute;
+  z-index: 5;
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.18);
+}
+
+.surface-layout-item--channel.is-drop-before::before,
+.surface-layout-item--channel.is-drop-after::after {
+  top: 12px;
+  bottom: 12px;
+  width: 4px;
+  border-radius: 999px;
+}
+
+.surface-layout-item--channel.is-drop-before::before {
+  left: -11px;
+}
+
+.surface-layout-item--channel.is-drop-after::after {
+  right: -11px;
+}
+
+.surface-layout-item--standalone.is-drop-before::before,
+.surface-layout-item--standalone.is-drop-after::after {
+  left: 10px;
+  right: 10px;
+  height: 4px;
+  border-radius: 999px;
+}
+
+.surface-layout-item--standalone.is-drop-before::before {
+  top: -8px;
+}
+
+.surface-layout-item--standalone.is-drop-after::after {
+  bottom: -8px;
 }
 
 .layout-edit-overlay {
@@ -899,6 +949,36 @@ select {
   letter-spacing: 0.04em;
 }
 
+.layout-item-mini-actions {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 6;
+  display: flex;
+  gap: 6px;
+}
+
+.layout-item-mini-action {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 999px;
+  background: rgba(12, 12, 12, 0.9);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.layout-item-mini-action:hover {
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(28, 28, 28, 0.96);
+}
+
 .layout-spacer-shell {
   display: flex;
 }
@@ -930,6 +1010,50 @@ select {
 
 .layout-spacer[data-layout-spacer-size="4"] {
   --layout-spacer-size: 4;
+}
+
+.layout-zone-insert {
+  border: 1px dashed rgba(255, 255, 255, 0.18);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-align: center;
+  padding: 10px;
+  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.layout-zone-insert:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text);
+}
+
+.layout-zone-insert--channel {
+  width: 88px;
+  min-height: 88px;
+  align-self: flex-start;
+}
+
+.layout-zone-insert--standalone {
+  width: 92px;
+  height: 92px;
+}
+
+.layout-zone-insert__plus {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.layout-zone-insert__label {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .add-channel-strip.is-disabled,

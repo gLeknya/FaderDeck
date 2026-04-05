@@ -126,6 +126,8 @@ const TRANSLATIONS = Object.freeze({
       modeOn: 'Расклад',
       modeOff: 'Расклад',
       exitMode: 'Выйти из режима раскладки',
+      addSpacer: 'Добавить разделитель',
+      removeSpacer: 'Убрать разделитель',
       itemTypes: {
         channel: 'Канал',
         standaloneButton: 'Кнопка',
@@ -330,6 +332,8 @@ const TRANSLATIONS = Object.freeze({
       modeOn: 'Layout',
       modeOff: 'Layout',
       exitMode: 'Exit layout edit mode',
+      addSpacer: 'Add spacer',
+      removeSpacer: 'Remove spacer',
       itemTypes: {
         channel: 'Channel',
         standaloneButton: 'Button',
