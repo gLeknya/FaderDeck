@@ -1,4 +1,9 @@
 (function initLayoutStore(window) {
+  // Layout editor foundation is intentionally parked for now.
+  // Persisted layout structure stays active, but visible editor UI and
+  // interaction wiring should remain disabled until a future phase re-enables it.
+  window.LAYOUT_EDITOR_PARKED = true;
+
   const LAYOUT_ZONES = Object.freeze({
     mixer: 'mixer',
     standalone: 'standalone'
@@ -41,6 +46,10 @@
       dragItemId: null,
       dropPreview: null
     };
+  }
+
+  function isLayoutEditorParked() {
+    return window.LAYOUT_EDITOR_PARKED !== false;
   }
 
   function isKnownLayoutZone(zone) {
@@ -243,6 +252,10 @@
   }
 
   function normalizeLayoutEditorSessionState(layoutEditor = {}) {
+    if (isLayoutEditorParked()) {
+      return createDefaultLayoutEditorSessionState();
+    }
+
     return {
       ...DEFAULT_LAYOUT_EDITOR_SESSION_STATE,
       ...(layoutEditor || {}),
@@ -736,6 +749,7 @@
   window.normalizeLayoutItem = normalizeLayoutItem;
   window.normalizeLayoutState = normalizeLayoutState;
   window.normalizeLayoutEditorSessionState = normalizeLayoutEditorSessionState;
+  window.isLayoutEditorParked = isLayoutEditorParked;
   window.getLayoutState = getLayoutState;
   window.getLayoutItemsState = getLayoutItemsState;
   window.getLayoutItemsByZoneState = getLayoutItemsByZoneState;

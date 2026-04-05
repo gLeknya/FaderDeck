@@ -160,7 +160,15 @@ function getLayoutEditorSession() {
   };
 }
 
+function isLayoutEditorParkedUi() {
+  return window.isLayoutEditorParked?.() ?? true;
+}
+
 function getLayoutEditModeEnabled() {
+  if (isLayoutEditorParkedUi()) {
+    return false;
+  }
+
   return isLayoutEditModeEnabledState?.() ?? getLayoutEditorSession().enabled;
 }
 
@@ -238,6 +246,13 @@ function getActiveMenuTab() {
 }
 
 function syncLayoutEditModeUi() {
+  // Park marker: the layout editor foundation stays in state/actions, but
+  // visible UI sync is intentionally dormant until the feature is re-enabled.
+  if (isLayoutEditorParkedUi()) {
+    document.body.classList.remove('layout-edit-mode');
+    return;
+  }
+
   const layoutEditModeEnabled = getLayoutEditModeEnabled();
 
   document.body.classList.toggle('layout-edit-mode', layoutEditModeEnabled);
@@ -1591,7 +1606,11 @@ function initUiStateSync() {
 }
 
 function initLayoutEditorUiSync() {
-  if (initLayoutEditorUiSync.initialized || typeof subscribeLayoutEditorSessionState !== 'function') {
+  if (
+    isLayoutEditorParkedUi()
+    || initLayoutEditorUiSync.initialized
+    || typeof subscribeLayoutEditorSessionState !== 'function'
+  ) {
     return;
   }
 
@@ -1643,15 +1662,17 @@ function bindGlobalUi() {
     getApi()?.toggle_devtools?.();
   });
 
-  document.addEventListener('keydown', (event) => {
-    if (
-      event.key === 'Escape'
-      && getLayoutEditModeEnabled()
-      && !window.getActiveModalId?.()
-    ) {
-      window.layoutActions?.exitLayoutEditMode({ source: 'ui' });
-    }
-  });
+  if (!isLayoutEditorParkedUi()) {
+    document.addEventListener('keydown', (event) => {
+      if (
+        event.key === 'Escape'
+        && getLayoutEditModeEnabled()
+        && !window.getActiveModalId?.()
+      ) {
+        window.layoutActions?.exitLayoutEditMode({ source: 'ui' });
+      }
+    });
+  }
 
   document.addEventListener('contextmenu', onContextMenu);
   document.addEventListener('click', hideContextMenu);
@@ -1726,25 +1747,49 @@ window.getVolumeHudPresentationSettings = getVolumeHudPresentationSettings;
 window.getApi = getApi;
 window.logTest = logTest;
 window.toggleLayoutEditMode = function toggleLayoutEditMode() {
+  if (isLayoutEditorParkedUi()) {
+    return null;
+  }
+
   return window.layoutActions?.toggleLayoutEditMode({ source: 'ui' }) || null;
 };
 window.selectLayoutSurfaceItem = function selectLayoutSurfaceItem(itemId) {
+  if (isLayoutEditorParkedUi()) {
+    return null;
+  }
+
   return window.layoutActions?.selectLayoutItem(itemId, { source: 'ui' }) || null;
 };
 window.hoverLayoutSurfaceItem = function hoverLayoutSurfaceItem(itemId) {
+  if (isLayoutEditorParkedUi()) {
+    return null;
+  }
+
   return window.layoutActions?.hoverLayoutItem(itemId, { source: 'ui' }) || null;
 };
 window.clearLayoutSurfaceHover = function clearLayoutSurfaceHover() {
+  if (isLayoutEditorParkedUi()) {
+    return null;
+  }
+
   return window.layoutActions?.clearLayoutHover({ source: 'ui' }) || null;
 };
 window.insertLayoutSpacerIntoZone = function insertLayoutSpacerIntoZone(zone) {
+  if (isLayoutEditorParkedUi()) {
+    return null;
+  }
+
   return window.layoutActions?.insertSpacer({ zone }, { source: 'ui' }) || null;
 };
 window.removeLayoutSpacer = function removeLayoutSpacer(itemId) {
+  if (isLayoutEditorParkedUi()) {
+    return null;
+  }
+
   return window.layoutActions?.removeLayoutItem(itemId, { source: 'ui' }) || null;
 };
 window.startLayoutSurfaceDrag = function startLayoutSurfaceDrag(event, itemId) {
-  if (!getLayoutEditModeEnabled()) {
+  if (isLayoutEditorParkedUi() || !getLayoutEditModeEnabled()) {
     return null;
   }
 
@@ -1758,7 +1803,7 @@ window.startLayoutSurfaceDrag = function startLayoutSurfaceDrag(event, itemId) {
   return window.layoutActions?.beginLayoutItemDrag(itemId, { source: 'ui' }) || null;
 };
 window.previewLayoutSurfaceDrop = function previewLayoutSurfaceDrop(event, zone, itemId) {
-  if (!getLayoutEditModeEnabled()) {
+  if (isLayoutEditorParkedUi() || !getLayoutEditModeEnabled()) {
     return null;
   }
 
@@ -1789,7 +1834,7 @@ window.previewLayoutSurfaceDrop = function previewLayoutSurfaceDrop(event, zone,
   }) || null;
 };
 window.dropLayoutSurfaceItem = function dropLayoutSurfaceItem(event, zone, itemId) {
-  if (!getLayoutEditModeEnabled()) {
+  if (isLayoutEditorParkedUi() || !getLayoutEditModeEnabled()) {
     return null;
   }
 
@@ -1797,6 +1842,10 @@ window.dropLayoutSurfaceItem = function dropLayoutSurfaceItem(event, zone, itemI
   return window.layoutActions?.commitLayoutDrop({ source: 'ui' }) || null;
 };
 window.endLayoutSurfaceDrag = function endLayoutSurfaceDrag() {
+  if (isLayoutEditorParkedUi()) {
+    return null;
+  }
+
   return window.layoutActions?.cancelLayoutItemDrag({ source: 'ui' }) || null;
 };
 

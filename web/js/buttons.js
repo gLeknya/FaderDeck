@@ -26,6 +26,12 @@ function getStandaloneLayoutItems() {
 }
 
 function getStandaloneLayoutEditModeEnabled() {
+  // Park marker: keep persisted layout-backed rendering active, but disable
+  // editor-facing controls and interactions until future reactivation.
+  if (window.isLayoutEditorParked?.()) {
+    return false;
+  }
+
   return typeof isLayoutEditModeEnabledState === 'function'
     ? isLayoutEditModeEnabledState()
     : false;
@@ -57,6 +63,15 @@ function getStandaloneLayoutDropPreview() {
 
 function getStandaloneLayoutItemClassName(layoutItem) {
   const classNames = ['surface-layout-item', 'surface-layout-item--standalone'];
+
+  if (window.isLayoutEditorParked?.()) {
+    if (layoutItem.type === (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
+      classNames.push('layout-spacer-shell');
+    }
+
+    return classNames.join(' ');
+  }
+
   const selectedItemId = getSelectedStandaloneLayoutItemId();
   const hoveredItemId = getHoveredStandaloneLayoutItemId();
   const draggedItemId = getDraggedStandaloneLayoutItemId();
@@ -437,7 +452,10 @@ function initStandaloneButtonsStateSync() {
     if (
       nextState.standaloneButtons === previousState.standaloneButtons
       && nextState.layout === previousState.layout
-      && nextState.layoutEditor === previousState.layoutEditor
+      && (
+        window.isLayoutEditorParked?.()
+        || nextState.layoutEditor === previousState.layoutEditor
+      )
     ) {
       return;
     }

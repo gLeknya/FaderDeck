@@ -1,6 +1,12 @@
 (function initLayoutActions(window) {
+  // Park marker: the editor foundation remains in the repo, but visible editor
+  // flows are intentionally disabled until layout editing is resumed.
   function persistProfile() {
     return window.profileActions?.saveRendererProfileToLocal?.() || null;
+  }
+
+  function isLayoutEditorParked() {
+    return window.isLayoutEditorParked?.() ?? true;
   }
 
   function getLayoutItem(itemId) {
@@ -12,6 +18,10 @@
   }
 
   function enterLayoutEditMode(meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     return window.patchLayoutEditorSessionState?.({
       enabled: true
     }, {
@@ -22,6 +32,10 @@
   }
 
   function exitLayoutEditMode(meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     return window.patchLayoutEditorSessionState?.({
       enabled: false,
       selectedItemId: null,
@@ -36,12 +50,20 @@
   }
 
   function toggleLayoutEditMode(meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     return (window.isLayoutEditModeEnabledState?.() ?? false)
       ? exitLayoutEditMode(meta)
       : enterLayoutEditMode(meta);
   }
 
   function selectLayoutItem(itemId, meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     const item = getLayoutItem(itemId);
 
     if (!item) {
@@ -66,6 +88,10 @@
   }
 
   function clearLayoutSelection(meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     return window.setSelectedLayoutItemIdState?.(null, {
       type: 'layout-actions/clear-selection',
       source: 'layout-actions',
@@ -74,6 +100,10 @@
   }
 
   function hoverLayoutItem(itemId, meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     const item = itemId ? getLayoutItem(itemId) : null;
 
     return window.setHoveredLayoutItemIdState?.(item?.id || null, {
@@ -85,6 +115,10 @@
   }
 
   function clearLayoutHover(meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     return window.setHoveredLayoutItemIdState?.(null, {
       type: 'layout-actions/clear-hover',
       source: 'layout-actions',
@@ -93,6 +127,10 @@
   }
 
   function beginLayoutItemDrag(itemId, meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     const item = getLayoutItem(itemId);
 
     if (!item) {
@@ -118,6 +156,10 @@
   }
 
   function previewLayoutDrop(target = {}, meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     const dragItemId = window.getDraggedLayoutItemIdState?.() || null;
     const dragItem = dragItemId ? getLayoutItem(dragItemId) : null;
     const targetItem = target.itemId ? getLayoutItem(target.itemId) : null;
@@ -159,6 +201,10 @@
   }
 
   function clearLayoutDropPreview(meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     return window.clearLayoutDropPreviewState?.({
       type: 'layout-actions/clear-drop-preview',
       source: 'layout-actions',
@@ -167,6 +213,10 @@
   }
 
   function cancelLayoutItemDrag(meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     return window.patchLayoutEditorSessionState?.({
       dragItemId: null,
       dropPreview: null
@@ -195,6 +245,10 @@
   }
 
   function commitLayoutDrop(meta = {}) {
+    if (isLayoutEditorParked()) {
+      return null;
+    }
+
     const dragItemId = window.getDraggedLayoutItemIdState?.() || null;
     const dropPreview = window.getLayoutDropPreviewState?.() || null;
     const dragItem = dragItemId ? getLayoutItem(dragItemId) : null;

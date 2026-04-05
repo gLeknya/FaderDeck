@@ -28,6 +28,12 @@ function getMixerLayoutItems() {
 }
 
 function getChannelLayoutEditModeEnabled() {
+  // Park marker: keep layout ordering support active, but leave editor UI
+  // and interaction paths disabled until layout editing is re-enabled later.
+  if (window.isLayoutEditorParked?.()) {
+    return false;
+  }
+
   return typeof isLayoutEditModeEnabledState === 'function'
     ? isLayoutEditModeEnabledState()
     : false;
@@ -59,6 +65,15 @@ function getChannelLayoutDropPreview() {
 
 function getChannelLayoutItemClassName(layoutItem) {
   const classNames = ['surface-layout-item', 'surface-layout-item--channel'];
+
+  if (window.isLayoutEditorParked?.()) {
+    if (layoutItem.type === (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
+      classNames.push('layout-spacer-shell');
+    }
+
+    return classNames.join(' ');
+  }
+
   const selectedItemId = getSelectedChannelLayoutItemId();
   const hoveredItemId = getHoveredChannelLayoutItemId();
   const draggedItemId = getDraggedChannelLayoutItemId();
@@ -955,7 +970,8 @@ function initChannelUiStateSync() {
   subscribeAppState((nextState, previousState, meta = {}) => {
     const channelsChanged = nextState.channels !== previousState.channels;
     const layoutChanged = nextState.layout !== previousState.layout;
-    const layoutEditorChanged = nextState.layoutEditor !== previousState.layoutEditor;
+    const layoutEditorChanged = !window.isLayoutEditorParked?.()
+      && nextState.layoutEditor !== previousState.layoutEditor;
 
     if (!channelsChanged && !layoutChanged && !layoutEditorChanged) {
       return;
