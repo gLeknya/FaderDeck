@@ -153,6 +153,48 @@
     return updatedChannel;
   }
 
+  function markChannelConfigured(channelId, meta = {}) {
+    const updatedChannel = window.setChannelConfiguredState?.(channelId, true, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    persistProfile();
+    return updatedChannel;
+  }
+
+  function setChannelTitleIconVisible(channelId, enabled, targetProcess = '', meta = {}) {
+    const updatedChannel = window.setChannelTitleIconState?.(channelId, enabled, targetProcess, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    persistProfile();
+    return updatedChannel;
+  }
+
+  function setChannelButtonPlacement(channelId, placement, meta = {}) {
+    const updatedChannel = window.setChannelButtonPlacementState?.(channelId, placement, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    persistProfile();
+    return updatedChannel;
+  }
+
   function addChannelButton(channelId, button, meta = {}) {
     const addedButton = window.addChannelButtonState?.(channelId, button, {
       source: 'channel-actions',
@@ -211,6 +253,9 @@
     setChannelVolume,
     dismissChannelBindHint,
     renameChannel,
+    markChannelConfigured,
+    setChannelTitleIconVisible,
+    setChannelButtonPlacement,
     addChannelButton,
     updateChannelButton,
     removeChannelButton,

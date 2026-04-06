@@ -56,15 +56,49 @@
     };
   }
 
+  function normalizeChannelConfiguredFlag(channel = {}) {
+    if (typeof channel.hasBeenConfigured === 'boolean') {
+      return channel.hasBeenConfigured;
+    }
+
+    // Compatibility: legacy saved channels predate the onboarding CTA,
+    // so we keep them treated as already configured by default.
+    return true;
+  }
+
+  function normalizeChannelTitleIconState(channel = {}, targets = normalizeChannelTargets(channel)) {
+    const enabled = Boolean(channel.showTargetIconInTitle);
+    const requestedProcess = String(channel.titleIconTargetProcess || '').trim();
+    const resolvedProcess = (
+      targets.find((target) => target.process === requestedProcess)?.process
+      || targets[0]?.process
+      || ''
+    );
+
+    return {
+      showTargetIconInTitle: enabled && Boolean(resolvedProcess),
+      titleIconTargetProcess: resolvedProcess
+    };
+  }
+
+  function normalizeChannelButtonPlacement(channel = {}) {
+    return channel.buttonPlacement === 'side' ? 'side' : 'bottom';
+  }
+
   function cloneChannelEntity(channel = {}) {
     const targets = normalizeChannelTargets(channel);
     const primaryTarget = targets[0] || null;
+    const titleIconState = normalizeChannelTitleIconState(channel, targets);
 
     return {
       ...channel,
       app: primaryTarget?.process || '',
       appName: primaryTarget?.name || '',
       targets,
+      hasBeenConfigured: normalizeChannelConfiguredFlag(channel),
+      showTargetIconInTitle: titleIconState.showTargetIconInTitle,
+      titleIconTargetProcess: titleIconState.titleIconTargetProcess,
+      buttonPlacement: normalizeChannelButtonPlacement(channel),
       customSettingsEnabled: Boolean(channel.customSettingsEnabled),
       customSettings: cloneChannelCustomSettings(channel.customSettings),
       buttons: Array.isArray(channel.buttons)
@@ -102,6 +136,10 @@
       faderMapping: null,
       volume: 100,
       buttons: [],
+      hasBeenConfigured: false,
+      showTargetIconInTitle: false,
+      titleIconTargetProcess: '',
+      buttonPlacement: 'bottom',
       skipBinding: false,
       showBindHint: true,
       flashOnCreate: true,
@@ -315,6 +353,42 @@
     });
   }
 
+  function setChannelConfiguredState(channelId, configured, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      channel.hasBeenConfigured = Boolean(configured);
+      return channel;
+    }, {
+      type: 'channels/set-configured',
+      ...meta
+    });
+  }
+
+  function setChannelTitleIconState(channelId, enabled, targetProcess = '', meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      const normalizedTargetProcess = String(targetProcess || '').trim();
+      const fallbackProcess = channel.targets[0]?.process || '';
+      const resolvedProcess = normalizedTargetProcess || fallbackProcess;
+      channel.showTargetIconInTitle = Boolean(enabled) && Boolean(resolvedProcess);
+      channel.titleIconTargetProcess = channel.showTargetIconInTitle ? resolvedProcess : '';
+      return channel;
+    }, {
+      type: 'channels/set-title-icon',
+      targetProcess,
+      ...meta
+    });
+  }
+
+  function setChannelButtonPlacementState(channelId, placement, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      channel.buttonPlacement = placement === 'side' ? 'side' : 'bottom';
+      return channel;
+    }, {
+      type: 'channels/set-button-placement',
+      placement,
+      ...meta
+    });
+  }
+
   function updateChannelCustomSettingsState(channelId, updater, meta = {}) {
     return updateChannelState(channelId, (channel) => {
       const draftSettings = cloneChannelCustomSettings(channel.customSettings);
@@ -436,6 +510,9 @@
   window.setChannelVolumeState = setChannelVolumeState;
   window.dismissChannelBindHintState = dismissChannelBindHintState;
   window.setChannelFaderMappingState = setChannelFaderMappingState;
+  window.setChannelConfiguredState = setChannelConfiguredState;
+  window.setChannelTitleIconState = setChannelTitleIconState;
+  window.setChannelButtonPlacementState = setChannelButtonPlacementState;
   window.setChannelCustomSettingsEnabledState = setChannelCustomSettingsEnabledState;
   window.updateChannelCustomSettingsState = updateChannelCustomSettingsState;
   window.clearChannelFlashState = clearChannelFlashState;

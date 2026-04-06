@@ -1070,7 +1070,8 @@ select {
 }
 
 .channel-strip {
-  width: 200px;
+  width: auto;
+  min-width: 150px;
   flex: 0 0 auto;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
@@ -1080,6 +1081,15 @@ select {
   flex-direction: column;
   gap: 12px;
   transition: border-color 0.2s, transform 0.2s;
+}
+
+.channel-strip--none,
+.channel-strip--inline {
+  min-width: 150px;
+}
+
+.channel-strip--side {
+  min-width: 160px;
 }
 
 .channel-strip:hover {
@@ -1131,10 +1141,34 @@ select {
 }
 
 .channel-main {
-  display: grid;
-  grid-template-columns: 86px 86px;
+  display: flex;
   justify-content: center;
   align-items: start;
+  gap: 14px;
+}
+
+.channel-main--none,
+.channel-main--inline {
+  justify-content: center;
+}
+
+.channel-main--side {
+  justify-content: center;
+  align-items: stretch;
+}
+
+.channel-primary-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.channel-secondary-column {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   gap: 10px;
 }
 
@@ -1143,7 +1177,7 @@ select {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  transform: translateX(-4px);
+  transform: none;
 }
 
 .fader-track {
@@ -1152,6 +1186,7 @@ select {
   position: relative;
   cursor: pointer;
   margin-top: 20px;
+  margin-bottom: 20px;
 }
 
 .fader-rail,
@@ -1205,15 +1240,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .channel-side-column {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding-top: 2px;
+  display: none;
 }
 
 .channel-title {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 700;
   text-align: center;
   white-space: nowrap;
@@ -1221,7 +1252,49 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   text-overflow: ellipsis;
   cursor: text;
   width: 100%;
-  padding-left: 6px;
+}
+
+.channel-title-inner {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+}
+
+.channel-title-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.channel-title-icon,
+.channel-title-icon.has-image {
+  width: 22px;
+  height: 22px;
+  flex: 0 0 auto;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+}
+
+.channel-title-icon.has-image {
+  padding: 2px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.channel-title-icon-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
 }
 
 .fader-meta {
@@ -1230,13 +1303,42 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   text-align: center;
   min-height: 12px;
   width: 100%;
-  padding-left: 6px;
 }
 
 .channel-buttons-grid {
   display: grid;
-  grid-template-columns: 1fr;
   gap: 10px;
+  width: 100%;
+  justify-content: center;
+  justify-items: center;
+}
+
+.channel-buttons-grid--inline {
+  width: auto;
+  align-items: center;
+}
+
+.channel-buttons-grid--inline.channel-buttons-grid--count-1 {
+  grid-template-columns: 58px;
+}
+
+.channel-buttons-grid--inline.channel-buttons-grid--count-2 {
+  grid-template-columns: repeat(2, 58px);
+}
+
+.channel-buttons-grid--side {
+  width: auto;
+  grid-template-columns: 58px;
+  align-content: center;
+  justify-items: center;
+}
+
+.entity-edit-channel-buttons-grid {
+  margin-top: 4px;
+}
+
+.entity-edit-channel-button {
+  width: 100%;
 }
 
 .channel-side-button,
@@ -1299,7 +1401,14 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   color: #fff;
   min-width: 52px;
   text-align: center;
-  padding-left: 6px;
+}
+
+.channel-inline-footer {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
 }
 
 .fader-bind-chip {
@@ -1309,6 +1418,50 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   color: var(--color-text-secondary);
   font-size: 11px;
   cursor: pointer;
+}
+
+.channel-configure-shell {
+  width: 100%;
+  overflow: hidden;
+}
+
+.channel-configure-shell.is-entering {
+  animation: channel-configure-shell-enter 0.42s cubic-bezier(0.22, 0.78, 0.2, 1) both;
+}
+
+.channel-configure-button {
+  width: 100%;
+  margin-top: 10px;
+  min-height: 38px;
+  font-weight: 700;
+}
+
+.channel-configure-shell.is-entering .channel-configure-button {
+  animation: channel-configure-button-enter 0.42s cubic-bezier(0.22, 0.78, 0.2, 1) both;
+}
+
+@keyframes channel-configure-shell-enter {
+  0% {
+    max-height: 0;
+    opacity: 0;
+  }
+
+  100% {
+    max-height: 56px;
+    opacity: 1;
+  }
+}
+
+@keyframes channel-configure-button-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.92);
+  }
+
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .fader-bind-chip:hover {
@@ -1618,40 +1771,40 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 .entity-edit-preview-mount .channel-strip {
   margin: 0;
   transform: none;
-  width: 220px;
-  padding: 22px 18px 18px;
-  box-shadow: 0 18px 34px rgba(0, 0, 0, 0.22);
+  width: auto;
+  padding: 18px 16px 16px;
+  box-shadow: none;
+}
+
+.entity-edit-preview-channel {
+  transition: border-color 0.24s ease, box-shadow 0.24s ease;
+}
+
+.entity-edit-preview-channel.is-layout-animating {
+  overflow: hidden;
+  transition:
+    width 0.26s cubic-bezier(0.22, 0.78, 0.2, 1),
+    height 0.26s cubic-bezier(0.22, 0.78, 0.2, 1),
+    border-color 0.22s ease,
+    box-shadow 0.22s ease;
+  border-color: rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 12px 28px rgba(255, 255, 255, 0.05);
+}
+
+.entity-edit-preview-button-ghost {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.entity-edit-preview-button-ghost > * {
+  width: 100%;
+  height: 100%;
 }
 
 .entity-edit-preview-mount .standalone-button {
   width: 112px;
   height: 112px;
-}
-
-.entity-edit-preview-mount .channel-main {
-  grid-template-columns: 96px 92px;
-  gap: 14px;
-}
-
-.entity-edit-preview-mount .fader-track {
-  width: 60px;
-  height: 286px;
-  margin-top: 22px;
-}
-
-.entity-edit-preview-mount .fader-rail,
-.entity-edit-preview-mount .fader-fill {
-  width: 11px;
-}
-
-.entity-edit-preview-mount .fader-thumb {
-  width: 36px;
-  height: 56px;
-}
-
-.entity-edit-preview-mount .channel-side-button {
-  width: 60px;
-  height: 50px;
 }
 
 .entity-edit-preview-track {
@@ -1662,12 +1815,6 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .entity-edit-preview-track.is-dragging .fader-thumb {
   transform: scale(1.03);
-}
-
-.entity-edit-preview-target-pill {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .entity-edit-dialog-window {
@@ -1848,6 +1995,14 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border-color: rgba(255, 255, 255, 0.16);
 }
 
+.entity-edit-section-action-button {
+  min-height: 34px;
+  padding: 0 14px;
+  border-radius: 12px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
 .entity-edit-target-placeholder {
   width: 100%;
   min-height: 62px;
@@ -1880,13 +2035,201 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.04);
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 28px;
+  grid-template-columns: 28px minmax(0, 1fr) auto auto 28px;
   align-items: center;
   gap: 10px;
 }
 
 .entity-edit-target-chip.is-entering {
   animation: entity-edit-target-chip-under 0.28s cubic-bezier(0.22, 0.78, 0.2, 1) both;
+}
+
+.entity-edit-target-chip.is-exiting,
+.entity-edit-channel-button-chip.is-exiting {
+  pointer-events: none;
+  animation: entity-edit-target-chip-out 0.22s ease both;
+}
+
+[data-editor-channel-buttons-body] {
+  position: relative;
+}
+
+.entity-edit-channel-button-placeholder {
+  text-align: left;
+  padding: 0 16px;
+}
+
+.entity-edit-channel-button-list {
+  position: relative;
+  gap: 8px;
+}
+
+.entity-edit-channel-button-chip {
+  width: 100%;
+  text-align: left;
+  transition: border-color 0.16s ease, background 0.16s ease;
+  grid-template-columns: 28px minmax(0, 1fr) auto;
+}
+
+.entity-edit-channel-button-chip:hover {
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.entity-edit-channel-button-chip.is-entering {
+  animation: entity-edit-target-chip-under 0.28s cubic-bezier(0.22, 0.78, 0.2, 1) both;
+}
+
+.entity-edit-channel-button-ghost {
+  position: absolute;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.entity-edit-channel-button-ghost > * {
+  width: 100%;
+  height: 100%;
+}
+
+.entity-edit-channel-button-open {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.54);
+  white-space: nowrap;
+}
+
+.entity-edit-channel-button-title {
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 13px;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: text;
+}
+
+.entity-edit-channel-button-title-input {
+  width: 100%;
+  min-width: 0;
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text);
+  padding: 0 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.entity-edit-channel-button-title-input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.entity-edit-channel-button-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.entity-edit-channel-button-remove,
+.entity-edit-channel-button-open-panel {
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.5);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+}
+
+.entity-edit-channel-button-remove:hover {
+  background: rgba(255, 107, 107, 0.14);
+  color: #fff;
+}
+
+.entity-edit-channel-button-open-panel:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  transform: translateX(1px);
+}
+
+.entity-edit-channel-button-placement {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 2px;
+  opacity: 1;
+  transform: translateY(0);
+  overflow: hidden;
+  max-height: 120px;
+  transition:
+    max-height 0.24s ease,
+    opacity 0.18s ease,
+    transform 0.22s ease,
+    margin-top 0.22s ease;
+}
+
+.entity-edit-channel-button-placement.is-hidden {
+  opacity: 0;
+  transform: translateY(-10px);
+  max-height: 0;
+  margin-top: -2px;
+  pointer-events: none;
+}
+
+.entity-edit-channel-button-placement.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+  max-height: 120px;
+  margin-top: 0;
+}
+
+.entity-edit-channel-button-placement-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.entity-edit-channel-button-placement-options {
+  display: inline-flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.entity-edit-channel-button-placement-option {
+  min-height: 32px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.entity-edit-channel-button-placement-option:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.entity-edit-channel-button-placement-option.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .entity-edit-target-icon,
@@ -1926,6 +2269,34 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   white-space: nowrap;
   font-size: 13px;
   color: var(--color-text);
+}
+
+.entity-edit-target-action,
+.entity-edit-target-action-toggle {
+  min-height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+}
+
+.entity-edit-target-action:hover,
+.entity-edit-target-action-toggle:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.entity-edit-target-action-toggle.active {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.22);
+  color: #fff;
 }
 
 .entity-edit-target-remove {
@@ -2199,6 +2570,49 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   padding: 0 16px;
 }
 
+.entity-edit-button-side-stub {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.entity-edit-button-side-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.entity-edit-button-side-card.is-placeholder {
+  min-height: 140px;
+  justify-content: center;
+}
+
+.entity-edit-button-side-card-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.52);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.entity-edit-button-side-card-value,
+.entity-edit-button-side-card-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.entity-edit-button-side-card-text {
+  font-size: 12px;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.58);
+  margin: 0;
+}
+
 .entity-edit-source-hidden {
   opacity: 0 !important;
   transition: opacity 0.12s linear;
@@ -2237,6 +2651,34 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
     opacity: 1;
     margin-top: 0;
     transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes entity-edit-channel-button-rise {
+  from {
+    opacity: 0;
+    margin-top: 18px;
+    transform: translateY(18px) scale(0.98);
+  }
+
+  to {
+    opacity: 1;
+    margin-top: 0;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes entity-edit-target-chip-out {
+  from {
+    opacity: 1;
+    margin-top: 0;
+    transform: translateY(0) scale(1);
+  }
+
+  to {
+    opacity: 0;
+    margin-top: -34px;
+    transform: translateY(-14px) scale(0.96);
   }
 }
 

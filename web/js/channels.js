@@ -5,6 +5,7 @@ const CHANNEL_INTERPOLATION_STEP_DELAY_MS = 24;
 const CHANNEL_PICKUP_FLASH_DURATION_MS = 380;
 const channelVolumePushState = new Map();
 const channelPickupFlashTimers = new Map();
+const channelEntranceAnimatedIds = new Set();
 let channelUiStateSyncInitialized = false;
 let channelPickupUiInitialized = false;
 
@@ -193,6 +194,7 @@ function createChannelModel(index) {
     faderMapping: null,
     volume: 100,
     buttons: [],
+    hasBeenConfigured: false,
     skipBinding: false,
     showBindHint: true,
     flashOnCreate: true
@@ -215,11 +217,28 @@ function changeChannelApp(channelId, appProcess) {
 }
 
 function editChannelTitle(channelId) {
+  window.channelActions?.markChannelConfigured(channelId, { source: 'ui' });
   openChannelEditor?.(channelId);
 }
 
 function dismissFaderBindHint(channelId) {
   return window.channelActions?.dismissChannelBindHint(channelId, { source: 'ui' }) || null;
+}
+
+function isChannelConfigured(channel) {
+  return Boolean(channel?.hasBeenConfigured);
+}
+
+function configureChannel(channelId) {
+  const channel = getChannelById(channelId);
+
+  if (!channel) {
+    return null;
+  }
+
+  window.channelActions?.markChannelConfigured(channelId, { source: 'ui' });
+  openChannelEditor?.(channelId);
+  return channel;
 }
 
 function clampVolume(value) {
@@ -752,17 +771,6 @@ function renderAppOptions(selectedProcess) {
 }
 
 function renderChannelButtonSlot(channel, button) {
-  if (!button) {
-    return `
-      <button class="channel-side-button channel-side-button-add"
-              onclick="addChannelButton(${channel.id})"
-              type="button">
-        <span class="button-icon">+</span>
-        <span class="button-label">${t('channels.addButton')}</span>
-      </button>
-    `;
-  }
-
   return `
     <button class="channel-side-button ${button.active ? 'active' : ''}"
             type="button"
@@ -775,25 +783,129 @@ function renderChannelButtonSlot(channel, button) {
   `;
 }
 
-function renderChannelButtons(channel) {
-  const slots = [];
+function getVisibleChannelButtons(channel) {
+  return (Array.isArray(channel?.buttons) ? channel.buttons : []).slice(0, MAX_CHANNEL_BUTTONS);
+}
 
-  for (let index = 0; index < MAX_CHANNEL_BUTTONS; index += 1) {
-    slots.push(renderChannelButtonSlot(channel, channel.buttons[index] || null));
+function escapeChannelMarkup(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function resolveChannelTitleIconTarget(channel) {
+  if (!channel?.showTargetIconInTitle) {
+    return null;
   }
 
-  return slots.join('');
+  const availableApps = getHudAvailableAudioApps();
+  const requestedProcess = String(channel?.titleIconTargetProcess || '').trim();
+  const explicitTargets = Array.isArray(channel?.targets)
+    ? channel.targets
+        .map((target) => {
+          const process = String(target?.process || '').trim();
+          const matchedApp = availableApps.find((application) => application.process === process);
+
+          if (!process) {
+            return null;
+          }
+
+          return {
+            process,
+            name: String(target?.name || matchedApp?.name || process).trim() || process,
+            iconDataUrl: String(matchedApp?.iconDataUrl || '').trim()
+          };
+        })
+        .filter(Boolean)
+    : [];
+
+  const fallbackProcess = requestedProcess || explicitTargets[0]?.process || String(channel?.app || '').trim();
+
+  if (!fallbackProcess) {
+    return null;
+  }
+
+  return explicitTargets.find((target) => target.process === fallbackProcess)
+    || getResolvedChannelHudTargets(channel).find((target) => target.process === fallbackProcess)
+    || null;
+}
+
+function renderChannelTitleMarkup(channel, title) {
+  const titleIconTarget = resolveChannelTitleIconTarget(channel);
+
+  if (!titleIconTarget) {
+    return `<span class="channel-title-text">${title}</span>`;
+  }
+
+  const iconLabel = String(titleIconTarget.name || titleIconTarget.process || '')
+    .trim()
+    .charAt(0)
+    .toUpperCase() || 'A';
+  const iconMarkup = titleIconTarget.iconDataUrl
+    ? `<span class="channel-title-icon has-image"><img class="channel-title-icon-image" src="${escapeChannelMarkup(titleIconTarget.iconDataUrl)}" alt="${escapeChannelMarkup(titleIconTarget.name || titleIconTarget.process || 'App')}"></span>`
+    : `<span class="channel-title-icon">${iconLabel}</span>`;
+
+  return `
+    <span class="channel-title-inner has-icon">
+      ${iconMarkup}
+      <span class="channel-title-text">${title}</span>
+    </span>
+  `;
+}
+
+function getChannelButtonLayoutMode(channel) {
+  const buttonCount = getVisibleChannelButtons(channel).length;
+
+  if (buttonCount >= 3) {
+    return 'side';
+  }
+
+  if (buttonCount >= 1) {
+    return channel?.buttonPlacement === 'side' ? 'side' : 'inline';
+  }
+
+  return 'none';
+}
+
+function renderChannelButtons(channel, options = {}) {
+  const buttons = getVisibleChannelButtons(channel);
+
+  if (!buttons.length) {
+    return '';
+  }
+
+  const layoutMode = options.layoutMode || getChannelButtonLayoutMode(channel);
+  const className = options.className || '';
+
+  return `
+    <div class="channel-buttons-grid channel-buttons-grid--${layoutMode} channel-buttons-grid--count-${buttons.length}${className ? ` ${className}` : ''}">
+      ${buttons.map((button) => renderChannelButtonSlot(channel, button)).join('')}
+    </div>
+  `;
 }
 
 function renderBindHint(channel) {
-  if (channel.faderMapping || !channel.showBindHint) {
+  return '';
+}
+
+function renderChannelConfigureButton(channel) {
+  if (!channel || isChannelConfigured(channel)) {
     return '';
   }
 
   return `
-    <button class="fader-bind-chip" type="button" onclick="startBindFader(event, ${channel.id})">
-      ${t('channels.bindToMixer')}
-    </button>
+    <div class="channel-configure-shell" data-channel-configure-shell-id="${channel.id}">
+      <button
+        class="btn channel-configure-button"
+        type="button"
+        data-channel-configure-id="${channel.id}"
+        onclick="configureChannel(${channel.id})">
+        ${t('channels.configure')}
+      </button>
+    </div>
   `;
 }
 
@@ -843,6 +955,15 @@ function renderChannel(channel, layoutItem = null) {
     entityId: channel.id
   };
 
+  const channelButtonLayoutMode = getChannelButtonLayoutMode(channel);
+  const inlineButtonsMarkup = channelButtonLayoutMode === 'inline'
+    ? renderChannelButtons(channel, { layoutMode: 'inline' })
+    : '';
+  const sideButtonsMarkup = channelButtonLayoutMode === 'side'
+    ? renderChannelButtons(channel, { layoutMode: 'side' })
+    : '';
+  const volumeValueMarkup = `<div class="volume-value">${formatChannelVolume(outputVolume, channel)}</div>`;
+
   return `
     <div
       class="${getChannelLayoutItemClassName(resolvedLayoutItem)}"
@@ -850,39 +971,46 @@ function renderChannel(channel, layoutItem = null) {
       data-layout-item-type="${resolvedLayoutItem.type}"
       data-layout-zone="${resolvedLayoutItem.zone || window.LAYOUT_ZONES?.mixer || 'mixer'}"
       ${getChannelLayoutInteractionAttributes(resolvedLayoutItem)}>
-      <div class="channel-strip" data-channel-id="${channel.id}">
+      <div class="channel-strip channel-strip--${channelButtonLayoutMode}" data-channel-id="${channel.id}">
         <div class="channel-body">
-          <div class="channel-main">
-            <div class="fader-column">
-              <div class="fader-track" data-channel="${channel.id}">
-                <div class="fader-rail"></div>
-                <div class="fader-fill" style="height: ${channel.volume}%"></div>
-                <div class="fader-thumb" style="bottom: calc(${channel.volume}% - 25px)"></div>
-              </div>
-            </div>
-
-            <div class="channel-side-column">
-              <div class="channel-title" title="${title}" ondblclick="editChannelTitle(${channel.id})">
-                ${title}
-              </div>
-
-              ${mappingLabel ? `<div class="fader-meta">${mappingLabel}</div>` : '<div class="fader-meta"></div>'}
-
-              <div class="channel-buttons-grid">
-                ${renderChannelButtons(channel)}
-              </div>
-
-              <div class="volume-value">${formatChannelVolume(outputVolume, channel)}</div>
-            </div>
+          <div class="channel-title" title="${title}" ondblclick="editChannelTitle(${channel.id})">
+            ${renderChannelTitleMarkup(channel, title)}
           </div>
 
-          ${renderBindHint(channel)}
+          ${mappingLabel ? `<div class="fader-meta">${mappingLabel}</div>` : ''}
 
-          <select class="app-selector" onchange="changeChannelApp(${channel.id}, this.value)">
-            ${renderAppOptions(channel.app)}
-          </select>
+          <div class="channel-main channel-main--${channelButtonLayoutMode}">
+            <div class="channel-primary-column">
+              <div class="fader-column">
+                <div class="fader-track" data-channel="${channel.id}">
+                  <div class="fader-rail"></div>
+                  <div class="fader-fill" style="height: ${channel.volume}%"></div>
+                  <div class="fader-thumb" style="bottom: calc(${channel.volume}% - 25px)"></div>
+                </div>
+              </div>
+
+              ${channelButtonLayoutMode === 'side'
+                ? ''
+                : `
+                  <div class="channel-inline-footer">
+                    ${volumeValueMarkup}
+                    ${inlineButtonsMarkup}
+                  </div>
+                `}
+            </div>
+
+            ${sideButtonsMarkup
+              ? `
+                <div class="channel-secondary-column">
+                  ${sideButtonsMarkup}
+                  ${volumeValueMarkup}
+                </div>
+              `
+              : ''}
+          </div>
         </div>
       </div>
+      ${renderChannelConfigureButton(channel)}
       ${renderChannelLayoutEditOverlay(resolvedLayoutItem, 'layout.itemTypes.channel')}
       ${renderChannelLayoutItemActions(resolvedLayoutItem)}
     </div>
@@ -900,24 +1028,30 @@ function syncAddChannelStripHeight(container) {
 
 function triggerNewChannelFlash(container) {
   getChannels().forEach((channel) => {
-    if (!channel.flashOnCreate) {
+    if (!channel.flashOnCreate || channelEntranceAnimatedIds.has(channel.id)) {
       return;
     }
 
     const channelElement = container.querySelector(
       `.channel-strip[data-channel-id="${channel.id}"]`
     );
+    const configureShellElement = container.querySelector(
+      `[data-channel-configure-shell-id="${channel.id}"]`
+    );
 
     if (!channelElement) {
       return;
     }
 
+    channelEntranceAnimatedIds.add(channel.id);
     channelElement.classList.add('flash');
-    clearChannelFlashState?.(channel.id, { source: 'render' });
+    configureShellElement?.classList.add('is-entering');
 
     setTimeout(() => {
       channelElement.classList.remove('flash');
-    }, 250);
+      configureShellElement?.classList.remove('is-entering');
+      clearChannelFlashState?.(channel.id, { source: 'render' });
+    }, 460);
   });
 }
 
@@ -1003,3 +1137,4 @@ window.applyChannelVolumeRuntime = function applyChannelVolumeRuntime(channelId,
 window.queueChannelVolumePushRuntime = queueChannelVolumePush;
 window.resetChannelVolumePushRuntime = resetChannelVolumePushState;
 window.emitChannelVolumeHudRuntime = emitChannelVolumeHud;
+window.configureChannel = configureChannel;

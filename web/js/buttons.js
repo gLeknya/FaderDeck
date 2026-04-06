@@ -192,15 +192,21 @@ function addChannelButton(channelId) {
   const channel = findChannel(channelId);
 
   if (!channel) {
-    return;
+    return null;
   }
 
   if (channel.buttons.length >= MAX_CHANNEL_BUTTONS) {
     showToast('warn', t('buttons.channelLimit'));
-    return;
+    return null;
   }
 
-  window.channelActions?.addChannelButton(channelId, createDefaultButton(), { source: 'ui' });
+  const button = window.channelActions?.addChannelButton(channelId, createDefaultButton(), { source: 'ui' }) || null;
+
+  if (button) {
+    window.channelActions?.markChannelConfigured(channelId, { source: 'ui' });
+  }
+
+  return button;
 }
 
 function fillButtonModal(button) {
@@ -222,7 +228,19 @@ function configureButton(channelId, buttonId) {
     return;
   }
 
+  window.channelActions?.markChannelConfigured(channelId, { source: 'ui' });
   openButtonEditor({ channelId, buttonId, standalone: false }, button);
+}
+
+function addAndConfigureChannelButton(channelId) {
+  const button = addChannelButton(channelId);
+
+  if (!button) {
+    return null;
+  }
+
+  openButtonEditor({ channelId, buttonId: button.id, standalone: false }, button);
+  return button;
 }
 
 function toggleButton(channelId, buttonId) {
@@ -333,6 +351,9 @@ function toggleStandaloneButton(buttonId) {
   logTest('standalone_button_toggle', { buttonId, active: button.active });
   sendButtonAction(button);
 }
+
+window.addChannelButton = addChannelButton;
+window.addAndConfigureChannelButton = addAndConfigureChannelButton;
 
 function configureStandaloneButton(buttonId) {
   const button = findStandaloneButton(buttonId);

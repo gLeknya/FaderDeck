@@ -18,8 +18,15 @@
       sidePanelOpen: false,
       sidePanelClosing: false,
       sidePanelCloseTimerId: null,
+      sidePanelMode: 'targets',
+      sidePanelButtonId: null,
       titleDraft: '',
       titleDirty: false,
+      editingChannelButtonId: null,
+      buttonTitleDraft: '',
+      latestAddedChannelButtonId: null,
+      previewLayoutTransitionRequested: false,
+      previewLayoutCleanupTimerId: null,
       previewTimerId: null,
       previewDrag: null,
       previewDragFrameId: null,
@@ -83,6 +90,18 @@
     }
 
     return findChannelState?.(editorState.channelId) || null;
+  }
+
+  function getEditorChannelButton(buttonId, channel = getEditorChannel()) {
+    if (!channel || !Array.isArray(channel.buttons)) {
+      return null;
+    }
+
+    return channel.buttons.find((button) => button.id === buttonId) || null;
+  }
+
+  function isTargetsSidePanelMode() {
+    return editorState.sidePanelMode !== 'channel-button';
   }
 
   function getEditorChannelResolvedSettings(channel) {
@@ -299,32 +318,9 @@
     return getFaderMappingLabel(channel?.faderMapping);
   }
 
-  function getPreviewTargetLabel(channel) {
-    const targets = getChannelTargets(channel);
-
-    if (!targets.length) {
-      return t('editor.noTargetAssigned');
-    }
-
-    if (targets.length === 1) {
-      return targets[0].name;
-    }
-
-    return `${targets[0].name} +${targets.length - 1}`;
-  }
-
   function renderPreviewButtonSlot(button) {
-    if (!button) {
-      return `
-        <div class="channel-side-button channel-side-button-add entity-edit-preview-button">
-          <span class="button-icon">+</span>
-          <span class="button-label">${t('channels.addButton')}</span>
-        </div>
-      `;
-    }
-
     return `
-      <div class="channel-side-button ${button.active ? 'active' : ''} entity-edit-preview-button">
+      <div class="channel-side-button ${button.active ? 'active' : ''} entity-edit-preview-button" data-preview-button-id="${button.id}">
         <span class="button-icon">${escapeHtml(button.icon)}</span>
         <span class="button-label">${escapeHtml(button.text)}</span>
       </div>
@@ -332,13 +328,273 @@
   }
 
   function renderPreviewButtons(channel) {
-    const slots = [];
+    const buttons = Array.isArray(channel?.buttons)
+      ? channel.buttons
+          .slice(0, 4)
+          .map((button) => (
+            editorState.editingChannelButtonId === button.id
+              ? {
+                ...button,
+                text: editorState.buttonTitleDraft || button.text
+              }
+              : button
+          ))
+      : [];
 
-    for (let index = 0; index < 4; index += 1) {
-      slots.push(renderPreviewButtonSlot(channel?.buttons?.[index] || null));
+    if (!buttons.length) {
+      return '';
     }
 
-    return slots.join('');
+    const layoutMode = getPreviewButtonLayoutMode(channel);
+
+    return `
+      <div class="channel-buttons-grid channel-buttons-grid--${layoutMode} channel-buttons-grid--count-${buttons.length}">
+        ${buttons.map((button) => renderPreviewButtonSlot(button)).join('')}
+      </div>
+    `;
+  }
+
+  function getPreviewButtonLayoutMode(channel) {
+    const buttons = Array.isArray(channel?.buttons) ? channel.buttons.slice(0, 4) : [];
+
+    if (buttons.length >= 3) {
+      return 'side';
+    }
+
+    if (buttons.length >= 1) {
+      return channel?.buttonPlacement === 'side' ? 'side' : 'inline';
+    }
+
+    return 'none';
+  }
+
+  function getPreviewTitleIconTarget(channel) {
+    if (!channel?.showTargetIconInTitle) {
+      return null;
+    }
+
+    const targets = getChannelTargets(channel).map(resolveTargetDisplayEntry);
+    const requestedProcess = String(channel?.titleIconTargetProcess || '').trim();
+    return targets.find((target) => target.process === requestedProcess) || targets[0] || null;
+  }
+
+  function renderPreviewTitleMarkup(channel, title) {
+    const titleIconTarget = getPreviewTitleIconTarget(channel);
+
+    if (!titleIconTarget) {
+      return `<span class="channel-title-text">${escapeHtml(title)}</span>`;
+    }
+
+    return `
+      <span class="channel-title-inner has-icon">
+        ${renderAppIconMarkup(titleIconTarget, 'channel-title-icon')}
+        <span class="channel-title-text">${escapeHtml(title)}</span>
+      </span>
+    `;
+  }
+
+  function capturePreviewLayoutTransition() {
+    const previewRoot = dom.previewMount?.querySelector('.entity-edit-preview-channel');
+    const previewMountRect = dom.previewMount?.getBoundingClientRect();
+
+    if (!previewRoot || !previewMountRect) {
+      return null;
+    }
+
+    const rootRect = previewRoot.getBoundingClientRect();
+    const buttons = new Map();
+    const parts = new Map();
+
+    previewRoot.querySelectorAll('[data-preview-button-id]').forEach((element) => {
+      const buttonId = String(element.dataset.previewButtonId || '').trim();
+
+      if (!buttonId) {
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      buttons.set(buttonId, {
+        left: rect.left - previewMountRect.left,
+        top: rect.top - previewMountRect.top,
+        width: rect.width,
+        height: rect.height,
+        html: element.outerHTML
+      });
+    });
+
+    previewRoot.querySelectorAll('[data-preview-layout-part]').forEach((element) => {
+      const partKey = String(element.dataset.previewLayoutPart || '').trim();
+
+      if (!partKey) {
+        return;
+      }
+
+      const rect = element.getBoundingClientRect();
+      parts.set(partKey, {
+        left: rect.left - previewMountRect.left,
+        top: rect.top - previewMountRect.top
+      });
+    });
+
+    return {
+      rootWidth: rootRect.width,
+      rootHeight: rootRect.height,
+      buttons,
+      parts
+    };
+  }
+
+  function cleanupPreviewLayoutTransitionStyles() {
+    if (editorState.previewLayoutCleanupTimerId) {
+      clearTimeout(editorState.previewLayoutCleanupTimerId);
+      editorState.previewLayoutCleanupTimerId = null;
+    }
+
+    const previewRoot = dom.previewMount?.querySelector('.entity-edit-preview-channel');
+
+    if (!previewRoot) {
+      return;
+    }
+
+    previewRoot.classList.remove('is-layout-animating');
+    previewRoot.style.width = '';
+    previewRoot.style.height = '';
+  }
+
+  function playPreviewLayoutTransition(snapshot) {
+    const previewRoot = dom.previewMount?.querySelector('.entity-edit-preview-channel');
+    const previewMountRect = dom.previewMount?.getBoundingClientRect();
+
+    if (!snapshot || !previewRoot || !previewMountRect) {
+      return;
+    }
+
+    cleanupPreviewLayoutTransitionStyles();
+
+    const nextRootRect = previewRoot.getBoundingClientRect();
+    const rootWidthChanged = Math.abs(snapshot.rootWidth - nextRootRect.width) > 0.5;
+    const rootHeightChanged = Math.abs(snapshot.rootHeight - nextRootRect.height) > 0.5;
+
+    if (rootWidthChanged || rootHeightChanged) {
+      previewRoot.classList.add('is-layout-animating');
+      previewRoot.style.width = `${snapshot.rootWidth}px`;
+      previewRoot.style.height = `${snapshot.rootHeight}px`;
+
+      requestAnimationFrame(() => {
+        previewRoot.style.width = `${nextRootRect.width}px`;
+        previewRoot.style.height = `${nextRootRect.height}px`;
+      });
+
+      editorState.previewLayoutCleanupTimerId = window.setTimeout(() => {
+        cleanupPreviewLayoutTransitionStyles();
+      }, 280);
+    }
+
+    const nextButtons = new Map();
+    previewRoot.querySelectorAll('[data-preview-button-id]').forEach((element) => {
+      const buttonId = String(element.dataset.previewButtonId || '').trim();
+
+      if (!buttonId) {
+        return;
+      }
+
+      nextButtons.set(buttonId, element);
+    });
+
+    nextButtons.forEach((element, buttonId) => {
+      const nextRect = element.getBoundingClientRect();
+      const previousRect = snapshot.buttons.get(buttonId);
+
+      if (!previousRect) {
+        element.animate([
+          { opacity: 0, transform: 'translateY(18px) scale(0.96)' },
+          { opacity: 1, transform: 'translateY(0) scale(1)' }
+        ], {
+          duration: 240,
+          easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
+          fill: 'both'
+        });
+        return;
+      }
+
+      const deltaX = previousRect.left - (nextRect.left - previewMountRect.left);
+      const deltaY = previousRect.top - (nextRect.top - previewMountRect.top);
+
+      if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+        element.animate([
+          { transform: `translate(${deltaX}px, ${deltaY}px)` },
+          { transform: 'translate(0, 0)' }
+        ], {
+          duration: 260,
+          easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
+          fill: 'both'
+        });
+      }
+    });
+
+    previewRoot.querySelectorAll('[data-preview-layout-part]').forEach((element) => {
+      const partKey = String(element.dataset.previewLayoutPart || '').trim();
+      const previousRect = snapshot.parts?.get(partKey);
+
+      if (!partKey || !previousRect) {
+        return;
+      }
+
+      const nextRect = element.getBoundingClientRect();
+      const deltaX = previousRect.left - (nextRect.left - previewMountRect.left);
+      const deltaY = previousRect.top - (nextRect.top - previewMountRect.top);
+
+      if (Math.abs(deltaX) <= 0.5 && Math.abs(deltaY) <= 0.5) {
+        return;
+      }
+
+      element.animate([
+        { transform: `translate(${deltaX}px, ${deltaY}px)` },
+        { transform: 'translate(0, 0)' }
+      ], {
+        duration: 260,
+        easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
+        fill: 'both'
+      });
+    });
+
+    snapshot.buttons.forEach((previousRect, buttonId) => {
+      if (nextButtons.has(buttonId)) {
+        return;
+      }
+
+      const ghost = document.createElement('div');
+      ghost.className = 'entity-edit-preview-button-ghost';
+      ghost.style.left = `${previousRect.left}px`;
+      ghost.style.top = `${previousRect.top}px`;
+      ghost.style.width = `${previousRect.width}px`;
+      ghost.style.height = `${previousRect.height}px`;
+      ghost.innerHTML = previousRect.html;
+      dom.previewMount?.appendChild(ghost);
+
+      const ghostAnimation = ghost.animate([
+        { opacity: 1, transform: 'translateY(0) scale(1)' },
+        { opacity: 0, transform: 'translateY(-16px) scale(0.94)' }
+      ], {
+        duration: 220,
+        easing: 'ease',
+        fill: 'both'
+      });
+
+      ghostAnimation.onfinish = () => {
+        ghost.remove();
+      };
+    });
+  }
+
+  function syncPreviewWithLayoutTransition(channel, renderPreviewFn) {
+    const snapshot = capturePreviewLayoutTransition();
+    const previewRenderer = typeof renderPreviewFn === 'function'
+      ? renderPreviewFn
+      : () => syncPreviewFromChannel(channel);
+
+    previewRenderer();
+    playPreviewLayoutTransition(snapshot);
   }
 
   function renderFaderPreview(channel) {
@@ -347,28 +603,45 @@
       ? mapFaderPositionToVolume(channel.volume, getEditorChannelResolvedSettings(channel))
       : channel.volume;
     const mappingLabel = getPreviewMappingLabel(channel);
+    const previewButtonsMarkup = renderPreviewButtons(channel);
+    const buttonLayoutMode = getPreviewButtonLayoutMode(channel);
+    const valueText = formatVolumeValue(outputVolume, getEditorChannelResolvedSettings(channel));
 
     return `
-      <div class="channel-strip entity-edit-preview-channel" data-preview-channel-id="${channel.id}">
+      <div class="channel-strip channel-strip--${buttonLayoutMode} entity-edit-preview-channel" data-preview-channel-id="${channel.id}">
         <div class="channel-body">
-          <div class="channel-main">
-            <div class="fader-column">
-              <div class="fader-track entity-edit-preview-track" data-preview-track data-preview-channel-id="${channel.id}">
-                <div class="fader-rail"></div>
-                <div class="fader-fill" style="height: ${channel.volume}%"></div>
-                <div class="fader-thumb" style="bottom: calc(${channel.volume}% - 25px)"></div>
+          <div class="channel-title" title="${escapeHtml(title)}" data-preview-layout-part="title">${renderPreviewTitleMarkup(channel, title)}</div>
+          ${mappingLabel ? `<div class="fader-meta">${escapeHtml(mappingLabel)}</div>` : ''}
+
+          <div class="channel-main channel-main--${buttonLayoutMode}">
+            <div class="channel-primary-column" data-preview-layout-part="primary">
+              <div class="fader-column">
+                <div class="fader-track entity-edit-preview-track" data-preview-track data-preview-channel-id="${channel.id}">
+                  <div class="fader-rail"></div>
+                  <div class="fader-fill" style="height: ${channel.volume}%"></div>
+                  <div class="fader-thumb" style="bottom: calc(${channel.volume}% - 25px)"></div>
+                </div>
               </div>
+
+              ${buttonLayoutMode === 'side'
+                ? ''
+                : `
+                  <div class="channel-inline-footer" data-preview-layout-part="footer">
+                    <div class="volume-value">${valueText}</div>
+                    ${buttonLayoutMode === 'inline' ? previewButtonsMarkup : ''}
+                  </div>
+                `}
             </div>
 
-            <div class="channel-side-column">
-              <div class="channel-title" title="${escapeHtml(title)}">${escapeHtml(title)}</div>
-              ${mappingLabel ? `<div class="fader-meta">${escapeHtml(mappingLabel)}</div>` : '<div class="fader-meta"></div>'}
-              <div class="channel-buttons-grid">${renderPreviewButtons(channel)}</div>
-              <div class="volume-value">${formatVolumeValue(outputVolume, getEditorChannelResolvedSettings(channel))}</div>
-            </div>
+            ${buttonLayoutMode === 'side'
+              ? `
+                <div class="channel-secondary-column" data-preview-layout-part="secondary">
+                  ${previewButtonsMarkup}
+                  <div class="volume-value">${valueText}</div>
+                </div>
+              `
+              : ''}
           </div>
-
-          <div class="entity-edit-preview-target-pill">${escapeHtml(getPreviewTargetLabel(channel))}</div>
         </div>
       </div>
     `;
@@ -416,14 +689,13 @@
     const thumb = track?.querySelector('.fader-thumb');
     const fill = track?.querySelector('.fader-fill');
     const value = previewRoot.querySelector('.volume-value');
-    const targetPill = previewRoot.querySelector('.entity-edit-preview-target-pill');
     const mappingLabel = getPreviewMappingLabel(channel);
     const outputVolume = typeof mapFaderPositionToVolume === 'function'
       ? mapFaderPositionToVolume(channel.volume, getEditorChannelResolvedSettings(channel))
       : channel.volume;
 
     if (titleElement) {
-      titleElement.textContent = title;
+      titleElement.innerHTML = renderPreviewTitleMarkup(channel, title);
       titleElement.setAttribute('title', title);
     }
 
@@ -441,10 +713,6 @@
 
     if (value) {
       value.textContent = formatVolumeValue(outputVolume, getEditorChannelResolvedSettings(channel));
-    }
-
-    if (targetPill) {
-      targetPill.textContent = getPreviewTargetLabel(channel);
     }
   }
 
@@ -655,6 +923,9 @@
 
   function renderEditorTargets(channel) {
     const targets = getChannelTargets(channel).map(resolveTargetDisplayEntry);
+    const activeTitleIconProcess = channel?.showTargetIconInTitle
+      ? String(channel?.titleIconTargetProcess || '').trim()
+      : '';
 
     if (!targets.length) {
       return `
@@ -671,6 +942,19 @@
             ${renderAppIconMarkup(target, 'entity-edit-target-icon')}
             <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
             <button
+              class="entity-edit-target-action-toggle ${activeTitleIconProcess === target.process ? 'active' : ''}"
+              type="button"
+              data-editor-toggle-title-icon="${escapeHtml(target.process)}"
+              aria-pressed="${activeTitleIconProcess === target.process ? 'true' : 'false'}">
+              ${t('editor.targetTitleIcon')}
+            </button>
+            <button
+              class="entity-edit-target-action"
+              type="button"
+              data-editor-use-target-name="${escapeHtml(target.process)}">
+              ${t('editor.useTargetName')}
+            </button>
+            <button
               class="entity-edit-target-remove"
               type="button"
               data-editor-remove-target="${escapeHtml(target.process)}"
@@ -679,6 +963,150 @@
             </button>
           </div>
         `).join('')}
+      </div>
+    `;
+  }
+
+  function renderEditorChannelButtons(channel) {
+    const buttons = Array.isArray(channel?.buttons) ? channel.buttons.slice(0, 4) : [];
+    const editingButtonId = editorState.editingChannelButtonId;
+    const addButtonRowMarkup = buttons.length < 4
+      ? `
+        <button
+          class="entity-edit-target-placeholder entity-edit-channel-button-placeholder entity-edit-channel-button-add-row"
+          data-editor-channel-button-add-row
+          type="button"
+          onclick="handleEditorAddChannelButton(${channel.id})">
+          ${t('editor.addChannelButton')}
+        </button>
+      `
+      : '';
+
+    if (!buttons.length) {
+      return addButtonRowMarkup;
+    }
+
+    return `
+      <div class="entity-edit-target-list entity-edit-channel-button-list">
+        ${buttons.map((button) => `
+          <div
+            class="entity-edit-target-chip entity-edit-channel-button-chip"
+            data-editor-channel-button-chip="${button.id}"
+            data-editor-channel-button-row="${button.id}">
+            <span class="entity-edit-target-icon">${escapeHtml(button.icon)}</span>
+            ${editingButtonId === button.id
+              ? `
+                <input
+                  class="entity-edit-channel-button-title-input"
+                  type="text"
+                  value="${escapeHtml(editorState.buttonTitleDraft || button.text)}"
+                  data-editor-button-title-input="${button.id}">
+              `
+              : `
+                <button
+                  class="entity-edit-channel-button-title"
+                  type="button"
+                  data-editor-start-button-title-edit="${button.id}">
+                  ${escapeHtml(button.text)}
+                </button>
+              `}
+            <div class="entity-edit-channel-button-actions">
+              <button
+                class="entity-edit-channel-button-remove"
+                type="button"
+                data-editor-remove-channel-button="${button.id}"
+                aria-label="${escapeHtml(t('editor.removeChannelButton'))}">
+                &times;
+              </button>
+              <button
+                class="entity-edit-channel-button-open-panel"
+                type="button"
+                data-editor-open-channel-button-panel="${button.id}"
+                aria-label="${escapeHtml(t('editor.openButtonPanel'))}">
+                &gt;
+              </button>
+            </div>
+          </div>
+        `).join('')}
+        ${addButtonRowMarkup}
+      </div>
+    `;
+  }
+
+  function renderEditorChannelButtonAction(channel) {
+    return '';
+  }
+
+  function shouldShowEditorChannelButtonPlacement(channel) {
+    const buttons = Array.isArray(channel?.buttons) ? channel.buttons.slice(0, 4) : [];
+    return buttons.length >= 1 && buttons.length <= 2;
+  }
+
+  function renderEditorChannelButtonPlacementContent(channel) {
+    const buttons = Array.isArray(channel?.buttons) ? channel.buttons.slice(0, 4) : [];
+
+    if (!buttons.length) {
+      return '';
+    }
+
+    const currentPlacement = channel?.buttonPlacement === 'side' ? 'side' : 'bottom';
+
+    return `
+      <span class="entity-edit-channel-button-placement-label">${t('editor.buttonPlacement')}</span>
+      <div class="entity-edit-channel-button-placement-options">
+        <button
+          class="entity-edit-channel-button-placement-option ${currentPlacement === 'bottom' ? 'active' : ''}"
+          type="button"
+          data-editor-button-placement="bottom">
+          ${t('editor.buttonPlacementBottom')}
+        </button>
+        <button
+          class="entity-edit-channel-button-placement-option ${currentPlacement === 'side' ? 'active' : ''}"
+          type="button"
+          data-editor-button-placement="side">
+          ${t('editor.buttonPlacementSide')}
+        </button>
+      </div>
+    `;
+  }
+
+  function renderEditorChannelButtonPlacement(channel) {
+    return `
+      <div
+        class="entity-edit-channel-button-placement ${shouldShowEditorChannelButtonPlacement(channel) ? 'is-visible' : 'is-hidden'}"
+        data-editor-channel-button-placement-wrap>
+        ${renderEditorChannelButtonPlacementContent(channel)}
+      </div>
+    `;
+  }
+
+  function renderChannelButtonSidePanel(channel) {
+    const button = getEditorChannelButton(editorState.sidePanelButtonId, channel);
+
+    return `
+      <div class="entity-edit-side-panel-inner">
+        <div class="entity-edit-side-header">
+          <button
+            class="entity-edit-side-back"
+            type="button"
+            data-editor-close-targets
+            aria-label="${escapeHtml(t('editor.close'))}">
+            <span class="entity-edit-side-back-arrow" aria-hidden="true"></span>
+            <span class="entity-edit-side-back-label">${t('editor.buttonPanelTitle')}</span>
+          </button>
+          <div class="entity-edit-side-subtitle">${t('editor.buttonPanelSubtitle')}</div>
+        </div>
+
+        <div class="entity-edit-button-side-stub">
+          <div class="entity-edit-button-side-card">
+            <div class="entity-edit-button-side-card-label">${t('editor.buttonPanelTargetButton')}</div>
+            <div class="entity-edit-button-side-card-value">${escapeHtml(button?.text || t('buttons.defaultLabel'))}</div>
+          </div>
+          <div class="entity-edit-button-side-card is-placeholder">
+            <div class="entity-edit-button-side-card-title">${t('editor.buttonPanelStubTitle')}</div>
+            <p class="entity-edit-button-side-card-text">${t('editor.buttonPanelStubText')}</p>
+          </div>
+        </div>
       </div>
     `;
   }
@@ -886,6 +1314,15 @@
 
         <section class="entity-edit-section">
           <div class="entity-edit-section-header">
+            <span>${t('editor.channelButtons')}</span>
+            ${renderEditorChannelButtonAction(channel)}
+          </div>
+          <div data-editor-channel-buttons-body>${renderEditorChannelButtons(channel)}</div>
+          ${renderEditorChannelButtonPlacement(channel)}
+        </section>
+
+        <section class="entity-edit-section">
+          <div class="entity-edit-section-header">
             <span>${t('editor.targets')}</span>
             <button class="entity-edit-add-action" type="button" data-editor-open-targets>+</button>
           </div>
@@ -938,6 +1375,12 @@
     dom.sidePanel.classList.toggle('is-open', editorState.sidePanelOpen);
     dom.sidePanel.classList.toggle('is-closing', editorState.sidePanelClosing);
 
+    if (!isTargetsSidePanelMode()) {
+      dom.sidePanel.innerHTML = renderChannelButtonSidePanel(channel);
+      dom.sideOptions = null;
+      return;
+    }
+
     dom.sidePanel.innerHTML = `
       <div class="entity-edit-side-panel-inner">
         <div class="entity-edit-side-header">
@@ -973,8 +1416,154 @@
     targetsBody.innerHTML = renderEditorTargets(channel);
   }
 
+  function getEditorChannelButtonsTransitionKey(element) {
+    if (!element) {
+      return '';
+    }
+
+    if (element.hasAttribute('data-editor-channel-button-add-row')) {
+      return 'add-row';
+    }
+
+    const buttonRowId = String(element.dataset.editorChannelButtonRow || '').trim();
+    return buttonRowId ? `button:${buttonRowId}` : '';
+  }
+
+  function captureEditorChannelButtonsSnapshot() {
+    const buttonsBody = dom.main?.querySelector('[data-editor-channel-buttons-body]');
+
+    if (!buttonsBody) {
+      return null;
+    }
+
+    const bodyRect = buttonsBody.getBoundingClientRect();
+    const items = new Map();
+
+    buttonsBody
+      .querySelectorAll('[data-editor-channel-button-row], [data-editor-channel-button-add-row]')
+      .forEach((element) => {
+        const key = getEditorChannelButtonsTransitionKey(element);
+
+        if (!key) {
+          return;
+        }
+
+        const rect = element.getBoundingClientRect();
+        items.set(key, {
+          left: rect.left - bodyRect.left,
+          top: rect.top - bodyRect.top,
+          width: rect.width,
+          height: rect.height,
+          html: element.outerHTML
+        });
+      });
+
+    return {
+      body: buttonsBody,
+      bodyRect,
+      items
+    };
+  }
+
+  function playEditorChannelButtonsTransition(snapshot) {
+    const buttonsBody = dom.main?.querySelector('[data-editor-channel-buttons-body]');
+
+    if (!snapshot || !buttonsBody) {
+      return;
+    }
+
+    const nextBodyRect = buttonsBody.getBoundingClientRect();
+    const nextItems = new Map();
+
+    buttonsBody
+      .querySelectorAll('[data-editor-channel-button-row], [data-editor-channel-button-add-row]')
+      .forEach((element) => {
+        const key = getEditorChannelButtonsTransitionKey(element);
+
+        if (!key) {
+          return;
+        }
+
+        nextItems.set(key, element);
+      });
+
+    nextItems.forEach((element, key) => {
+      const nextRect = element.getBoundingClientRect();
+      const previousRect = snapshot.items.get(key);
+
+      if (previousRect) {
+        const deltaX = previousRect.left - (nextRect.left - nextBodyRect.left);
+        const deltaY = previousRect.top - (nextRect.top - nextBodyRect.top);
+
+        if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
+          element.animate([
+            { transform: `translate(${deltaX}px, ${deltaY}px)` },
+            { transform: 'translate(0, 0)' }
+          ], {
+            duration: 260,
+            easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
+            fill: 'both'
+          });
+        }
+
+        return;
+      }
+    });
+
+    snapshot.items.forEach((previousRect, key) => {
+      if (nextItems.has(key) || key === 'add-row') {
+        return;
+      }
+
+      const ghost = document.createElement('div');
+      ghost.className = 'entity-edit-channel-button-ghost';
+      ghost.style.left = `${previousRect.left}px`;
+      ghost.style.top = `${previousRect.top}px`;
+      ghost.style.width = `${previousRect.width}px`;
+      ghost.style.height = `${previousRect.height}px`;
+      ghost.innerHTML = previousRect.html;
+      buttonsBody.appendChild(ghost);
+
+      const ghostAnimation = ghost.animate([
+        { opacity: 1, transform: 'translateY(0) scale(1)' },
+        { opacity: 0, transform: 'translateY(-16px) scale(0.96)' }
+      ], {
+        duration: 220,
+        easing: 'ease',
+        fill: 'both'
+      });
+
+      ghostAnimation.onfinish = () => {
+        ghost.remove();
+      };
+    });
+  }
+
+  function syncEditorChannelButtonsUi(channel = getEditorChannel()) {
+    const snapshot = captureEditorChannelButtonsSnapshot();
+    const buttonsBody = dom.main?.querySelector('[data-editor-channel-buttons-body]');
+    const placementWrap = dom.main?.querySelector('[data-editor-channel-button-placement-wrap]');
+
+    if (buttonsBody) {
+      buttonsBody.innerHTML = renderEditorChannelButtons(channel);
+    }
+
+    if (placementWrap) {
+      placementWrap.classList.toggle('is-visible', shouldShowEditorChannelButtonPlacement(channel));
+      placementWrap.classList.toggle('is-hidden', !shouldShowEditorChannelButtonPlacement(channel));
+      placementWrap.innerHTML = renderEditorChannelButtonPlacementContent(channel);
+    }
+
+    playEditorChannelButtonsTransition(snapshot);
+
+    if (editorState.latestAddedChannelButtonId) {
+      animateEditorChannelButtonChip(editorState.latestAddedChannelButtonId);
+      editorState.latestAddedChannelButtonId = null;
+    }
+  }
+
   function syncSidePanelSelectionState(channel = getEditorChannel()) {
-    if (!dom.sideOptions) {
+    if (!dom.sideOptions || !isTargetsSidePanelMode()) {
       return;
     }
 
@@ -986,7 +1575,7 @@
   }
 
   function syncSidePanelOptions(channel = getEditorChannel(), { preserveScroll = true } = {}) {
-    if (!dom.sideOptions) {
+    if (!dom.sideOptions || !isTargetsSidePanelMode()) {
       return;
     }
 
@@ -1004,8 +1593,10 @@
     }
 
     syncEditorTargetsBody(channel);
-    syncSidePanelSelectionState(channel);
-    syncPreviewFromChannel(channel);
+    if (isTargetsSidePanelMode()) {
+      syncSidePanelSelectionState(channel);
+    }
+    renderPreviewContent();
   }
 
   function animateEditorTargetChip(processName = '') {
@@ -1033,6 +1624,152 @@
     });
   }
 
+  function animateEditorChannelButtonChip(buttonId = '') {
+    const normalizedButtonId = String(buttonId || '').trim();
+
+    if (!normalizedButtonId) {
+      return;
+    }
+
+    requestAnimationFrame(() => {
+      const chip = dom.main?.querySelector(
+        `[data-editor-channel-button-chip="${escapeSelectorValue(normalizedButtonId)}"]`
+      );
+
+      if (!chip) {
+        return;
+      }
+
+      chip.classList.remove('is-entering');
+      void chip.offsetWidth;
+      chip.classList.add('is-entering');
+      chip.addEventListener('animationend', () => {
+        chip.classList.remove('is-entering');
+      }, { once: true });
+    });
+  }
+
+  function animateEditorListItemExit(element, onComplete) {
+    if (!element) {
+      onComplete?.();
+      return;
+    }
+
+    const handleAnimationEnd = () => {
+      element.removeEventListener('animationend', handleAnimationEnd);
+      onComplete?.();
+    };
+
+    element.addEventListener('animationend', handleAnimationEnd);
+    element.classList.remove('is-entering');
+    void element.offsetWidth;
+    element.classList.add('is-exiting');
+  }
+
+  function handleEditorAddChannelButton(channelId) {
+    editorState.previewLayoutTransitionRequested = true;
+    const button = typeof addChannelButton === 'function'
+      ? addChannelButton(channelId)
+      : null;
+
+    if (!button) {
+      return null;
+    }
+
+    editorState.latestAddedChannelButtonId = String(button.id);
+    return button;
+  }
+
+  function syncPreviewDraftButtonTitle(buttonId, nextTitle) {
+    const buttonLabel = dom.previewMount?.querySelector(
+      `[data-preview-button-id="${escapeSelectorValue(buttonId)}"] .button-label`
+    );
+
+    if (!buttonLabel) {
+      return;
+    }
+
+    buttonLabel.textContent = nextTitle;
+  }
+
+  function focusChannelButtonTitleInput(buttonId, selectionStart = null, selectionEnd = null) {
+    const nextInput = dom.main?.querySelector(
+      `[data-editor-button-title-input="${escapeSelectorValue(buttonId)}"]`
+    );
+
+    if (!nextInput) {
+      return;
+    }
+
+    nextInput.focus({ preventScroll: true });
+
+    if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
+      nextInput.setSelectionRange(selectionStart, selectionEnd);
+      return;
+    }
+
+    nextInput.setSelectionRange(nextInput.value.length, nextInput.value.length);
+  }
+
+  function startChannelButtonTitleEdit(buttonId) {
+    const button = getEditorChannelButton(buttonId);
+
+    if (!button) {
+      return;
+    }
+
+    editorState.editingChannelButtonId = buttonId;
+    editorState.buttonTitleDraft = button.text || '';
+    renderEntityEditor();
+    requestAnimationFrame(() => {
+      focusChannelButtonTitleInput(buttonId);
+    });
+  }
+
+  function cancelChannelButtonTitleEdit() {
+    const channel = getEditorChannel();
+    const button = getEditorChannelButton(editorState.editingChannelButtonId, channel);
+
+    editorState.buttonTitleDraft = '';
+    editorState.editingChannelButtonId = null;
+    renderEntityEditor();
+
+    if (button) {
+      syncPreviewFromChannel(channel);
+    }
+  }
+
+  function commitChannelButtonTitleEdit() {
+    if (!editorState.editingChannelButtonId) {
+      return;
+    }
+
+    const buttonId = editorState.editingChannelButtonId;
+    const channel = getEditorChannel();
+    const button = getEditorChannelButton(buttonId, channel);
+
+    if (!channel || !button) {
+      editorState.buttonTitleDraft = '';
+      editorState.editingChannelButtonId = null;
+      return;
+    }
+
+    const nextTitle = String(editorState.buttonTitleDraft || '').trim() || button.text || t('buttons.defaultLabel');
+    editorState.buttonTitleDraft = '';
+    editorState.editingChannelButtonId = null;
+
+    if (nextTitle === button.text) {
+      renderEntityEditor();
+      return;
+    }
+
+    window.channelActions?.updateChannelButton?.(channel.id, buttonId, {
+      text: nextTitle
+    }, {
+      source: 'entity-editor'
+    });
+  }
+
   function syncEditorRangeFills() {
     dom.main?.querySelectorAll('.settings-range').forEach((element) => {
       updateSettingsRangeFill?.(element);
@@ -1046,6 +1783,9 @@
 
     if (editorState.entityType === 'fader') {
       const channel = getEditorChannel();
+      const previewLayoutSnapshot = editorState.previewLayoutTransitionRequested
+        ? capturePreviewLayoutTransition()
+        : null;
 
       if (!channel) {
         dom.main.innerHTML = '';
@@ -1056,9 +1796,19 @@
       dom.main.innerHTML = renderFaderEditor(channel);
       renderSidePanel(channel);
       syncEditorRangeFills();
-      syncPreviewFromChannel(channel);
+      renderPreviewContent();
       dom.previewFrame?.classList.add('is-ready');
       setSourcePreviewState(editorState.sourceHidden);
+
+      if (editorState.latestAddedChannelButtonId) {
+        animateEditorChannelButtonChip(editorState.latestAddedChannelButtonId);
+        editorState.latestAddedChannelButtonId = null;
+      }
+
+      if (previewLayoutSnapshot) {
+        playPreviewLayoutTransition(previewLayoutSnapshot);
+        editorState.previewLayoutTransitionRequested = false;
+      }
       return;
     }
 
@@ -1106,9 +1856,20 @@
   function openTargetsPanel() {
     clearSidePanelCloseTimer();
     editorState.sidePanelClosing = false;
+    editorState.sidePanelMode = 'targets';
+    editorState.sidePanelButtonId = null;
     editorState.sidePanelOpen = true;
     renderEntityEditor();
     requestTargetsPanelApplicationsRefresh({ force: true });
+  }
+
+  function openChannelButtonPanel(buttonId) {
+    clearSidePanelCloseTimer();
+    editorState.sidePanelClosing = false;
+    editorState.sidePanelMode = 'channel-button';
+    editorState.sidePanelButtonId = buttonId;
+    editorState.sidePanelOpen = true;
+    renderEntityEditor();
   }
 
   function closeTargetsPanel() {
@@ -1125,6 +1886,8 @@
       editorState.sidePanelCloseTimerId = null;
       editorState.sidePanelOpen = false;
       editorState.sidePanelClosing = false;
+      editorState.sidePanelMode = 'targets';
+      editorState.sidePanelButtonId = null;
       renderEntityEditor();
     }, ENTITY_EDITOR_SIDE_PANEL_CLOSE_MS);
   }
@@ -1132,6 +1895,44 @@
   function handleMainClick(event) {
     if (event.target.closest('[data-editor-open-targets]')) {
       openTargetsPanel();
+      return;
+    }
+
+    const startButtonTitleEditButton = event.target.closest('[data-editor-start-button-title-edit]');
+
+    if (startButtonTitleEditButton) {
+      startChannelButtonTitleEdit(Number.parseInt(startButtonTitleEditButton.dataset.editorStartButtonTitleEdit, 10));
+      return;
+    }
+
+    const removeChannelButton = event.target.closest('[data-editor-remove-channel-button]');
+
+    if (removeChannelButton) {
+      const buttonId = Number.parseInt(removeChannelButton.dataset.editorRemoveChannelButton, 10);
+
+      if (Number.isNaN(buttonId)) {
+        return;
+      }
+
+      editorState.previewLayoutTransitionRequested = true;
+      editorState.buttonTitleDraft = '';
+      editorState.editingChannelButtonId = null;
+      window.channelActions?.removeChannelButton?.(editorState.channelId, buttonId, {
+        source: 'entity-editor'
+      });
+      return;
+    }
+
+    const openChannelButtonPanelButton = event.target.closest('[data-editor-open-channel-button-panel]');
+
+    if (openChannelButtonPanelButton) {
+      const buttonId = Number.parseInt(openChannelButtonPanelButton.dataset.editorOpenChannelButtonPanel, 10);
+
+      if (Number.isNaN(buttonId)) {
+        return;
+      }
+
+      openChannelButtonPanel(buttonId);
       return;
     }
 
@@ -1181,11 +1982,72 @@
     const removeTargetButton = event.target.closest('[data-editor-remove-target]');
 
     if (removeTargetButton) {
-      removeChannelAppTargetState?.(editorState.channelId, removeTargetButton.dataset.editorRemoveTarget, {
-        source: 'entity-editor'
+      const targetChip = removeTargetButton.closest('.entity-edit-target-chip');
+
+      animateEditorListItemExit(targetChip, () => {
+        removeChannelAppTargetState?.(editorState.channelId, removeTargetButton.dataset.editorRemoveTarget, {
+          source: 'entity-editor'
+        });
+        saveProfileToLocal?.();
+        syncTargetSelectionUi(getEditorChannel());
       });
-      saveProfileToLocal?.();
-      syncTargetSelectionUi(getEditorChannel());
+      return;
+    }
+
+    const titleIconButton = event.target.closest('[data-editor-toggle-title-icon]');
+
+    if (titleIconButton) {
+      const channel = getEditorChannel();
+      const targetProcess = titleIconButton.dataset.editorToggleTitleIcon;
+      const isActive = Boolean(
+        channel?.showTargetIconInTitle
+        && String(channel?.titleIconTargetProcess || '').trim() === String(targetProcess || '').trim()
+      );
+
+      editorState.previewLayoutTransitionRequested = true;
+      window.channelActions?.setChannelTitleIconVisible?.(
+        editorState.channelId,
+        !isActive,
+        targetProcess,
+        { source: 'entity-editor' }
+      );
+      return;
+    }
+
+    const useTargetNameButton = event.target.closest('[data-editor-use-target-name]');
+
+    if (useTargetNameButton) {
+      const channel = getEditorChannel();
+      const targetProcess = useTargetNameButton.dataset.editorUseTargetName;
+      const target = getChannelTargets(channel)
+        .map(resolveTargetDisplayEntry)
+        .find((entry) => entry.process === targetProcess);
+
+      if (!target) {
+        return;
+      }
+
+      editorState.previewLayoutTransitionRequested = true;
+      window.channelActions?.renameChannel?.(
+        editorState.channelId,
+        target.name,
+        target.name,
+        { source: 'entity-editor' }
+      );
+      editorState.titleDraft = '';
+      editorState.titleDirty = false;
+      return;
+    }
+
+    const buttonPlacementToggle = event.target.closest('[data-editor-button-placement]');
+
+    if (buttonPlacementToggle) {
+      editorState.previewLayoutTransitionRequested = true;
+      window.channelActions?.setChannelButtonPlacement?.(
+        editorState.channelId,
+        buttonPlacementToggle.dataset.editorButtonPlacement,
+        { source: 'entity-editor' }
+      );
       return;
     }
 
@@ -1209,9 +2071,24 @@
 
   function handleMainInput(event) {
     if (event.target.matches('#entityEditTitleInput')) {
+      const channel = getEditorChannel();
       editorState.titleDraft = event.target.value;
       editorState.titleDirty = true;
-      syncPreviewFromChannel(getEditorChannel());
+
+      if (channel) {
+        syncPreviewWithLayoutTransition(channel, () => {
+          syncPreviewFromChannel(channel);
+        });
+      }
+      return;
+    }
+
+    const buttonTitleInput = event.target.closest('[data-editor-button-title-input]');
+
+    if (buttonTitleInput) {
+      editorState.editingChannelButtonId = Number.parseInt(buttonTitleInput.dataset.editorButtonTitleInput, 10);
+      editorState.buttonTitleDraft = buttonTitleInput.value;
+      syncPreviewDraftButtonTitle(buttonTitleInput.dataset.editorButtonTitleInput, buttonTitleInput.value);
       return;
     }
 
@@ -1235,6 +2112,11 @@
   }
 
   function handleMainFocusOut(event) {
+    if (event.target.matches('[data-editor-button-title-input]')) {
+      commitChannelButtonTitleEdit();
+      return;
+    }
+
     if (!event.target.matches('#entityEditTitleInput')) {
       return;
     }
@@ -1243,6 +2125,20 @@
   }
 
   function handleMainKeyDown(event) {
+    if (event.target.matches('[data-editor-button-title-input]')) {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.target.blur();
+        return;
+      }
+
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        cancelChannelButtonTitleEdit();
+      }
+      return;
+    }
+
     if (!event.target.matches('#entityEditTitleInput')) {
       return;
     }
@@ -1266,6 +2162,10 @@
   function handleSidePanelClick(event) {
     if (event.target.closest('[data-editor-close-targets]')) {
       closeTargetsPanel();
+      return;
+    }
+
+    if (!isTargetsSidePanelMode()) {
       return;
     }
 
@@ -1449,6 +2349,14 @@
         }
 
         if (
+          meta?.type === 'channels/set-volume'
+          || meta?.type === 'channels/button-toggle'
+        ) {
+          syncPreviewFromChannel(channel);
+          return;
+        }
+
+        if (
           meta?.type === 'channels/add-app-target'
           || meta?.type === 'channels/remove-app-target'
           || meta?.type === 'channels/clear-app'
@@ -1463,16 +2371,107 @@
           return;
         }
 
+        if (
+          meta?.type === 'channels/button-add'
+          || meta?.type === 'channels/button-remove'
+          || meta?.type === 'channels/button-update'
+          || meta?.type === 'channels/set-button-placement'
+        ) {
+          syncEditorChannelButtonsUi(channel);
+
+          if (
+            editorState.sidePanelMode === 'channel-button'
+            && editorState.sidePanelButtonId
+            && !getEditorChannelButton(editorState.sidePanelButtonId, channel)
+          ) {
+            editorState.sidePanelOpen = false;
+            editorState.sidePanelClosing = false;
+            editorState.sidePanelMode = 'targets';
+            editorState.sidePanelButtonId = null;
+            renderSidePanel(channel);
+          } else if (editorState.sidePanelMode === 'channel-button' && editorState.sidePanelOpen) {
+            renderSidePanel(channel);
+          }
+
+          if (editorState.previewLayoutTransitionRequested) {
+            syncPreviewWithLayoutTransition(channel, renderPreviewContent);
+            editorState.previewLayoutTransitionRequested = false;
+          } else if (meta?.type === 'channels/button-update') {
+            syncPreviewFromChannel(channel);
+          }
+
+          return;
+        }
+
+        if (meta?.type === 'channels/set-title-icon') {
+          const previewTransitionRequested = editorState.previewLayoutTransitionRequested;
+          syncEditorTargetsBody(channel);
+
+          if (isTargetsPanelVisible() && isTargetsSidePanelMode()) {
+            syncSidePanelSelectionState(channel);
+          }
+
+          if (previewTransitionRequested) {
+            syncPreviewWithLayoutTransition(channel, renderPreviewContent);
+            editorState.previewLayoutTransitionRequested = false;
+          } else {
+            syncPreviewFromChannel(channel);
+          }
+          return;
+        }
+
+        if (meta?.type === 'channels/rename') {
+          const activeTitleInput = dom.main?.querySelector('#entityEditTitleInput');
+
+          if (activeTitleInput && document.activeElement !== activeTitleInput) {
+            activeTitleInput.value = channel.title || channel.appName || t('channels.unnamed');
+          }
+
+          if (editorState.previewLayoutTransitionRequested) {
+            syncPreviewWithLayoutTransition(channel, () => {
+              syncPreviewFromChannel(channel);
+            });
+            editorState.previewLayoutTransitionRequested = false;
+          } else {
+            syncPreviewFromChannel(channel);
+          }
+          return;
+        }
+
+        if (
+          editorState.sidePanelMode === 'channel-button'
+          && editorState.sidePanelButtonId
+          && !getEditorChannelButton(editorState.sidePanelButtonId, channel)
+        ) {
+          editorState.sidePanelOpen = false;
+          editorState.sidePanelClosing = false;
+          editorState.sidePanelMode = 'targets';
+          editorState.sidePanelButtonId = null;
+        }
+
         const activeTitleInput = dom.main?.querySelector('#entityEditTitleInput');
+        const activeButtonTitleInput = dom.main?.querySelector('[data-editor-button-title-input]');
         const isEditingTitle = document.activeElement === activeTitleInput;
+        const isEditingButtonTitle = document.activeElement === activeButtonTitleInput;
         const selectionStart = isEditingTitle ? activeTitleInput.selectionStart : null;
         const selectionEnd = isEditingTitle ? activeTitleInput.selectionEnd : null;
+        const buttonSelectionStart = isEditingButtonTitle ? activeButtonTitleInput.selectionStart : null;
+        const buttonSelectionEnd = isEditingButtonTitle ? activeButtonTitleInput.selectionEnd : null;
+        const editingButtonId = isEditingButtonTitle
+          ? Number.parseInt(activeButtonTitleInput.dataset.editorButtonTitleInput, 10)
+          : null;
 
         renderEntityEditor();
 
         if (isEditingTitle) {
           requestAnimationFrame(() => {
             restoreTitleInputSelection(selectionStart, selectionEnd);
+          });
+        }
+
+        if (isEditingButtonTitle && Number.isFinite(editingButtonId)) {
+          requestAnimationFrame(() => {
+            focusChannelButtonTitleInput(editingButtonId, buttonSelectionStart, buttonSelectionEnd);
           });
         }
 
@@ -1498,7 +2497,7 @@
       syncEditorTargetsBody(channel);
       syncPreviewFromChannel(channel);
 
-      if (isTargetsPanelVisible()) {
+      if (isTargetsPanelVisible() && isTargetsSidePanelMode()) {
         syncSidePanelOptions(channel);
       }
     });
@@ -1545,5 +2544,6 @@
   window.refreshEntityEditor = refreshEntityEditor;
   window.openEntityEditor = openEntityEditor;
   window.openChannelEditor = openChannelEditor;
+  window.handleEditorAddChannelButton = handleEditorAddChannelButton;
   window.initEntityEditor = initEntityEditor;
 })(window);

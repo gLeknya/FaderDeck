@@ -1391,9 +1391,14 @@ function setupSettings() {
   }, { passive: true });
 }
 
-function hideContextMenu() {
+function hideContextMenu(options = {}) {
+  const shouldPreserveTarget = Boolean(options.preserveTarget);
+
   appSessionState.contextMenu.open = false;
-  appSessionState.contextMenu.target = null;
+
+  if (!shouldPreserveTarget) {
+    appSessionState.contextMenu.target = null;
+  }
 
   if (dom.contextMenu) {
     dom.contextMenu.style.display = 'none';
@@ -1456,12 +1461,14 @@ function onContextMenu(event) {
 
 function onContextItemClick(event) {
   const action = event.currentTarget.dataset.action;
-  hideContextMenu();
-  handleContextAction(action);
+  const contextTarget = appSessionState.contextMenu.target;
+
+  hideContextMenu({ preserveTarget: true });
+  handleContextAction(action, contextTarget);
 }
 
-function handleContextAction(action) {
-  const contextTarget = appSessionState.contextMenu.target;
+function handleContextAction(action, explicitTarget = null) {
+  const contextTarget = explicitTarget || appSessionState.contextMenu.target;
 
   if (!contextTarget) {
     return;
@@ -1489,7 +1496,13 @@ function handleContextAction(action) {
     }
 
     if (action === 'remap') remapButton(channelId, buttonId);
-    if (action === 'edit') configureButton(channelId, buttonId);
+    if (action === 'edit') {
+      if (typeof configureChannel === 'function') {
+        configureChannel(channelId);
+      } else {
+        editChannelTitle(channelId);
+      }
+    }
     return;
   }
 
