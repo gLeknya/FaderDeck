@@ -6,3 +6,4 @@ __pycache__/
 website/
 tests/
 node_modules/
+.codex
