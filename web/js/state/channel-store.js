@@ -1,4 +1,49 @@
 (function initChannelState(window) {
+  const CHANNEL_BUTTON_ACTION_TYPES = Object.freeze({
+    none: 'none',
+    mute: 'mute',
+    solo: 'solo',
+    setVolume: 'set-volume'
+  });
+
+  const CHANNEL_BUTTON_INDICATOR_TYPES = Object.freeze({
+    toggle: 'toggle',
+    meter: 'meter',
+    press: 'press'
+  });
+
+  const CHANNEL_BUTTON_CONTENT_MODES = Object.freeze({
+    iconTitle: 'icon-title',
+    iconOnly: 'icon-only',
+    titleOnly: 'title-only'
+  });
+
+  const CHANNEL_BUTTON_META_MODES = Object.freeze({
+    actionIndicator: 'action-indicator',
+    actionOnly: 'action-only',
+    indicatorOnly: 'indicator-only'
+  });
+
+  const CHANNEL_BUTTON_ICON_KEYS = Object.freeze([
+    'square',
+    'spark',
+    'speaker',
+    'mute',
+    'layers',
+    'target',
+    'flash',
+    'play',
+    'pause',
+    'circle',
+    'diamond',
+    'triangle',
+    'wave',
+    'bolt',
+    'ring'
+  ]);
+
+  const DEFAULT_CHANNEL_BUTTON_ACTION_VALUE = 50;
+
   function createDefaultChannelCustomSettings() {
     return {
       faderInterpolationEnabled: false,
@@ -12,8 +57,63 @@
   }
 
   function cloneButtonEntity(button = {}) {
+    const normalizedText = String(
+      button.text ?? button.title ?? ''
+    ).trim();
+    const icon = CHANNEL_BUTTON_ICON_KEYS.includes(button.icon)
+      ? button.icon
+      : CHANNEL_BUTTON_ICON_KEYS[0];
+    const actionType = Object.values(CHANNEL_BUTTON_ACTION_TYPES).includes(button.actionType)
+      ? button.actionType
+      : CHANNEL_BUTTON_ACTION_TYPES.none;
+    const indicatorType = Object.values(CHANNEL_BUTTON_INDICATOR_TYPES).includes(button.indicatorType)
+      ? button.indicatorType
+      : CHANNEL_BUTTON_INDICATOR_TYPES.toggle;
+    const contentDisplay = Object.values(CHANNEL_BUTTON_CONTENT_MODES).includes(button.contentDisplay)
+      ? button.contentDisplay
+      : CHANNEL_BUTTON_CONTENT_MODES.iconTitle;
+    const metaDisplay = Object.values(CHANNEL_BUTTON_META_MODES).includes(button.metaDisplay)
+      ? button.metaDisplay
+      : CHANNEL_BUTTON_META_MODES.actionIndicator;
+    const midiMapping = button.midiMapping && typeof button.midiMapping === 'object'
+      ? {
+        type: button.midiMapping.type === 'control_change' ? 'control_change' : 'note',
+        channel: Number(button.midiMapping.channel) || 0,
+        note: Number.isInteger(Number(button.midiMapping.note)) ? Number(button.midiMapping.note) : null,
+        control: Number.isInteger(Number(button.midiMapping.control)) ? Number(button.midiMapping.control) : null
+      }
+      : (Number.isInteger(Number(button.note))
+        ? {
+          type: 'note',
+          channel: 0,
+          note: Number(button.note),
+          control: null
+        }
+        : null);
+    const actionValue = Math.max(
+      0,
+      Math.min(
+        100,
+        Number.isFinite(Number(button.actionValue))
+          ? Number(button.actionValue)
+          : DEFAULT_CHANNEL_BUTTON_ACTION_VALUE
+      )
+    );
+
     return {
-      ...button
+      ...button,
+      id: button.id ?? (Date.now() + Math.floor(Math.random() * 1000)),
+      text: normalizedText,
+      icon,
+      actionType,
+      actionValue,
+      indicatorType,
+      contentDisplay,
+      metaDisplay,
+      midiMapping,
+      note: Number.isFinite(Number(button.note)) ? Number(button.note) : 70,
+      key: button.key || null,
+      active: Boolean(button.active)
     };
   }
 
@@ -125,12 +225,11 @@
   }
 
   function createChannelStateModel(index, overrides = {}) {
-    const defaultTarget = createChannelTarget('master', window.t('audio.systemVolume'));
     return {
       id: Date.now() + Math.floor(Math.random() * 1000),
-      app: defaultTarget.process,
-      appName: defaultTarget.name,
-      targets: [defaultTarget],
+      app: '',
+      appName: '',
+      targets: [],
       title: window.t('channels.defaultTitle', { index }),
       faderCC: null,
       faderMapping: null,
@@ -520,4 +619,11 @@
   window.updateChannelButtonState = updateChannelButtonState;
   window.removeChannelButtonState = removeChannelButtonState;
   window.toggleChannelButtonState = toggleChannelButtonState;
+  window.cloneChannelButtonEntity = cloneButtonEntity;
+  window.CHANNEL_BUTTON_ACTION_TYPES = CHANNEL_BUTTON_ACTION_TYPES;
+  window.CHANNEL_BUTTON_INDICATOR_TYPES = CHANNEL_BUTTON_INDICATOR_TYPES;
+  window.CHANNEL_BUTTON_CONTENT_MODES = CHANNEL_BUTTON_CONTENT_MODES;
+  window.CHANNEL_BUTTON_META_MODES = CHANNEL_BUTTON_META_MODES;
+  window.CHANNEL_BUTTON_ICON_KEYS = CHANNEL_BUTTON_ICON_KEYS;
+  window.DEFAULT_CHANNEL_BUTTON_ACTION_VALUE = DEFAULT_CHANNEL_BUTTON_ACTION_VALUE;
 })(window);

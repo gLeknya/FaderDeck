@@ -1,5 +1,13 @@
-# FaderDeck
-
+<div>
+    <h1 algin="center" class="font-size=2">
+  _____         _           ____            _
+ |  ___|_ _  __| | ___ _ __|  _ \  ___  ___| | __
+ | |_ / _` |/ _` |/ _ \ '__| | | |/ _ \/ __| |/ /
+ |  _| (_| | (_| |  __/ |  | |_| |  __/ (__|   <
+ |_|  \__,_|\__,_|\___|_|  |____/ \___|\___|_|\_\
+    </h1>
+</div>
+ 
 FaderDeck - app to control volume(or somthing another) of other apps by using a midi divices 
 
 ## build

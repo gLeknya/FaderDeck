@@ -771,14 +771,28 @@ function renderAppOptions(selectedProcess) {
 }
 
 function renderChannelButtonSlot(channel, button) {
+  const className = typeof window.getChannelButtonClassName === 'function'
+    ? window.getChannelButtonClassName(channel, button)
+    : `channel-side-button ${button.active ? 'active' : ''}`;
+  const bodyMarkup = typeof window.renderChannelButtonBodyMarkup === 'function'
+    ? window.renderChannelButtonBodyMarkup(channel, button)
+    : `
+      <span class="channel-button-face">
+        <span class="channel-button-main">
+          <span class="button-icon">${button.icon}</span>
+          <span class="button-label">${button.text}</span>
+        </span>
+      </span>
+    `;
+
   return `
-    <button class="channel-side-button ${button.active ? 'active' : ''}"
+    <button class="${className}"
             type="button"
+            data-channel-id="${channel.id}"
             data-button-id="${button.id}"
             onclick="toggleButton(${channel.id}, ${button.id})"
             ondblclick="configureButton(${channel.id}, ${button.id})">
-      <span class="button-icon">${button.icon}</span>
-      <span class="button-label">${button.text}</span>
+      ${bodyMarkup}
     </button>
   `;
 }
@@ -909,21 +923,13 @@ function renderChannelConfigureButton(channel) {
   `;
 }
 
-function renderAddChannelStrip() {
+function renderAddChannelStrip(options = {}) {
   const layoutEditModeEnabled = getChannelLayoutEditModeEnabled();
+  const emptyState = Boolean(options.emptyState);
 
   return `
-    <div class="add-channel-strip ${layoutEditModeEnabled ? 'is-disabled' : ''}" ${layoutEditModeEnabled ? '' : 'onclick="createChannel()"'} >
+    <div class="add-channel-strip ${emptyState ? 'add-channel-strip--empty' : ''} ${layoutEditModeEnabled ? 'is-disabled' : ''}" ${layoutEditModeEnabled ? '' : 'onclick="createChannel()"'} >
       <div class="add-channel-plus">+</div>
-    </div>
-  `;
-}
-
-function renderEmptyMixerState() {
-  return `
-    <div class="empty-state">
-      <div class="empty-state-icon">Mixer</div>
-      <div class="empty-state-text">${t('empty.message')}</div>
     </div>
   `;
 }
@@ -1067,9 +1073,8 @@ function renderMixer() {
 
   if (channels.length === 0 && layoutItems.length === 0) {
     container.innerHTML = `
-      ${renderEmptyMixerState()}
       ${renderMixerLayoutInsertControl()}
-      ${renderAddChannelStrip()}
+      ${renderAddChannelStrip({ emptyState: true })}
     `;
     scheduleContentMetricsUpdate();
     return;

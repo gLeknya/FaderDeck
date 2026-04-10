@@ -191,6 +191,46 @@ class AudioManager {
     });
   }
 
+  setMute(processName, muted) {
+    this._log('set_mute', processName, muted);
+
+    if (processName === 'master') {
+      this._muted = Boolean(muted);
+      return {
+        success: true,
+        muted: this._muted,
+        process: processName,
+        volume: this._muted ? 0 : this._masterVolume
+      };
+    }
+
+    const state = this.getApplicationState(processName);
+    const nextMuted = Boolean(muted);
+
+    this.rememberApplicationState(processName, {
+      volume: state.volume,
+      muted: nextMuted
+    });
+
+    return this._audioSessions.setMute(processName, nextMuted).then((result) => {
+      const detectedState = result?.application || null;
+      const hasAudioSession = Boolean(detectedState) || Number(result?.updatedCount) > 0;
+
+      if (detectedState) {
+        this.rememberApplicationState(processName, detectedState);
+      }
+
+      return {
+        success: true,
+        muted: detectedState?.muted ?? nextMuted,
+        process: processName,
+        volume: detectedState?.muted ? 0 : (detectedState?.volume ?? state.volume),
+        updatedCount: result?.updatedCount ?? 0,
+        hasAudioSession
+      };
+    });
+  }
+
   async getApplicationCatalog() {
     const applications = await this.listRunningApplications();
 
@@ -259,6 +299,10 @@ class AudioManager {
 
   toggle_mute(processName) {
     return this.toggleMute(processName);
+  }
+
+  set_mute(processName, muted) {
+    return this.setMute(processName, muted);
   }
 
   get_application_catalog() {

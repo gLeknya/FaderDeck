@@ -17,6 +17,7 @@ const api = Object.freeze({
   get_audio_states: (processNames) => invoke('api:get_audio_states', processNames),
   set_app_volume: (processName, volume) => invoke('api:set_app_volume', processName, volume),
   toggle_app_mute: (processName) => invoke('api:toggle_app_mute', processName),
+  set_app_mute: (processName, muted) => invoke('api:set_app_mute', processName, muted),
   save_profile: (name, data) => invoke('api:save_profile', name, data),
   load_profile: (name) => invoke('api:load_profile', name),
   list_profiles: () => invoke('api:list_profiles'),

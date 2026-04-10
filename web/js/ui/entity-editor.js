@@ -1,8 +1,9 @@
-(function initEntityEditorModule(window) {
-  const ENTITY_EDITOR_MODAL_ID = 'entity-edit';
-  const ENTITY_EDITOR_CLOSE_MS = 240;
-  const ENTITY_EDITOR_SIDE_PANEL_CLOSE_MS = 220;
-  const ENTITY_EDITOR_PREVIEW_MOVE_MS = 250;
+  (function initEntityEditorModule(window) {
+    const ENTITY_EDITOR_MODAL_ID = 'entity-edit';
+    const ENTITY_EDITOR_CLOSE_MS = 240;
+    const ENTITY_EDITOR_SIDE_PANEL_CLOSE_MS = 220;
+    const ENTITY_EDITOR_PREVIEW_MOVE_MS = 250;
+    const ENTITY_EDITOR_PREVIEW_ENTRANCE_CLASS = 'is-preview-entering';
 
   const dom = {};
 
@@ -20,6 +21,10 @@
       sidePanelCloseTimerId: null,
       sidePanelMode: 'targets',
       sidePanelButtonId: null,
+      sidePanelButtonTitleDraft: '',
+      sidePanelButtonTitleDirty: false,
+      sidePanelIconPickerOpen: false,
+      sidePanelIconPickerExpanded: false,
       titleDraft: '',
       titleDirty: false,
       editingChannelButtonId: null,
@@ -98,6 +103,11 @@
     }
 
     return channel.buttons.find((button) => button.id === buttonId) || null;
+  }
+
+  function resetSidePanelButtonDraft(button = null) {
+    editorState.sidePanelButtonTitleDraft = String(button?.text || '').trim();
+    editorState.sidePanelButtonTitleDirty = false;
   }
 
   function isTargetsSidePanelMode() {
@@ -219,6 +229,10 @@
     sourceElement.classList.toggle('entity-edit-source-hidden', isHidden);
   }
 
+  function setPreviewEntranceState(isActive) {
+    dom.shell?.classList.toggle(ENTITY_EDITOR_PREVIEW_ENTRANCE_CLASS, Boolean(isActive));
+  }
+
   function cleanupFloatingPreviews() {
     document.querySelectorAll('.entity-edit-floating-preview').forEach((element) => {
       element.remove();
@@ -310,19 +324,42 @@
     return previewNode;
   }
 
+  function isAdvancedModeEnabled() {
+    return typeof window.getAdvancedModeEnabledState === 'function'
+      ? Boolean(window.getAdvancedModeEnabledState())
+      : false;
+  }
+
   function getPreviewMappingLabel(channel) {
-    if (!getAdvancedModeEnabled?.() || typeof getFaderMappingLabel !== 'function') {
+    if (!isAdvancedModeEnabled() || typeof getFaderMappingLabel !== 'function') {
       return '';
     }
 
     return getFaderMappingLabel(channel?.faderMapping);
   }
 
-  function renderPreviewButtonSlot(button) {
+  function renderPreviewButtonSlot(channel, button) {
+    const className = typeof window.getChannelButtonClassName === 'function'
+      ? window.getChannelButtonClassName(channel, button)
+      : `channel-side-button ${button.active ? 'active' : ''}`;
+    const bodyMarkup = typeof window.renderChannelButtonBodyMarkup === 'function'
+      ? window.renderChannelButtonBodyMarkup(channel, button)
+      : `
+        <span class="channel-button-face">
+          <span class="channel-button-main">
+            <span class="button-icon">${escapeHtml(button.icon)}</span>
+            <span class="button-label">${escapeHtml(button.text)}</span>
+          </span>
+        </span>
+      `;
+
     return `
-      <div class="channel-side-button ${button.active ? 'active' : ''} entity-edit-preview-button" data-preview-button-id="${button.id}">
-        <span class="button-icon">${escapeHtml(button.icon)}</span>
-        <span class="button-label">${escapeHtml(button.text)}</span>
+      <div
+        class="${className} entity-edit-preview-button"
+        data-channel-id="${channel.id}"
+        data-button-id="${button.id}"
+        data-preview-button-id="${button.id}">
+        ${bodyMarkup}
       </div>
     `;
   }
@@ -337,7 +374,12 @@
                 ...button,
                 text: editorState.buttonTitleDraft || button.text
               }
-              : button
+              : editorState.sidePanelButtonId === button.id && editorState.sidePanelButtonTitleDirty
+                ? {
+                  ...button,
+                  text: editorState.sidePanelButtonTitleDraft || button.text
+                }
+                : button
           ))
       : [];
 
@@ -349,7 +391,7 @@
 
     return `
       <div class="channel-buttons-grid channel-buttons-grid--${layoutMode} channel-buttons-grid--count-${buttons.length}">
-        ${buttons.map((button) => renderPreviewButtonSlot(button)).join('')}
+        ${buttons.map((button) => renderPreviewButtonSlot(channel, button)).join('')}
       </div>
     `;
   }
@@ -720,11 +762,13 @@
     clearPreviewTimer();
     cleanupFloatingPreviews();
     renderPreviewContent();
+    setPreviewEntranceState(true);
 
     const sourceElement = resolveEntitySourceElement();
     const previewElement = dom.previewMount?.firstElementChild;
 
     if (!dom.previewFrame || !previewElement) {
+      setPreviewEntranceState(false);
       setSourcePreviewState(true);
       return;
     }
@@ -733,6 +777,7 @@
 
     if (!floatingPreview) {
       dom.previewFrame.classList.add('is-ready');
+      setPreviewEntranceState(false);
       setSourcePreviewState(true);
       return;
     }
@@ -748,9 +793,12 @@
     });
 
     editorState.previewTimerId = setTimeout(() => {
-      cleanupFloatingPreviews();
       dom.previewFrame?.classList.add('is-ready');
-      editorState.previewTimerId = null;
+      requestAnimationFrame(() => {
+        cleanupFloatingPreviews();
+        setPreviewEntranceState(false);
+        editorState.previewTimerId = null;
+      });
     }, ENTITY_EDITOR_PREVIEW_MOVE_MS);
   }
 
@@ -792,6 +840,7 @@
     clearPreviewTimer();
     clearPreviewDragFrame();
     cleanupFloatingPreviews();
+    setPreviewEntranceState(false);
 
     if (restoreSource) {
       setSourcePreviewState(false);
@@ -986,6 +1035,13 @@
       return addButtonRowMarkup;
     }
 
+    const actionLabels = {
+      none: t('editor.buttonActionNone'),
+      mute: t('editor.buttonActionMute'),
+      solo: t('editor.buttonActionSolo'),
+      'set-volume': t('editor.buttonActionSetVolume')
+    };
+
     return `
       <div class="entity-edit-target-list entity-edit-channel-button-list">
         ${buttons.map((button) => `
@@ -993,7 +1049,9 @@
             class="entity-edit-target-chip entity-edit-channel-button-chip"
             data-editor-channel-button-chip="${button.id}"
             data-editor-channel-button-row="${button.id}">
-            <span class="entity-edit-target-icon">${escapeHtml(button.icon)}</span>
+            ${typeof window.renderChannelButtonIconMarkup === 'function'
+              ? window.renderChannelButtonIconMarkup(button, 'entity-edit-target-icon')
+              : `<span class="entity-edit-target-icon">${escapeHtml(button.icon)}</span>`}
             ${editingButtonId === button.id
               ? `
                 <input
@@ -1006,8 +1064,8 @@
                 <button
                   class="entity-edit-channel-button-title"
                   type="button"
-                  data-editor-start-button-title-edit="${button.id}">
-                  ${escapeHtml(button.text)}
+                  data-editor-open-channel-button-panel="${button.id}">
+                  ${escapeHtml(actionLabels[button.actionType] || t('editor.buttonActionNone'))}
                 </button>
               `}
             <div class="entity-edit-channel-button-actions">
@@ -1080,31 +1138,201 @@
     `;
   }
 
+  function renderChannelButtonOptionRow(optionName, activeValue, options = [], variant = '') {
+    const rowClassName = variant ? ` entity-edit-button-option-row--${variant}` : '';
+    const optionClassName = variant ? ` entity-edit-button-option--${variant}` : '';
+
+    return `
+      <div class="entity-edit-button-option-row${rowClassName}">
+        ${options.map((option) => `
+          <button
+            class="entity-edit-button-option${optionClassName} ${String(activeValue) === String(option.value) ? 'active' : ''}"
+            type="button"
+            data-editor-button-option-name="${escapeHtml(optionName)}"
+            data-editor-button-option-value="${escapeHtml(option.value)}">
+            ${escapeHtml(option.label)}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function getChannelButtonIconKeys() {
+    return Array.isArray(window.CHANNEL_BUTTON_ICON_KEYS)
+      ? window.CHANNEL_BUTTON_ICON_KEYS
+      : ['square', 'spark', 'speaker', 'mute', 'layers', 'target', 'flash', 'play', 'pause'];
+  }
+
+  function renderChannelButtonIconOptions(button, iconKeys = []) {
+    const resolvedIconKeys = Array.isArray(iconKeys) && iconKeys.length
+      ? iconKeys
+      : getChannelButtonIconKeys();
+
+    return `
+      <div class="entity-edit-button-icon-grid">
+        ${resolvedIconKeys.map((iconKey) => `
+          <button
+            class="entity-edit-button-icon-option ${button.icon === iconKey ? 'active' : ''}"
+            type="button"
+            data-editor-button-icon-option="${escapeHtml(iconKey)}"
+            aria-label="${escapeHtml(iconKey)}">
+            ${typeof window.renderChannelButtonIconMarkup === 'function'
+              ? window.renderChannelButtonIconMarkup({ ...button, icon: iconKey }, 'entity-edit-button-icon-option-shell')
+              : `<span class="entity-edit-button-icon-option-shell">${escapeHtml(iconKey)}</span>`}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderChannelButtonIconPicker(button) {
+    const iconKeys = getChannelButtonIconKeys();
+    const primaryIcons = iconKeys.slice(0, 9);
+    const extraIcons = iconKeys.slice(9);
+    const pickerOpen = Boolean(editorState.sidePanelIconPickerOpen);
+    const pickerExpanded = pickerOpen && Boolean(editorState.sidePanelIconPickerExpanded);
+
+    return `
+      <div class="entity-edit-button-icon-picker" data-editor-button-icon-picker>
+        <button
+          class="entity-edit-button-icon-trigger ${pickerOpen ? 'is-open' : ''}"
+          type="button"
+          data-editor-toggle-button-icon-picker
+          aria-expanded="${pickerOpen ? 'true' : 'false'}"
+          aria-label="${escapeHtml(t('editor.buttonIcon'))}">
+          ${typeof window.renderChannelButtonIconMarkup === 'function'
+            ? window.renderChannelButtonIconMarkup({ ...button, icon: button?.icon || 'square' }, 'entity-edit-button-icon-trigger-shell')
+            : `<span class="entity-edit-button-icon-trigger-shell">${escapeHtml(button?.icon || 'square')}</span>`}
+        </button>
+
+        ${pickerOpen
+          ? `
+            <div class="entity-edit-button-icon-popover">
+              ${renderChannelButtonIconOptions(button, primaryIcons)}
+              ${extraIcons.length
+                ? `
+                  <button
+                    class="entity-edit-button-icon-more"
+                    type="button"
+                    data-editor-toggle-button-icon-picker-more>
+                    ${pickerExpanded ? t('editor.buttonIconLess') : t('editor.buttonIconMore')}
+                  </button>
+                  <div class="entity-edit-button-icon-extra ${pickerExpanded ? 'is-open' : ''}">
+                    ${pickerExpanded ? renderChannelButtonIconOptions(button, extraIcons) : ''}
+                  </div>
+                `
+                : ''}
+            </div>
+          `
+          : ''}
+      </div>
+    `;
+  }
+
   function renderChannelButtonSidePanel(channel) {
     const button = getEditorChannelButton(editorState.sidePanelButtonId, channel);
+    const actionTypes = window.CHANNEL_BUTTON_ACTION_TYPES || {
+      mute: 'mute',
+      solo: 'solo',
+      setVolume: 'set-volume'
+    };
+    const indicatorTypes = window.CHANNEL_BUTTON_INDICATOR_TYPES || {
+      toggle: 'toggle',
+      meter: 'meter',
+      press: 'press'
+    };
+    const resolvedButton = button
+      ? {
+        ...button,
+        text: editorState.sidePanelButtonTitleDirty
+          ? editorState.sidePanelButtonTitleDraft
+          : button.text
+      }
+      : null;
+    const showMidiDetails = isAdvancedModeEnabled();
+    const midiMappingLabel = escapeHtml(
+      window.midiService?.getButtonMappingLabel?.(resolvedButton?.midiMapping)
+      || t('editor.buttonMidiUnbound')
+    );
+
+    if (!resolvedButton) {
+      return `
+        <div class="entity-edit-side-panel-inner">
+          <div class="entity-edit-side-empty">${t('editor.sidePanelEmpty')}</div>
+        </div>
+      `;
+    }
 
     return `
       <div class="entity-edit-side-panel-inner">
-        <div class="entity-edit-side-header">
+        <div class="entity-edit-side-header entity-edit-side-header--button">
           <button
-            class="entity-edit-side-back"
+            class="entity-edit-side-header-pill"
             type="button"
             data-editor-close-targets
             aria-label="${escapeHtml(t('editor.close'))}">
-            <span class="entity-edit-side-back-arrow" aria-hidden="true"></span>
-            <span class="entity-edit-side-back-label">${t('editor.buttonPanelTitle')}</span>
+            <span class="entity-edit-side-header-pill-arrow" aria-hidden="true"></span>
+            <span class="entity-edit-type-badge entity-edit-side-type-badge">${t('editor.buttonType')}</span>
           </button>
-          <div class="entity-edit-side-subtitle">${t('editor.buttonPanelSubtitle')}</div>
         </div>
 
-        <div class="entity-edit-button-side-stub">
-          <div class="entity-edit-button-side-card">
-            <div class="entity-edit-button-side-card-label">${t('editor.buttonPanelTargetButton')}</div>
-            <div class="entity-edit-button-side-card-value">${escapeHtml(button?.text || t('buttons.defaultLabel'))}</div>
+        <div class="entity-edit-button-side-layout">
+          <div class="entity-edit-button-side-inline">
+            <div class="entity-edit-button-name-row entity-edit-button-name-row--compact">
+              ${renderChannelButtonIconPicker(resolvedButton)}
+              <button
+                class="btn entity-edit-button-midi-bind"
+                type="button"
+                data-editor-bind-channel-button-midi="${resolvedButton.id}">
+                ${resolvedButton.midiMapping ? t('editor.buttonMidiRebind') : t('editor.buttonMidiBind')}
+              </button>
+            </div>
+
+            ${showMidiDetails
+              ? `
+                <div class="entity-edit-button-midi-stack">
+                  <div class="entity-edit-button-midi-caption">${t('editor.buttonMidiBinding')}</div>
+                  <div class="entity-edit-button-midi-value ${resolvedButton.midiMapping ? '' : 'is-empty'}">
+                    ${midiMappingLabel}
+                  </div>
+                </div>
+              `
+              : ''}
           </div>
-          <div class="entity-edit-button-side-card is-placeholder">
-            <div class="entity-edit-button-side-card-title">${t('editor.buttonPanelStubTitle')}</div>
-            <p class="entity-edit-button-side-card-text">${t('editor.buttonPanelStubText')}</p>
+
+          <div class="entity-edit-button-side-card">
+            <div class="entity-edit-button-side-card-label">${t('editor.buttonAction')}</div>
+            ${renderChannelButtonOptionRow('action-type', resolvedButton.actionType, [
+              { value: actionTypes.none, label: t('editor.buttonActionNone') },
+              { value: actionTypes.mute, label: t('editor.buttonActionMute') },
+              { value: actionTypes.solo, label: t('editor.buttonActionSolo') },
+              { value: actionTypes.setVolume, label: t('editor.buttonActionSetVolume') }
+            ])}
+            ${resolvedButton.actionType === actionTypes.setVolume
+              ? `
+                <div class="entity-edit-button-side-subsection-label">${t('editor.buttonSetVolumeValue')}</div>
+                <div class="settings-range-row entity-edit-button-side-range-row">
+                  <input
+                    class="settings-range"
+                    type="range"
+                    min="0"
+                    max="100"
+                    step="1"
+                    value="${Number(resolvedButton.actionValue) || 0}"
+                    data-editor-side-button-action-value="${resolvedButton.id}">
+                  <div class="settings-range-value" data-editor-side-button-action-value-label>${Math.round(Number(resolvedButton.actionValue) || 0)}%</div>
+                </div>
+              `
+              : ''}
+          </div>
+
+          <div class="entity-edit-button-side-card">
+            <div class="entity-edit-button-side-card-label">${t('editor.buttonIndicator')}</div>
+            ${renderChannelButtonOptionRow('indicator-type', resolvedButton.indicatorType, [
+              { value: indicatorTypes.toggle, label: t('editor.buttonIndicatorToggle') },
+              { value: indicatorTypes.meter, label: t('editor.buttonIndicatorMeter') },
+              { value: indicatorTypes.press, label: t('editor.buttonIndicatorPress') }
+            ])}
           </div>
         </div>
       </div>
@@ -1370,6 +1598,10 @@
       return;
     }
 
+    const previousButtonPanelScrollTop = editorState.sidePanelMode === 'channel-button'
+      ? (dom.sidePanel.querySelector('.entity-edit-button-side-layout')?.scrollTop || 0)
+      : 0;
+
     dom.shell?.classList.toggle('entity-edit-side-open', editorState.sidePanelOpen);
     dom.shell?.classList.toggle('entity-edit-side-closing', editorState.sidePanelClosing);
     dom.sidePanel.classList.toggle('is-open', editorState.sidePanelOpen);
@@ -1378,6 +1610,17 @@
     if (!isTargetsSidePanelMode()) {
       dom.sidePanel.innerHTML = renderChannelButtonSidePanel(channel);
       dom.sideOptions = null;
+      dom.sidePanel.querySelectorAll('.settings-range').forEach((element) => {
+        updateSettingsRangeFill?.(element);
+      });
+      const nextLayout = dom.sidePanel.querySelector('.entity-edit-button-side-layout');
+
+      if (nextLayout) {
+        nextLayout.scrollTop = previousButtonPanelScrollTop;
+        requestAnimationFrame(() => {
+          nextLayout.scrollTop = previousButtonPanelScrollTop;
+        });
+      }
       return;
     }
 
@@ -1385,12 +1628,12 @@
       <div class="entity-edit-side-panel-inner">
         <div class="entity-edit-side-header">
           <button
-            class="entity-edit-side-back"
+            class="entity-edit-side-header-pill"
             type="button"
             data-editor-close-targets
             aria-label="${escapeHtml(t('editor.close'))}">
-            <span class="entity-edit-side-back-arrow" aria-hidden="true"></span>
-            <span class="entity-edit-side-back-label">${t('editor.sidePanelTitle')}</span>
+            <span class="entity-edit-side-header-pill-arrow" aria-hidden="true"></span>
+            <span class="entity-edit-type-badge entity-edit-side-type-badge">${t('editor.sidePanelTitle')}</span>
           </button>
           <div class="entity-edit-side-subtitle">${t('editor.sidePanelSubtitle')}</div>
         </div>
@@ -1781,6 +2024,8 @@
       return;
     }
 
+    const previousMainScrollTop = dom.main.scrollTop || 0;
+
     if (editorState.entityType === 'fader') {
       const channel = getEditorChannel();
       const previewLayoutSnapshot = editorState.previewLayoutTransitionRequested
@@ -1796,6 +2041,10 @@
       dom.main.innerHTML = renderFaderEditor(channel);
       renderSidePanel(channel);
       syncEditorRangeFills();
+      dom.main.scrollTop = previousMainScrollTop;
+      requestAnimationFrame(() => {
+        dom.main.scrollTop = previousMainScrollTop;
+      });
       renderPreviewContent();
       dom.previewFrame?.classList.add('is-ready');
       setSourcePreviewState(editorState.sourceHidden);
@@ -1814,6 +2063,7 @@
 
     dom.main.innerHTML = renderButtonEditor();
     renderSidePanel(null);
+    dom.main.scrollTop = previousMainScrollTop;
     renderPreviewContent();
     dom.previewFrame?.classList.add('is-ready');
     setSourcePreviewState(editorState.sourceHidden);
@@ -1858,18 +2108,25 @@
     editorState.sidePanelClosing = false;
     editorState.sidePanelMode = 'targets';
     editorState.sidePanelButtonId = null;
+    editorState.sidePanelIconPickerOpen = false;
+    editorState.sidePanelIconPickerExpanded = false;
     editorState.sidePanelOpen = true;
-    renderEntityEditor();
+    renderSidePanel(getEditorChannel());
     requestTargetsPanelApplicationsRefresh({ force: true });
   }
 
   function openChannelButtonPanel(buttonId) {
+    const button = getEditorChannelButton(buttonId);
+
     clearSidePanelCloseTimer();
     editorState.sidePanelClosing = false;
     editorState.sidePanelMode = 'channel-button';
     editorState.sidePanelButtonId = buttonId;
+    editorState.sidePanelIconPickerOpen = false;
+    editorState.sidePanelIconPickerExpanded = false;
+    resetSidePanelButtonDraft(button);
     editorState.sidePanelOpen = true;
-    renderEntityEditor();
+    renderSidePanel(getEditorChannel());
   }
 
   function closeTargetsPanel() {
@@ -1880,7 +2137,7 @@
     }
 
     editorState.sidePanelClosing = true;
-    renderEntityEditor();
+    renderSidePanel(getEditorChannel());
 
     editorState.sidePanelCloseTimerId = window.setTimeout(() => {
       editorState.sidePanelCloseTimerId = null;
@@ -1888,7 +2145,10 @@
       editorState.sidePanelClosing = false;
       editorState.sidePanelMode = 'targets';
       editorState.sidePanelButtonId = null;
-      renderEntityEditor();
+      editorState.sidePanelIconPickerOpen = false;
+      editorState.sidePanelIconPickerExpanded = false;
+      resetSidePanelButtonDraft(null);
+      renderSidePanel(getEditorChannel());
     }, ENTITY_EDITOR_SIDE_PANEL_CLOSE_MS);
   }
 
@@ -2028,14 +2288,14 @@
       }
 
       editorState.previewLayoutTransitionRequested = true;
+      editorState.titleDraft = target.name;
+      editorState.titleDirty = false;
       window.channelActions?.renameChannel?.(
         editorState.channelId,
         target.name,
         target.name,
         { source: 'entity-editor' }
       );
-      editorState.titleDraft = '';
-      editorState.titleDirty = false;
       return;
     }
 
@@ -2159,13 +2419,204 @@
     }
   }
 
+  function updateSidePanelChannelButton(patch, meta = {}) {
+    if (!editorState.sidePanelButtonId) {
+      return null;
+    }
+
+    return window.channelActions?.updateChannelButton?.(
+      editorState.channelId,
+      editorState.sidePanelButtonId,
+      patch,
+      {
+        source: 'entity-editor-side-panel',
+        ...meta
+      }
+    ) || null;
+  }
+
+  function commitSidePanelButtonTitleDraft() {
+    if (!editorState.sidePanelButtonId || !editorState.sidePanelButtonTitleDirty) {
+      return;
+    }
+
+    const button = getEditorChannelButton(editorState.sidePanelButtonId);
+
+    if (!button) {
+      resetSidePanelButtonDraft(null);
+      return;
+    }
+
+    const nextTitle = String(editorState.sidePanelButtonTitleDraft || '').trim() || button.text || t('buttons.defaultLabel');
+    resetSidePanelButtonDraft({
+      ...button,
+      text: nextTitle
+    });
+
+    if (nextTitle === button.text) {
+      syncPreviewFromChannel(getEditorChannel());
+      return;
+    }
+
+    updateSidePanelChannelButton({ text: nextTitle }, { type: 'channels/button-update' });
+  }
+
+  function syncSidePanelButtonTitleDraft(button = getEditorChannelButton(editorState.sidePanelButtonId)) {
+    if (!button || editorState.sidePanelButtonTitleDirty) {
+      return;
+    }
+
+    editorState.sidePanelButtonTitleDraft = button.text || '';
+  }
+
+  function handleSidePanelInput(event) {
+    const titleInput = event.target.closest('[data-editor-side-button-title-input]');
+
+    if (titleInput) {
+      editorState.sidePanelButtonTitleDraft = titleInput.value;
+      editorState.sidePanelButtonTitleDirty = true;
+      syncPreviewDraftButtonTitle(titleInput.dataset.editorSideButtonTitleInput, titleInput.value);
+      return;
+    }
+
+    const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
+
+    if (actionValueRange) {
+      const nextValue = Math.max(0, Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0));
+      const valueLabel = actionValueRange.parentElement?.querySelector('[data-editor-side-button-action-value-label]');
+      updateSettingsRangeFill?.(actionValueRange);
+
+      if (valueLabel) {
+        valueLabel.textContent = `${nextValue}%`;
+      }
+    }
+  }
+
+  function handleSidePanelChange(event) {
+    const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
+
+    if (!actionValueRange) {
+      return;
+    }
+
+    updateSidePanelChannelButton({
+      actionValue: Math.max(0, Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0))
+    }, {
+      type: 'channels/button-update'
+    });
+  }
+
+  function handleSidePanelFocusOut(event) {
+    if (event.target.matches('[data-editor-side-button-title-input]')) {
+      commitSidePanelButtonTitleDraft();
+    }
+  }
+
+  function handleSidePanelKeyDown(event) {
+    if (!event.target.matches('[data-editor-side-button-title-input]')) {
+      return;
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.target.blur();
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      const button = getEditorChannelButton(editorState.sidePanelButtonId);
+      resetSidePanelButtonDraft(button);
+      event.target.value = editorState.sidePanelButtonTitleDraft;
+      syncPreviewFromChannel(getEditorChannel());
+      event.target.blur();
+    }
+  }
+
   function handleSidePanelClick(event) {
     if (event.target.closest('[data-editor-close-targets]')) {
+      commitSidePanelButtonTitleDraft();
       closeTargetsPanel();
       return;
     }
 
     if (!isTargetsSidePanelMode()) {
+      const iconPickerToggleButton = event.target.closest('[data-editor-toggle-button-icon-picker]');
+      const iconPickerMoreButton = event.target.closest('[data-editor-toggle-button-icon-picker-more]');
+      const iconButton = event.target.closest('[data-editor-button-icon-option]');
+      const optionButton = event.target.closest('[data-editor-button-option-name]');
+      const bindMidiButton = event.target.closest('[data-editor-bind-channel-button-midi]');
+
+      if (iconPickerToggleButton) {
+        editorState.sidePanelIconPickerOpen = !editorState.sidePanelIconPickerOpen;
+        if (!editorState.sidePanelIconPickerOpen) {
+          editorState.sidePanelIconPickerExpanded = false;
+        }
+        renderSidePanel(getEditorChannel());
+        return;
+      }
+
+      if (iconPickerMoreButton) {
+        editorState.sidePanelIconPickerOpen = true;
+        editorState.sidePanelIconPickerExpanded = !editorState.sidePanelIconPickerExpanded;
+        renderSidePanel(getEditorChannel());
+        return;
+      }
+
+      if (bindMidiButton) {
+        window.midiActions?.learnChannelButtonMapping?.(
+          editorState.channelId,
+          Number.parseInt(bindMidiButton.dataset.editorBindChannelButtonMidi, 10),
+          { source: 'entity-editor-side-panel' }
+        );
+        return;
+      }
+
+      if (
+        editorState.sidePanelIconPickerOpen
+        && !event.target.closest('[data-editor-button-icon-picker]')
+      ) {
+        editorState.sidePanelIconPickerOpen = false;
+        editorState.sidePanelIconPickerExpanded = false;
+      }
+
+      if (iconButton) {
+        editorState.sidePanelIconPickerOpen = false;
+        editorState.sidePanelIconPickerExpanded = false;
+        updateSidePanelChannelButton({
+          icon: iconButton.dataset.editorButtonIconOption
+        }, {
+          type: 'channels/button-update'
+        });
+        return;
+      }
+
+      if (optionButton) {
+        const optionName = optionButton.dataset.editorButtonOptionName;
+        const optionValue = optionButton.dataset.editorButtonOptionValue;
+
+        if (optionName === 'content-display') {
+          updateSidePanelChannelButton({ contentDisplay: optionValue }, { type: 'channels/button-update' });
+          return;
+        }
+
+        if (optionName === 'action-type') {
+          updateSidePanelChannelButton({
+            actionType: optionValue
+          }, {
+            type: 'channels/button-update'
+          });
+          return;
+        }
+
+        if (optionName === 'indicator-type') {
+          updateSidePanelChannelButton({
+            indicatorType: optionValue
+          }, {
+            type: 'channels/button-update'
+          });
+        }
+      }
+
       return;
     }
 
@@ -2214,11 +2665,15 @@
       channelId: payload.channelId ?? null,
       buttonId: payload.buttonId ?? null,
       standalone: Boolean(payload.standalone),
-      sourceSelector: resolveEntitySourceSelector(payload)
+      sourceSelector: resolveEntitySourceSelector(payload),
+      sidePanelOpen: payload.initialSidePanelMode === 'channel-button' && Number.isFinite(payload.initialButtonId),
+      sidePanelMode: payload.initialSidePanelMode === 'channel-button' ? 'channel-button' : 'targets',
+      sidePanelButtonId: Number.isFinite(payload.initialButtonId) ? payload.initialButtonId : null
     });
 
     const channel = getEditorChannel();
     editorState.titleDraft = channel?.title || channel?.appName || t('channels.unnamed');
+    resetSidePanelButtonDraft(getEditorChannelButton(editorState.sidePanelButtonId, channel));
 
     dom.shell?.classList.remove('entity-edit-side-open');
     dom.sidePanel?.classList.remove('is-open');
@@ -2232,6 +2687,7 @@
 
   function handleEditorBeforeClose() {
     commitEditorTitle();
+    commitSidePanelButtonTitleDraft();
     editorState.sidePanelOpen = false;
     editorState.sidePanelClosing = false;
     clearSidePanelCloseTimer();
@@ -2325,6 +2781,23 @@
     });
   }
 
+  function openChannelButtonEditor(channelId, buttonId) {
+    const channel = findChannelState?.(channelId);
+    const button = channel?.buttons?.find((item) => item.id === buttonId) || null;
+
+    if (!channel || !button) {
+      return false;
+    }
+
+    return openEntityEditor({
+      entityType: 'fader',
+      channelId,
+      sourceSelector: `.channel-strip[data-channel-id="${channelId}"]`,
+      initialSidePanelMode: 'channel-button',
+      initialButtonId: buttonId
+    });
+  }
+
   function initEntityEditorStateSync() {
     if (initEntityEditorStateSync.initialized || typeof subscribeAppState !== 'function') {
       return;
@@ -2388,8 +2861,10 @@
             editorState.sidePanelClosing = false;
             editorState.sidePanelMode = 'targets';
             editorState.sidePanelButtonId = null;
+            resetSidePanelButtonDraft(null);
             renderSidePanel(channel);
           } else if (editorState.sidePanelMode === 'channel-button' && editorState.sidePanelOpen) {
+            syncSidePanelButtonTitleDraft(getEditorChannelButton(editorState.sidePanelButtonId, channel));
             renderSidePanel(channel);
           }
 
@@ -2397,7 +2872,7 @@
             syncPreviewWithLayoutTransition(channel, renderPreviewContent);
             editorState.previewLayoutTransitionRequested = false;
           } else if (meta?.type === 'channels/button-update') {
-            syncPreviewFromChannel(channel);
+            renderPreviewContent();
           }
 
           return;
@@ -2422,9 +2897,15 @@
 
         if (meta?.type === 'channels/rename') {
           const activeTitleInput = dom.main?.querySelector('#entityEditTitleInput');
+          const nextTitle = channel.title || channel.appName || t('channels.unnamed');
 
           if (activeTitleInput && document.activeElement !== activeTitleInput) {
-            activeTitleInput.value = channel.title || channel.appName || t('channels.unnamed');
+            activeTitleInput.value = nextTitle;
+            editorState.titleDraft = nextTitle;
+            editorState.titleDirty = false;
+          } else if (!activeTitleInput) {
+            editorState.titleDraft = nextTitle;
+            editorState.titleDirty = false;
           }
 
           if (editorState.previewLayoutTransitionRequested) {
@@ -2530,6 +3011,10 @@
     dom.main.addEventListener('focusout', handleMainFocusOut);
     dom.main.addEventListener('keydown', handleMainKeyDown);
     dom.sidePanel?.addEventListener('click', handleSidePanelClick);
+    dom.sidePanel?.addEventListener('input', handleSidePanelInput);
+    dom.sidePanel?.addEventListener('change', handleSidePanelChange);
+    dom.sidePanel?.addEventListener('focusout', handleSidePanelFocusOut);
+    dom.sidePanel?.addEventListener('keydown', handleSidePanelKeyDown);
     dom.sidePanel?.addEventListener('pointerenter', () => {
       if (editorState.sidePanelOpen) {
         requestTargetsPanelApplicationsRefresh();
@@ -2544,6 +3029,7 @@
   window.refreshEntityEditor = refreshEntityEditor;
   window.openEntityEditor = openEntityEditor;
   window.openChannelEditor = openChannelEditor;
+  window.openChannelButtonEditor = openChannelButtonEditor;
   window.handleEditorAddChannelButton = handleEditorAddChannelButton;
   window.initEntityEditor = initEntityEditor;
 })(window);

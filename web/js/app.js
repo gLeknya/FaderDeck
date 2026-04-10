@@ -401,6 +401,8 @@ function isMenuOpen() {
 }
 
 function transitionMenuView(view, shouldBeActive) {
+  clearTimeout(view.__hideTimer);
+
   if (shouldBeActive) {
     view.hidden = false;
     view.classList.add('is-active');
@@ -411,8 +413,12 @@ function transitionMenuView(view, shouldBeActive) {
     return;
   }
 
-  view.classList.remove('is-active', 'is-visible');
-  view.hidden = true;
+  view.classList.remove('is-visible');
+  view.__hideTimer = window.setTimeout(() => {
+    view.classList.remove('is-active');
+    view.hidden = true;
+    view.__hideTimer = null;
+  }, 190);
 }
 
 function syncMenuPanelCardSize() {
@@ -424,8 +430,10 @@ function syncMenuPanelCardSize() {
   const activeView = dom.menuViews?.find((view) => view.dataset.tab === activeMenuTab);
 
   if (!activeView || !activeMenuTab) {
-    dom.menuPanelCard.style.removeProperty('height');
-    dom.menuPanelCard.style.removeProperty('width');
+    if (isMenuOpen()) {
+      dom.menuPanelCard.style.removeProperty('height');
+      dom.menuPanelCard.style.removeProperty('width');
+    }
     return;
   }
 
@@ -539,6 +547,7 @@ function syncMenuShellUi() {
   const menuOpen = isMenuOpen();
   dom.menuRail?.classList.toggle('open', menuOpen);
   document.body.classList.toggle('menu-open', menuOpen);
+  dom.menuPanelOverlay?.classList.toggle('hidden', !menuOpen || !getActiveMenuTab());
 }
 
 function openMainMenu() {
@@ -548,13 +557,6 @@ function openMainMenu() {
 function closeMainMenu() {
   hideSettingsTooltip();
   window.uiActions?.closeMainMenu({ source: 'ui' });
-
-  dom.menuPanelOverlay?.classList.add('hidden');
-  dom.menuViews?.forEach((view) => {
-    clearTimeout(view.__hideTimer);
-    view.classList.remove('is-active', 'is-visible');
-    view.hidden = true;
-  });
   requestAnimationFrame(() => {
     scheduleContentMetricsUpdate();
     syncSettingsViewportUi();
@@ -1477,6 +1479,7 @@ function handleContextAction(action, explicitTarget = null) {
   if (contextTarget.type === 'channel') {
     const { channelId } = contextTarget;
 
+    if (action === 'select') return;
     if (action === 'delete') removeChannel(channelId);
     if (action === 'remap') remapChannelFader(channelId);
     if (action === 'edit') editChannelTitle(channelId);
@@ -1491,6 +1494,7 @@ function handleContextAction(action, explicitTarget = null) {
       return;
     }
 
+    if (action === 'select') return;
     if (action === 'delete') {
       window.channelActions?.removeChannelButton(channelId, buttonId, { source: 'context-menu' });
     }
@@ -1509,6 +1513,7 @@ function handleContextAction(action, explicitTarget = null) {
   if (contextTarget.type === 'standalone') {
     const { buttonId } = contextTarget;
 
+    if (action === 'select') return;
     if (action === 'delete') {
       removeStandaloneButtonState?.(buttonId, { source: 'context-menu' });
       window.profileActions?.saveRendererProfileToLocal?.();
@@ -1726,10 +1731,12 @@ function init() {
   enhanceCustomSelects?.(document);
   initChannelUiStateSync?.();
   initStandaloneButtonsStateSync?.();
+  initChannelButtonsRuntime?.();
   initUiStateSync();
   initLayoutEditorUiSync();
   initAudioRuntimeBridge();
-  initButtonModal?.();
+  // Park marker: legacy standalone-button modal stays in the codebase, but
+  // active button configuration now lives in the fader editor instead.
   initEntityEditor?.();
   bindGlobalUi();
   setupSettings();

@@ -2,6 +2,7 @@
   const MIDI_FADER_LEARN_TIMEOUT_MS = 8000;
   const MIDI_HIGH_RES_COMBINE_DELAY_MS = 12;
   const MIDI_CONTROL_LSB_OFFSET = 32;
+  const MIDI_HEALTH_REFRESH_MS = 15000;
   const MIDI_DISABLED_OPTION_VALUE = '__disabled__';
   const MIDI_SELECTION_STORAGE_KEYS = Object.freeze({
     id: 'faderdeck_selected_midi_input_id',
@@ -28,11 +29,16 @@
   let midiScanPromise = null;
   let midiStoreSyncInitialized = false;
   let midiRuntimeResetSyncInitialized = false;
+  let midiWakeRefreshInitialized = false;
+  let midiButtonIndicatorSyncInitialized = false;
+  let midiHealthRefreshTimerId = null;
+  let midiButtonIndicatorSyncFrameId = null;
 
   // Runtime-only parser/soft-takeover state. This never belongs in renderer
   // profile serialization and lives entirely inside the MIDI service layer.
   const midiParserStates = new Map();
   const pickupRuntimeState = new Map();
+  const buttonTriggerRuntimeState = new Map();
   const runtimeListeners = new Set();
   const messageListeners = new Set();
   // Live WebMIDI availability/discovery state is runtime-only as well.
@@ -173,6 +179,10 @@
       };
 
     persistMidiSelection(nextMidiState);
+    scheduleChannelButtonIndicatorSync({
+      type: 'midi-output-selection-change',
+      ...meta
+    });
     return nextMidiState;
   }
 
@@ -189,8 +199,218 @@
     return runtimeState.inputs.map((input) => ({ ...input }));
   }
 
+  function getMidiOutputs() {
+    return midiAccess
+      ? Array.from(midiAccess.outputs.values())
+      : [];
+  }
+
+  function openMidiPort(port) {
+    if (!port) {
+      return;
+    }
+
+    try {
+      const openResult = port.open?.();
+
+      if (openResult && typeof openResult.catch === 'function') {
+        openResult.catch(() => {});
+      }
+    } catch (error) {
+      // noop
+    }
+  }
+
+  function getSelectedMidiInputPort() {
+    if (!midiAccess) {
+      return null;
+    }
+
+    const selectedInputId = getSelectedMidiInputId();
+    const selectedInputName = getSelectedMidiInputName();
+    return Array.from(midiAccess.inputs.values()).find((input) => input.id === selectedInputId)
+      || Array.from(midiAccess.inputs.values()).find((input) => input.name === selectedInputName)
+      || null;
+  }
+
+  function getSelectedMidiOutputPort() {
+    if (!midiAccess || isMidiDisabledSelection()) {
+      return null;
+    }
+
+    const outputs = getMidiOutputs();
+
+    if (!outputs.length) {
+      return null;
+    }
+
+    const selectedInput = getSelectedMidiInputPort();
+    const selectedInputName = selectedInput?.name || getSelectedMidiInputName();
+    const selectedManufacturer = selectedInput?.manufacturer || '';
+
+    return outputs.find((output) => (
+      output.name === selectedInputName
+      && (!selectedManufacturer || output.manufacturer === selectedManufacturer)
+    )) || outputs.find((output) => output.name === selectedInputName)
+      || outputs[0]
+      || null;
+  }
+
+  function clampMidiOutputValue(value) {
+    return Math.max(0, Math.min(127, Math.round(Number(value) || 0)));
+  }
+
+  function sendMidiOutputMessage(bytes = []) {
+    const output = getSelectedMidiOutputPort();
+
+    if (!output || !Array.isArray(bytes) || !bytes.length) {
+      return false;
+    }
+
+    openMidiPort(output);
+
+    try {
+      output.send(bytes.map((value, index) => (
+        index === 0
+          ? (Number(value) || 0)
+          : clampMidiOutputValue(value)
+      )));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function sendChannelButtonOutputValue(button = {}, value = 0) {
+    const mapping = button?.midiMapping;
+
+    if (!mapping) {
+      return false;
+    }
+
+    const channelNumber = Math.max(0, Math.min(15, Number(mapping.channel) || 0));
+    const midiValue = clampMidiOutputValue(value);
+
+    if (mapping.type === 'control_change' && Number.isInteger(Number(mapping.control))) {
+      return sendMidiOutputMessage([
+        MIDI_STATUS.controlChange | channelNumber,
+        Number(mapping.control),
+        midiValue
+      ]);
+    }
+
+    if (mapping.type === 'note' && Number.isInteger(Number(mapping.note))) {
+      return sendMidiOutputMessage([
+        MIDI_STATUS.noteOn | channelNumber,
+        Number(mapping.note),
+        midiValue
+      ]);
+    }
+
+    return false;
+  }
+
+  function getChannelButtonEntries() {
+    return (window.getChannelsState?.() || []).flatMap((channel) => (
+      Array.isArray(channel?.buttons)
+        ? channel.buttons.map((button) => ({ channel, button }))
+        : []
+    ));
+  }
+
+  function getChannelButtonIndicatorMidiValue(button = {}, state = {}) {
+    const indicatorType = String(button?.indicatorType || '');
+
+    if (indicatorType === (window.CHANNEL_BUTTON_INDICATOR_TYPES?.meter || 'meter')) {
+      return clampMidiOutputValue((Number(state?.meterLevel) || 0) * 127);
+    }
+
+    if (indicatorType === (window.CHANNEL_BUTTON_INDICATOR_TYPES?.press || 'press')) {
+      return Boolean(state?.pressed) ? 127 : 0;
+    }
+
+    return (Boolean(state?.indicatorActive) || Boolean(state?.visualActive)) ? 127 : 0;
+  }
+
+  function syncChannelButtonIndicators(meta = {}) {
+    if (!runtimeState.supported || !runtimeState.accessReady || !midiAccess || isMidiDisabledSelection()) {
+      return false;
+    }
+
+    const output = getSelectedMidiOutputPort();
+
+    if (!output) {
+      return false;
+    }
+
+    openMidiPort(output);
+
+    getChannelButtonEntries().forEach(({ channel, button }) => {
+      const mapping = button?.midiMapping;
+
+      if (!mapping || typeof window.getChannelButtonState !== 'function') {
+        return;
+      }
+
+      const state = window.getChannelButtonState(channel.id, button.id);
+      const value = getChannelButtonIndicatorMidiValue(button, state);
+      sendChannelButtonOutputValue(button, value);
+    });
+
+    return true;
+  }
+
+  function flashChannelButtonBindingFeedback(channelId, buttonId, meta = {}) {
+    const channel = (window.getChannelsState?.() || []).find((item) => item.id === channelId);
+    const button = channel?.buttons?.find((item) => item.id === buttonId) || null;
+
+    window.flashChannelButtonBindingRuntime?.(channelId, buttonId);
+
+    if (!button?.midiMapping) {
+      return false;
+    }
+
+    [0, 120, 240, 360].forEach((delay, index) => {
+      window.setTimeout(() => {
+        sendChannelButtonOutputValue(button, index % 2 === 0 ? 127 : 0);
+      }, delay);
+    });
+
+    window.setTimeout(() => {
+      syncChannelButtonIndicators({
+        reason: 'button-bind-flash-finish',
+        channelId,
+        buttonId,
+        ...meta
+      });
+    }, 460);
+
+    return true;
+  }
+
+  function scheduleChannelButtonIndicatorSync(meta = {}) {
+    if (midiButtonIndicatorSyncFrameId) {
+      return;
+    }
+
+    midiButtonIndicatorSyncFrameId = window.requestAnimationFrame(() => {
+      midiButtonIndicatorSyncFrameId = null;
+      syncChannelButtonIndicators(meta);
+    });
+  }
+
   function bindMidiInput(port) {
     if (port?.type === 'input') {
+      try {
+        const openResult = port.open?.();
+
+        if (openResult && typeof openResult.catch === 'function') {
+          openResult.catch(() => {});
+        }
+      } catch (error) {
+        // noop
+      }
+
       port.onmidimessage = onWebMidiMessage;
     }
   }
@@ -206,20 +426,53 @@
     }
 
     if (
+      !matchedInput
+      && selectedInputName
+      && !isMidiDisabledSelection()
+      && runtimeState.accessReady
+    ) {
+      const matchedByName = inputs.find((input) => input.name === selectedInputName);
+
+      if (matchedByName) {
+        selectMidiInput(matchedByName.id, matchedByName.name, {
+          source: 'midi-input-reconcile',
+          reason: 'name-match'
+        });
+      }
+
+      return;
+    }
+
+    if (
       selectedInputId
       && !isMidiDisabledSelection()
       && !matchedInput
       && runtimeState.accessReady
     ) {
-      selectMidiInput('', '', { source: 'midi-input-reconcile' });
+      // Keep remembered selection while the device is temporarily unavailable.
+      // This allows automatic recovery when the controller is reconnected later.
+      persistMidiSelection({
+        selectedInputId,
+        selectedInputName
+      });
     }
   }
 
   function syncMidiInputsFromAccess(meta = {}) {
+    if (midiAccess) {
+      midiAccess.inputs.forEach((input) => {
+        bindMidiInput(input);
+      });
+    }
+
     runtimeState.inputs = midiAccess
       ? Array.from(midiAccess.inputs.values()).map(normalizeInput)
       : [];
     reconcileSelectedInput(runtimeState.inputs);
+    scheduleChannelButtonIndicatorSync({
+      type: 'inputs-change',
+      ...meta
+    });
     emitRuntimeChange({
       type: 'inputs-change',
       ...meta
@@ -244,6 +497,7 @@
     }
 
     if (midiAccess) {
+      syncMidiInputsFromAccess({ source: 'ensure-access-existing' });
       return midiAccess;
     }
 
@@ -253,6 +507,12 @@
     midiAccess.onstatechange = (event) => {
       if (event.port?.type === 'input' && event.port.state === 'connected') {
         bindMidiInput(event.port);
+      } else if (event.port?.type === 'input' && event.port.state === 'disconnected') {
+        try {
+          event.port.onmidimessage = null;
+        } catch (error) {
+          // noop
+        }
       }
 
       syncMidiInputsFromAccess({ source: 'statechange' });
@@ -311,6 +571,8 @@
       }
 
       persistMidiSelection(nextState.midi);
+      reconcileSelectedInput(runtimeState.inputs);
+      scheduleChannelButtonIndicatorSync({ type: 'selection-change' });
       emitRuntimeChange({ type: 'selection-change' });
     });
 
@@ -469,10 +731,66 @@
     midiRuntimeResetSyncInitialized = true;
   }
 
+  function refreshMidiInputsOnWake(meta = {}) {
+    if (!runtimeState.supported) {
+      return Promise.resolve([]);
+    }
+
+    return scanMidiInputs({
+      source: 'midi-wake-refresh',
+      ...meta
+    }).catch(() => []);
+  }
+
+  function initMidiWakeRefresh() {
+    if (midiWakeRefreshInitialized) {
+      return;
+    }
+
+    window.addEventListener('focus', () => {
+      refreshMidiInputsOnWake({ reason: 'window-focus' });
+    });
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible') {
+        return;
+      }
+
+      refreshMidiInputsOnWake({ reason: 'document-visible' });
+    });
+
+    midiHealthRefreshTimerId = window.setInterval(() => {
+      refreshMidiInputsOnWake({ reason: 'periodic-health-refresh' });
+    }, MIDI_HEALTH_REFRESH_MS);
+
+    midiWakeRefreshInitialized = true;
+  }
+
+  function initMidiButtonIndicatorSync() {
+    if (midiButtonIndicatorSyncInitialized || typeof window.subscribeAppState !== 'function') {
+      return;
+    }
+
+    window.subscribeAppState((nextState, previousState) => {
+      if (nextState.channels !== previousState.channels || nextState.midi !== previousState.midi) {
+        scheduleChannelButtonIndicatorSync({ type: 'channel-button-indicator-sync' });
+      }
+    });
+
+    midiButtonIndicatorSyncInitialized = true;
+  }
+
   function initMidiService() {
     initMidiStoreSync();
     initMidiRuntimeResetSync();
+    initMidiWakeRefresh();
+    initMidiButtonIndicatorSync();
     emitRuntimeChange({ type: 'init' });
+
+    if (runtimeState.supported) {
+      refreshMidiInputsOnWake({ reason: 'init' });
+    }
+
     return getMidiServiceState();
   }
 
@@ -839,6 +1157,15 @@
     ].includes(message.type);
   }
 
+  function isButtonMidiMessage(message) {
+    return [
+      'note_on',
+      'note_off',
+      'control_change',
+      'control_change_14bit'
+    ].includes(message?.type);
+  }
+
   function isMidiMappingMatch(mapping, message) {
     if (!mapping || !message) {
       return false;
@@ -939,6 +1266,159 @@
     return true;
   }
 
+  function buildButtonMapping(message) {
+    if (!message || !isButtonMidiMessage(message)) {
+      return null;
+    }
+
+    if (message.type === 'note_on' || message.type === 'note_off') {
+      return {
+        type: 'note',
+        channel: message.channel ?? 0,
+        note: Number(message.note),
+        control: null
+      };
+    }
+
+    return {
+      type: 'control_change',
+      channel: message.channel ?? 0,
+      note: null,
+      control: Number(message.control)
+    };
+  }
+
+  function isSameButtonMapping(left, right) {
+    if (!left || !right) {
+      return false;
+    }
+
+    const leftType = String(left.type || '');
+    const rightType = String(right.type || '');
+
+    if (leftType !== rightType || (left.channel ?? 0) !== (right.channel ?? 0)) {
+      return false;
+    }
+
+    if (leftType === 'control_change') {
+      return Number(left.control) === Number(right.control);
+    }
+
+    return Number(left.note) === Number(right.note);
+  }
+
+  function isButtonMappingMatch(mapping, message) {
+    if (!mapping || !message || !isButtonMidiMessage(message)) {
+      return false;
+    }
+
+    if ((mapping.channel ?? 0) !== (message.channel ?? 0)) {
+      return false;
+    }
+
+    if (mapping.type === 'control_change') {
+      return (message.type === 'control_change' || message.type === 'control_change_14bit')
+        && Number(mapping.control) === Number(message.control);
+    }
+
+    return (message.type === 'note_on' || message.type === 'note_off')
+      && Number(mapping.note) === Number(message.note);
+  }
+
+  function isButtonPressMessage(message) {
+    if (!message) {
+      return false;
+    }
+
+    if (message.type === 'note_on') {
+      return Number(message.velocity) > 0;
+    }
+
+    if (message.type === 'control_change') {
+      return Number(message.value) >= 64;
+    }
+
+    if (message.type === 'control_change_14bit') {
+      return Number(message.value) >= 8192;
+    }
+
+    return false;
+  }
+
+  function isButtonReleaseMessage(message) {
+    if (!message) {
+      return false;
+    }
+
+    if (message.type === 'note_off') {
+      return true;
+    }
+
+    if (message.type === 'note_on') {
+      return Number(message.velocity) <= 0;
+    }
+
+    if (message.type === 'control_change') {
+      return Number(message.value) < 64;
+    }
+
+    if (message.type === 'control_change_14bit') {
+      return Number(message.value) < 8192;
+    }
+
+    return false;
+  }
+
+  function getChannelButtonTriggerKey(channelId, buttonId) {
+    return `${channelId}:${buttonId}`;
+  }
+
+  function getButtonMappingLabel(mapping) {
+    if (!mapping) {
+      return '';
+    }
+
+    const channelLabel = `Ch ${Number(mapping.channel ?? 0) + 1}`;
+
+    if (mapping.type === 'control_change') {
+      return `${channelLabel} · CC ${Number(mapping.control)}`;
+    }
+
+    return `${channelLabel} · Note ${Number(mapping.note)}`;
+  }
+
+  function handleMidiButtonMessage(message) {
+    if (!isButtonMidiMessage(message)) {
+      return;
+    }
+
+    getChannelButtonEntries().forEach(({ channel, button }) => {
+      if (!isButtonMappingMatch(button?.midiMapping, message)) {
+        return;
+      }
+
+      const triggerKey = getChannelButtonTriggerKey(channel.id, button.id);
+      const wasPressed = Boolean(buttonTriggerRuntimeState.get(triggerKey));
+
+      if (isButtonPressMessage(message)) {
+        if (wasPressed) {
+          return;
+        }
+
+        buttonTriggerRuntimeState.set(triggerKey, true);
+        window.channelActions?.executeChannelButton?.(channel.id, button.id, {
+          source: 'midi-runtime',
+          type: 'channels/button-toggle'
+        });
+        return;
+      }
+
+      if (isButtonReleaseMessage(message)) {
+        buttonTriggerRuntimeState.set(triggerKey, false);
+      }
+    });
+  }
+
   function isSelectedMidiMessage(message) {
     return Boolean(getSelectedMidiInputId())
       && !isMidiDisabledSelection()
@@ -950,33 +1430,35 @@
       return;
     }
 
-    if (!isFaderMidiMessage(message)) {
-      return;
-    }
+    if (isFaderMidiMessage(message)) {
+      (window.getChannelsState?.() || []).forEach((channel) => {
+        if (!isMidiMappingMatch(channel.faderMapping, message)) {
+          return;
+        }
 
-    (window.getChannelsState?.() || []).forEach((channel) => {
-      if (!isMidiMappingMatch(channel.faderMapping, message)) {
-        return;
-      }
+        const resolvedVolume = resolveMidiVolumeForChannel(channel, message);
 
-      const resolvedVolume = resolveMidiVolumeForChannel(channel, message);
+        if (!resolvedVolume.shouldApply) {
+          return;
+        }
 
-      if (!resolvedVolume.shouldApply) {
-        return;
-      }
+        if (typeof window.applyChannelVolumeRuntime === 'function') {
+          window.applyChannelVolumeRuntime(channel.id, resolvedVolume.volume, {
+            type: 'channels/set-volume'
+          });
+          return;
+        }
 
-      if (typeof window.applyChannelVolumeRuntime === 'function') {
-        window.applyChannelVolumeRuntime(channel.id, resolvedVolume.volume, {
+        window.setChannelVolumeState?.(channel.id, resolvedVolume.volume, {
+          source: 'midi-runtime',
           type: 'channels/set-volume'
         });
-        return;
-      }
-
-      window.setChannelVolumeState?.(channel.id, resolvedVolume.volume, {
-        source: 'midi-runtime',
-        type: 'channels/set-volume'
       });
-    });
+    }
+
+    if (isButtonMidiMessage(message)) {
+      handleMidiButtonMessage(message);
+    }
   }
 
   function wait(ms) {
@@ -1001,10 +1483,64 @@
     return learnedMessage;
   }
 
+  async function learnButtonMapping() {
+    let learnedMessage = null;
+    const removeListener = addMidiMessageListener((message) => {
+      if (
+        learnedMessage
+        || !isSelectedMidiMessage(message)
+        || !isButtonMidiMessage(message)
+        || isButtonReleaseMessage(message)
+      ) {
+        return;
+      }
+
+      learnedMessage = buildButtonMapping(message);
+    });
+
+    for (let attempt = 0; attempt < MIDI_FADER_LEARN_TIMEOUT_MS / 100 && !learnedMessage; attempt += 1) {
+      await wait(100);
+    }
+
+    removeListener();
+    return learnedMessage;
+  }
+
   function findFaderMappingConflict(channelId, mapping) {
     return (window.getChannelsState?.() || []).find((channel) => (
       channel.id !== channelId && isSameFaderMapping(channel.faderMapping, mapping)
     )) || null;
+  }
+
+  function findButtonMappingConflict(channelId, buttonId, mapping) {
+    const channels = window.getChannelsState?.() || [];
+    const controlConflict = mapping?.type === 'control_change'
+      ? channels.find((channel) => (
+        channel.id !== channelId
+        && channel?.faderMapping
+        && (normalizeMappingType(channel.faderMapping.type) === 'control_change'
+          || normalizeMappingType(channel.faderMapping.type) === 'control_change_14bit')
+        && Number(channel.faderMapping.channel ?? 0) === Number(mapping.channel ?? 0)
+        && Number(channel.faderMapping.control) === Number(mapping.control)
+      ))
+      : null;
+
+    if (controlConflict) {
+      return controlConflict;
+    }
+
+    for (const channel of channels) {
+      const buttonConflict = (Array.isArray(channel?.buttons) ? channel.buttons : []).find((button) => (
+        !(channel.id === channelId && button.id === buttonId)
+        && isSameButtonMapping(button?.midiMapping, mapping)
+      ));
+
+      if (buttonConflict) {
+        return buttonConflict;
+      }
+    }
+
+    return null;
   }
 
   function applyChannelFaderMapping(channelId, mapping, meta = {}) {
@@ -1013,6 +1549,23 @@
       source: 'midi-service',
       ...meta
     }) || null;
+  }
+
+  function applyChannelButtonMapping(channelId, buttonId, mapping, meta = {}) {
+    const updatedButton = window.channelActions?.updateChannelButton?.(channelId, buttonId, {
+      midiMapping: mapping ? {
+        type: mapping.type === 'control_change' ? 'control_change' : 'note',
+        channel: Number(mapping.channel) || 0,
+        note: Number.isInteger(Number(mapping.note)) ? Number(mapping.note) : null,
+        control: Number.isInteger(Number(mapping.control)) ? Number(mapping.control) : null
+      } : null
+    }, {
+      source: 'midi-service',
+      ...meta
+    }) || null;
+
+    scheduleChannelButtonIndicatorSync({ type: 'button-mapping-update' });
+    return updatedButton;
   }
 
   window.midiService = {
@@ -1032,11 +1585,20 @@
     isDisabledSelection: isMidiDisabledSelection,
     isSelectedMessage: isSelectedMidiMessage,
     isFaderMessage: isFaderMidiMessage,
+    isButtonMessage: isButtonMidiMessage,
     learnFaderMapping,
+    learnButtonMapping,
     buildFaderMapping,
+    buildButtonMapping,
     isSameFaderMapping,
+    isSameButtonMapping,
     findFaderMappingConflict,
+    findButtonMappingConflict,
     applyChannelFaderMapping,
+    applyChannelButtonMapping,
+    getButtonMappingLabel,
+    syncChannelButtonIndicators,
+    flashChannelButtonBindingFeedback,
     resetPickupRuntime
   };
 })(window);

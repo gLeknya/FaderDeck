@@ -21,7 +21,7 @@
   }
 
   function closeMainMenu(meta = {}) {
-    return patchUiMenu({ open: false, activeTab: null }, {
+    return patchUiMenu({ open: false }, {
       type: 'ui-actions/menu-close',
       ...meta
     });
@@ -43,6 +43,7 @@
   function toggleMainMenuTab(tabName, meta = {}) {
     if (!(window.getIsMenuOpenState?.() ?? false)) {
       openMainMenu(meta);
+      return setActiveMenuTab(tabName, meta);
     }
 
     const currentTab = window.getActiveMenuTabState?.() ?? null;

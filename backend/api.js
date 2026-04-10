@@ -41,6 +41,10 @@ class FaderDeckAPI {
     return this.audioManager.toggleMute(processName);
   }
 
+  setAppMute(processName, muted) {
+    return this.audioManager.setMute(processName, muted);
+  }
+
   saveProfile(name, data) {
     return this.profileManager.save(name, data);
   }
@@ -101,6 +105,10 @@ class FaderDeckAPI {
 
   toggle_app_mute(processName) {
     return this.toggleAppMute(processName);
+  }
+
+  set_app_mute(processName, muted) {
+    return this.setAppMute(processName, muted);
   }
 
   save_profile(name, data) {

@@ -343,13 +343,14 @@ function handleWindowControl(window, action) {
 }
 
 function registerIpcHandlers() {
-  const handlers = {
-    'api:get_audio_applications': () => ensureApi().getAudioApplications(),
-    'api:list_running_applications': () => ensureApi().listRunningApplications(),
-    'api:get_audio_states': (_event, processNames) => ensureApi().getAudioStates(processNames),
-    'api:set_app_volume': (_event, processName, volume) => ensureApi().setAppVolume(processName, volume),
-    'api:toggle_app_mute': (_event, processName) => ensureApi().toggleAppMute(processName),
-    'api:save_profile': (_event, name, data) => ensureApi().saveProfile(name, data),
+    const handlers = {
+      'api:get_audio_applications': () => ensureApi().getAudioApplications(),
+      'api:list_running_applications': () => ensureApi().listRunningApplications(),
+      'api:get_audio_states': (_event, processNames) => ensureApi().getAudioStates(processNames),
+      'api:set_app_volume': (_event, processName, volume) => ensureApi().setAppVolume(processName, volume),
+      'api:toggle_app_mute': (_event, processName) => ensureApi().toggleAppMute(processName),
+      'api:set_app_mute': (_event, processName, muted) => ensureApi().setAppMute(processName, muted),
+      'api:save_profile': (_event, name, data) => ensureApi().saveProfile(name, data),
     'api:load_profile': (_event, name) => ensureApi().loadProfile(name),
     'api:list_profiles': () => ensureApi().listProfiles(),
     'api:delete_profile': (_event, name) => ensureApi().deleteProfile(name),
