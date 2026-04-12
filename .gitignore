@@ -7,3 +7,17 @@ website/
 tests/
 node_modules/
 .codex/
+dist/
+out/
+build/
+release/
+coverage/
+.vite/
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.DS_Store
+Thumbs.db
+.env
+.env.*
