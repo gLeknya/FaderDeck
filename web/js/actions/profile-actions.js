@@ -1,5 +1,5 @@
 (function initProfileActions(window) {
-  const LOCAL_PROFILE_STORAGE_KEY = 'mixer_profile';
+  const profileStorage = window.profileStorage;
 
   function createFallbackRendererProfile() {
     return typeof window.createEmptyPersistedRendererPayload === 'function'
@@ -19,12 +19,11 @@
       ? window.serializeRendererState()
       : createFallbackRendererProfile();
 
-    localStorage.setItem(LOCAL_PROFILE_STORAGE_KEY, JSON.stringify(profile));
-    return profile;
+    return profileStorage?.saveRendererProfileSnapshot(profile) || profile;
   }
 
   function loadRendererProfileFromLocal() {
-    const savedProfile = localStorage.getItem(LOCAL_PROFILE_STORAGE_KEY);
+    const savedProfile = profileStorage?.loadRendererProfileSnapshot(null);
 
     if (!savedProfile) {
       const fallbackProfile = createFallbackRendererProfile();
@@ -33,9 +32,8 @@
     }
 
     try {
-      const profile = JSON.parse(savedProfile);
-      window.hydrateRendererState?.(profile, { source: 'local-storage' });
-      return profile;
+      window.hydrateRendererState?.(savedProfile, { source: 'local-storage' });
+      return savedProfile;
     } catch (error) {
       console.error('loadProfile error', error);
       const fallbackProfile = createFallbackRendererProfile();

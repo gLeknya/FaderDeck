@@ -1,4 +1,10 @@
 (function initUiStore(window) {
+  const {
+    DEFAULT_PERSISTED_UI_SETTINGS,
+    DEFAULT_SESSION_UI_MENU,
+    DEFAULT_SESSION_UI_STATE
+  } = window.rendererStateModel;
+  const uiPreferencesStorage = window.uiPreferencesStorage;
   const UI_STORAGE_KEYS = Object.freeze({
     advancedMode: 'faderdeck_advanced_mode',
     developerMode: 'faderdeck_developer_mode',
@@ -35,73 +41,26 @@
     'vertical'
   ]);
 
-  // These settings are persisted as local app preferences and intentionally do
-  // not participate in renderer profile serialization.
-  const DEFAULT_PERSISTED_UI_SETTINGS = Object.freeze({
-    advancedMode: false,
-    developerMode: false,
-    faderInterpolationEnabled: false,
-    softTakeoverEnabled: false,
-    softTakeoverThreshold: 5,
-    showFractionalNumbers: false,
-    showFractionalOnlyLow: false,
-    volumeCurveEnabled: false,
-    volumeCurveType: 'ease-in-out',
-    volumeCurveAmount: 0,
-    profileToolbarSwitcherEnabled: true,
-    volumeHudEnabled: true,
-    volumeHudPosition: 'bottom-center',
-    volumeHudOrientation: 'horizontal',
-    volumeHudShowIcon: true,
-    volumeHudShowTitle: true,
-    volumeHudShowSubtitle: true,
-    volumeHudShowPercent: true,
-    volumeHudShowMeter: true
-  });
-
-  // Menu state is session-only UI state and should never be serialized.
-  const DEFAULT_SESSION_UI_MENU = Object.freeze({
-    open: false,
-    activeTab: null
-  });
-
-  const DEFAULT_SESSION_UI_STATE = Object.freeze({
-    menu: DEFAULT_SESSION_UI_MENU
-  });
-
   let uiStoreInitialized = false;
 
   function readUiBooleanSetting(key, fallback = false) {
-    const rawValue = localStorage.getItem(key);
-    return rawValue === null ? fallback : rawValue === 'true';
+    return uiPreferencesStorage?.readBoolean(key, fallback) ?? fallback;
   }
 
   function readUiNumberSetting(key, fallback, { min = 0, max = Number.POSITIVE_INFINITY } = {}) {
-    const rawValue = localStorage.getItem(key);
-    const parsedValue = Number.parseInt(rawValue ?? '', 10);
-
-    if (!Number.isFinite(parsedValue)) {
-      return fallback;
-    }
-
-    return Math.max(min, Math.min(max, parsedValue));
+    return uiPreferencesStorage?.readNumber(key, fallback, { min, max }) ?? fallback;
   }
 
   function saveUiBooleanSetting(key, value) {
-    localStorage.setItem(key, String(Boolean(value)));
+    uiPreferencesStorage?.writeBoolean(key, value);
   }
 
   function saveUiNumberSetting(key, value) {
-    localStorage.setItem(key, String(value));
+    uiPreferencesStorage?.writeNumber(key, value);
   }
 
   function saveUiStringSetting(key, value) {
-    if (value === null || value === undefined || value === '') {
-      localStorage.removeItem(key);
-      return;
-    }
-
-    localStorage.setItem(key, String(value));
+    uiPreferencesStorage?.writeString(key, value);
   }
 
   function normalizeUiSettings(settings = {}) {
@@ -411,7 +370,7 @@
       showFractionalNumbers: readUiBooleanSetting(UI_STORAGE_KEYS.showFractionalNumbers),
       showFractionalOnlyLow: readUiBooleanSetting(UI_STORAGE_KEYS.showFractionalOnlyLow),
       volumeCurveEnabled: readUiBooleanSetting(UI_STORAGE_KEYS.volumeCurveEnabled),
-      volumeCurveType: localStorage.getItem(UI_STORAGE_KEYS.volumeCurveType) || 'ease-in-out',
+      volumeCurveType: uiPreferencesStorage?.readString(UI_STORAGE_KEYS.volumeCurveType, 'ease-in-out') || 'ease-in-out',
       volumeCurveAmount: readUiNumberSetting(UI_STORAGE_KEYS.volumeCurveAmount, 0, {
         min: 0,
         max: 100
@@ -421,8 +380,8 @@
         true
       ),
       volumeHudEnabled: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudEnabled, true),
-      volumeHudPosition: localStorage.getItem(UI_STORAGE_KEYS.volumeHudPosition) || 'bottom-center',
-      volumeHudOrientation: localStorage.getItem(UI_STORAGE_KEYS.volumeHudOrientation) || 'horizontal',
+      volumeHudPosition: uiPreferencesStorage?.readString(UI_STORAGE_KEYS.volumeHudPosition, 'bottom-center') || 'bottom-center',
+      volumeHudOrientation: uiPreferencesStorage?.readString(UI_STORAGE_KEYS.volumeHudOrientation, 'horizontal') || 'horizontal',
       volumeHudShowIcon: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowIcon, true),
       volumeHudShowTitle: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowTitle, true),
       volumeHudShowSubtitle: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowSubtitle, true),

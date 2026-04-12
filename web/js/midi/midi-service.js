@@ -1,14 +1,10 @@
 (function initMidiService(window) {
+  const midiSelectionStorage = window.midiSelectionStorage;
   const MIDI_FADER_LEARN_TIMEOUT_MS = 8000;
   const MIDI_HIGH_RES_COMBINE_DELAY_MS = 12;
   const MIDI_CONTROL_LSB_OFFSET = 32;
   const MIDI_HEALTH_REFRESH_MS = 15000;
   const MIDI_DISABLED_OPTION_VALUE = '__disabled__';
-  const MIDI_SELECTION_STORAGE_KEYS = Object.freeze({
-    id: 'faderdeck_selected_midi_input_id',
-    name: 'faderdeck_selected_midi_input_name'
-  });
-
   const MIDI_STATUS = Object.freeze({
     noteOff: 0x80,
     noteOn: 0x90,
@@ -145,17 +141,7 @@
   }
 
   function persistMidiSelection(midiState = getSelectedMidiState()) {
-    if (midiState.selectedInputId) {
-      localStorage.setItem(MIDI_SELECTION_STORAGE_KEYS.id, midiState.selectedInputId);
-    } else {
-      localStorage.removeItem(MIDI_SELECTION_STORAGE_KEYS.id);
-    }
-
-    if (midiState.selectedInputName) {
-      localStorage.setItem(MIDI_SELECTION_STORAGE_KEYS.name, midiState.selectedInputName);
-    } else {
-      localStorage.removeItem(MIDI_SELECTION_STORAGE_KEYS.name);
-    }
+    midiSelectionStorage?.writeMidiSelection(midiState);
   }
 
   function selectMidiInput(nextId = '', nextName = '', meta = {}) {
@@ -318,15 +304,26 @@
     ));
   }
 
-  function getChannelButtonIndicatorMidiValue(button = {}, state = {}) {
-    const indicatorType = String(button?.indicatorType || '');
+  function getChannelButtonInteractionModes() {
+    return window.CHANNEL_BUTTON_INTERACTION_MODES || {
+      push: 'push',
+      toggle: 'toggle',
+      trigger: 'trigger'
+    };
+  }
 
-    if (indicatorType === (window.CHANNEL_BUTTON_INDICATOR_TYPES?.meter || 'meter')) {
-      return clampMidiOutputValue((Number(state?.meterLevel) || 0) * 127);
+  function getChannelButtonIndicatorMidiValue(button = {}, state = {}) {
+    if (button?.indicatorEnabled === false) {
+      return 0;
     }
 
-    if (indicatorType === (window.CHANNEL_BUTTON_INDICATOR_TYPES?.press || 'press')) {
-      return Boolean(state?.pressed) ? 127 : 0;
+    const interactionModes = getChannelButtonInteractionModes();
+    const indicatorMode = Object.values(interactionModes).includes(button?.indicatorMode)
+      ? button.indicatorMode
+      : interactionModes.trigger;
+
+    if (indicatorMode === interactionModes.push || indicatorMode === interactionModes.trigger) {
+      return Boolean(state?.pressed || state?.flashActive) ? 127 : 0;
     }
 
     return (Boolean(state?.indicatorActive) || Boolean(state?.visualActive)) ? 127 : 0;
@@ -1399,6 +1396,13 @@
 
       const triggerKey = getChannelButtonTriggerKey(channel.id, button.id);
       const wasPressed = Boolean(buttonTriggerRuntimeState.get(triggerKey));
+      const interactionModes = getChannelButtonInteractionModes();
+      const actionMode = Object.values(interactionModes).includes(button?.actionMode)
+        ? button.actionMode
+        : interactionModes.trigger;
+      const indicatorMode = Object.values(interactionModes).includes(button?.indicatorMode)
+        ? button.indicatorMode
+        : interactionModes.trigger;
 
       if (isButtonPressMessage(message)) {
         if (wasPressed) {
@@ -1406,15 +1410,33 @@
         }
 
         buttonTriggerRuntimeState.set(triggerKey, true);
+
+        if (button?.indicatorEnabled !== false && indicatorMode === interactionModes.push) {
+          window.setChannelButtonPressedRuntime?.(channel.id, button.id, true);
+        }
+
         window.channelActions?.executeChannelButton?.(channel.id, button.id, {
           source: 'midi-runtime',
-          type: 'channels/button-toggle'
+          type: 'channels/button-toggle',
+          phase: 'press'
         });
         return;
       }
 
       if (isButtonReleaseMessage(message)) {
         buttonTriggerRuntimeState.set(triggerKey, false);
+
+        if (button?.indicatorEnabled !== false && indicatorMode === interactionModes.push) {
+          window.setChannelButtonPressedRuntime?.(channel.id, button.id, false);
+        }
+
+        if (actionMode === interactionModes.push) {
+          window.channelActions?.executeChannelButton?.(channel.id, button.id, {
+            source: 'midi-runtime',
+            type: 'channels/button-toggle',
+            phase: 'release'
+          });
+        }
       }
     });
   }

@@ -1,9 +1,6 @@
 (function initProfileStore(window) {
   const PROFILE_NAME_SANITIZE_PATTERN = /[<>:"/\\|?*\u0000-\u001F]/g;
-  const PROFILE_STORAGE_KEYS = Object.freeze({
-    currentProfile: 'faderdeck_current_profile',
-    preferences: 'faderdeck_profile_preferences'
-  });
+  const profileStorage = window.profileStorage;
 
   let profileStoreInitialized = false;
 
@@ -39,7 +36,7 @@
   function readStoredProfilePreferences() {
     try {
       return normalizeProfilePreferences(
-        JSON.parse(localStorage.getItem(PROFILE_STORAGE_KEYS.preferences) || '{}')
+        profileStorage?.readProfilePreferences({})
       );
     } catch (error) {
       console.error('readStoredProfilePreferences error', error);
@@ -48,22 +45,15 @@
   }
 
   function persistProfilePreferences(preferences) {
-    localStorage.setItem(
-      PROFILE_STORAGE_KEYS.preferences,
-      JSON.stringify(normalizeProfilePreferences(preferences))
-    );
+    profileStorage?.writeProfilePreferences(normalizeProfilePreferences(preferences));
   }
 
   function readStoredCurrentProfileName() {
-    return localStorage.getItem(PROFILE_STORAGE_KEYS.currentProfile) || '';
+    return profileStorage?.readCurrentProfileName('') || '';
   }
 
   function persistCurrentProfileName(profileName) {
-    if (profileName) {
-      localStorage.setItem(PROFILE_STORAGE_KEYS.currentProfile, profileName);
-    } else {
-      localStorage.removeItem(PROFILE_STORAGE_KEYS.currentProfile);
-    }
+    profileStorage?.writeCurrentProfileName(profileName || '');
   }
 
   // This slice is renderer session/local app state for profile UX and should

@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "types": [
+      "node"
+    ]
+  },
+  "include": [
+    "main.js",
+    "preload.js",
+    "overlay-preload.js",
+    "backend/**/*.js",
+    "shared/**/*.js",
+    "tests/**/*.mjs"
+  ]
+}

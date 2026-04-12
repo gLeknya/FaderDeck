@@ -1,8 +1,10 @@
 const fs = require('fs');
 const path = require('path');
+const { validateProfileData } = require('./profile-schema');
 
 const PROFILE_VERSION = 1;
 const DEFAULT_CHANNEL_TITLE_PREFIX = 'Channel';
+// eslint-disable-next-line no-control-regex
 const INVALID_PROFILE_NAME_PATTERN = /[<>:"/\\|?*\u0000-\u001F]/g;
 
 function createChannelTemplate(index = 1) {
@@ -94,18 +96,31 @@ class ProfileManager {
     return { success: false, error: String(error) };
   }
 
+  validateProfile(profile, action = 'profile') {
+    const validation = validateProfileData(profile);
+
+    if (!validation.success) {
+      throw new Error(`Invalid ${action}: ${validation.error}`);
+    }
+
+    return validation.data;
+  }
+
   normalizeProfile(profile = {}, { name = '' } = {}) {
+    const validatedProfile = this.validateProfile(profile, 'profile');
     const template = this.createProfileTemplate({ name });
-    const channels = Array.isArray(profile.channels) ? profile.channels : template.channels;
-    const standaloneButtons = Array.isArray(profile.standaloneButtons)
-      ? profile.standaloneButtons
+    const channels = Array.isArray(validatedProfile.channels) ? validatedProfile.channels : template.channels;
+    const standaloneButtons = Array.isArray(validatedProfile.standaloneButtons)
+      ? validatedProfile.standaloneButtons
       : template.standaloneButtons;
-    const existingMeta = profile.meta && typeof profile.meta === 'object' ? profile.meta : {};
+    const existingMeta = validatedProfile.meta && typeof validatedProfile.meta === 'object'
+      ? validatedProfile.meta
+      : {};
     const createdAt = existingMeta.createdAt || template.meta.createdAt;
 
     return {
       ...template,
-      ...profile,
+      ...validatedProfile,
       version: PROFILE_VERSION,
       meta: {
         ...template.meta,
@@ -118,7 +133,9 @@ class ProfileManager {
       standaloneButtons,
       bindings: {
         ...template.bindings,
-        ...(profile.bindings && typeof profile.bindings === 'object' ? profile.bindings : {}),
+        ...(validatedProfile.bindings && typeof validatedProfile.bindings === 'object'
+          ? validatedProfile.bindings
+          : {}),
         faders: channels
           .filter((channel) => channel?.faderMapping || channel?.faderCC != null)
           .map((channel) => ({
@@ -132,7 +149,9 @@ class ProfileManager {
       },
       audio: {
         ...template.audio,
-        ...(profile.audio && typeof profile.audio === 'object' ? profile.audio : {}),
+        ...(validatedProfile.audio && typeof validatedProfile.audio === 'object'
+          ? validatedProfile.audio
+          : {}),
         assignments: channels.map((channel) => ({
           channelId: channel.id ?? null,
           process: channel.app ?? 'master',
@@ -143,7 +162,9 @@ class ProfileManager {
       },
       settings: {
         ...template.settings,
-        ...(profile.settings && typeof profile.settings === 'object' ? profile.settings : {})
+        ...(validatedProfile.settings && typeof validatedProfile.settings === 'object'
+          ? validatedProfile.settings
+          : {})
       }
     };
   }
@@ -197,7 +218,10 @@ class ProfileManager {
           let meta = {};
 
           try {
-            meta = JSON.parse(fs.readFileSync(profilePath, 'utf-8'))?.meta || {};
+            meta = this.validateProfile(
+              JSON.parse(fs.readFileSync(profilePath, 'utf-8')),
+              `profile "${fileName}"`
+            )?.meta || {};
           } catch (error) {
             this._log('list_profiles meta read error:', profilePath, error);
           }

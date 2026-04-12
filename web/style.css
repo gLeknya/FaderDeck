@@ -2549,8 +2549,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .entity-edit-side-panel {
   position: absolute;
-  top: 18px;
-  bottom: 18px;
+  top: 0;
+  bottom: 0;
   left: calc(100% + 18px);
   right: auto;
   width: 254px;
@@ -2787,7 +2787,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 .entity-edit-button-side-inline {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   align-items: center;
 }
 
@@ -2797,6 +2797,60 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   color: rgba(255, 255, 255, 0.52);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+}
+
+.entity-edit-button-side-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.entity-edit-button-side-card-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.entity-edit-button-settings-card {
+  gap: 14px;
+  transition:
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    margin 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    border-radius 0.28s cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.entity-edit-button-card-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: gap 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.entity-edit-button-side-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: 420px;
+  opacity: 1;
+  transform: translateY(0);
+  overflow: hidden;
+  transform-origin: top center;
+  transition:
+    max-height 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.22s ease,
+    transform 0.28s cubic-bezier(0.22, 0.78, 0.2, 1),
+    margin-top 0.24s ease;
+}
+
+.entity-edit-button-settings-card.is-disabled .entity-edit-button-side-card-body {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-8px);
+  margin-top: -6px;
+  pointer-events: none;
 }
 
 .entity-edit-side-input {
@@ -2840,7 +2894,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   grid-template-columns: auto auto;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 16px;
   width: 100%;
 }
 
@@ -2850,9 +2904,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .entity-edit-button-icon-trigger {
-  width: 42px;
-  height: 42px;
-  border-radius: 14px;
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(255, 255, 255, 0.04);
   color: var(--color-text);
@@ -2860,18 +2914,23 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
 }
 
 .entity-edit-button-icon-trigger:hover,
 .entity-edit-button-icon-trigger.is-open {
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
 }
 
 .entity-edit-button-icon-trigger-shell {
-  width: 18px;
-  height: 18px;
+  width: 26px;
+  height: 26px;
 }
 
 .entity-edit-button-midi-stack {
@@ -2895,6 +2954,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border: 1px solid rgba(255, 255, 255, 0.1);
   background: rgba(24, 24, 24, 0.98);
   box-shadow: 0 18px 36px rgba(0, 0, 0, 0.34);
+  animation: entity-edit-popover-in 0.18s cubic-bezier(0.22, 0.78, 0.2, 1);
+  transform-origin: top left;
 }
 
 .entity-edit-button-icon-grid {
@@ -2917,7 +2978,6 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border-color: rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.06);
   color: #fff;
-  transform: translateY(-1px);
 }
 
 .entity-edit-button-icon-option.active {
@@ -2953,12 +3013,22 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .entity-edit-button-icon-extra {
-  display: none;
+  display: grid;
   margin-top: 10px;
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transform: translateY(-6px);
+  transition:
+    max-height 0.22s ease,
+    opacity 0.18s ease,
+    transform 0.22s ease;
 }
 
 .entity-edit-button-icon-extra.is-open {
-  display: block;
+  max-height: 180px;
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .entity-edit-button-midi-row {
@@ -2986,9 +3056,309 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .entity-edit-button-midi-bind {
-  min-height: 38px;
-  border-radius: 14px;
+  min-height: 56px;
+  min-width: 124px;
+  padding: 0 24px;
+  border-radius: 18px;
   white-space: nowrap;
+  font-size: 14px;
+  font-weight: 700;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    border-color 0.18s ease,
+    background 0.18s ease;
+}
+
+.entity-edit-button-midi-bind:hover {
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+}
+
+.entity-edit-choice-rail {
+  --choice-rail-gap: 2px;
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(var(--choice-count), minmax(0, 1fr));
+  gap: var(--choice-rail-gap);
+  align-self: flex-start;
+  width: min(100%, 206px);
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  isolation: isolate;
+  overflow: hidden;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.22s ease;
+}
+
+.entity-edit-choice-rail__highlight {
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 3px;
+  width: calc((100% - 6px - ((var(--choice-count) - 1) * var(--choice-rail-gap))) / var(--choice-count));
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
+  transform: translateX(calc(var(--choice-index) * (100% + var(--choice-rail-gap)))) scale(var(--choice-rail-scale, 1));
+  will-change: transform, opacity;
+  transition:
+    transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+  z-index: 0;
+}
+
+.entity-edit-choice-rail:not(.has-selection) .entity-edit-choice-rail__highlight {
+  opacity: 0;
+  --choice-rail-scale: 0.88;
+}
+
+.entity-edit-choice-rail__option {
+  position: relative;
+  z-index: 1;
+  min-height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.16s ease, transform 0.18s ease, background 0.16s ease;
+}
+
+.entity-edit-choice-rail__option:hover {
+  color: rgba(255, 255, 255, 0.7);
+  background: transparent;
+}
+
+.entity-edit-choice-rail__option.is-active {
+  color: #fff;
+}
+
+.entity-edit-choice-rail__option.is-active:hover {
+  background: transparent;
+}
+
+.entity-edit-choice-rail.is-passive {
+  opacity: 0.54;
+}
+
+.entity-edit-choice-rail__option:disabled {
+  cursor: default;
+}
+
+.entity-edit-choice-rail.is-animating-selection,
+.entity-edit-choice-grid.is-animating-selection {
+  pointer-events: none;
+}
+
+.entity-edit-choice-rail.is-animating-selection .entity-edit-choice-rail__option:hover,
+.entity-edit-choice-grid.is-animating-selection .entity-edit-choice-grid__option:hover {
+  background: transparent;
+}
+
+.entity-edit-choice-rail.is-ghosting .entity-edit-choice-rail__option,
+.entity-edit-choice-grid.is-ghosting .entity-edit-choice-grid__option {
+  pointer-events: none;
+}
+
+.entity-edit-choice-rail.is-ghosting .entity-edit-choice-rail__highlight,
+.entity-edit-choice-grid.is-ghosting .entity-edit-choice-grid__highlight {
+  opacity: 0 !important;
+}
+
+.entity-edit-choice-grid {
+  --choice-grid-gap: 10px;
+  --choice-grid-cell-height: 62px;
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: var(--choice-grid-cell-height);
+  gap: var(--choice-grid-gap);
+  padding: 8px;
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  isolation: isolate;
+  overflow: hidden;
+  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.22s ease;
+}
+
+.entity-edit-choice-grid__highlight {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: calc((100% - 16px - var(--choice-grid-gap)) / 2);
+  height: var(--choice-grid-cell-height);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
+  transform:
+    translateX(calc(var(--choice-grid-column) * (100% + var(--choice-grid-gap))))
+    translateY(calc(var(--choice-grid-row) * (var(--choice-grid-cell-height) + var(--choice-grid-gap))))
+    scale(var(--choice-grid-scale, 1));
+  will-change: transform, opacity;
+  transition:
+    transform 0.34s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+  z-index: 0;
+}
+
+.entity-edit-choice-grid:not(.has-selection) .entity-edit-choice-grid__highlight {
+  opacity: 0;
+  --choice-grid-scale: 0.82;
+}
+
+.entity-edit-choice-grid__option {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 14px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.74);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  padding: 0 12px;
+  cursor: pointer;
+  transition:
+    color 0.16s ease,
+    background 0.16s ease,
+    transform 0.18s ease;
+}
+
+.entity-edit-choice-grid__option:hover {
+  color: rgba(255, 255, 255, 0.74);
+  background: transparent;
+}
+
+.entity-edit-choice-grid__option.is-active {
+  color: #fff;
+  background: transparent;
+}
+
+.entity-edit-choice-grid__option.is-active:hover {
+  background: transparent;
+}
+
+.entity-edit-choice-ghost {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
+}
+
+@keyframes entity-edit-popover-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.entity-edit-button-key-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.entity-edit-button-key-capture {
+  width: 100%;
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.entity-edit-button-key-capture:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.entity-edit-button-key-capture.is-capturing {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.entity-edit-button-indicator-mode-shell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.entity-edit-button-indicator-mode-shell.is-linked-passive .entity-edit-choice-rail {
+  pointer-events: none;
+}
+
+.entity-edit-button-link-icon {
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.62);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    opacity 0.2s ease;
+}
+
+.entity-edit-button-link-icon:hover {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.entity-edit-button-link-icon svg {
+  width: 16px;
+  height: 16px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.entity-edit-button-link-icon.is-linked {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .entity-edit-button-option-row {

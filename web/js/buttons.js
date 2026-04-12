@@ -5,25 +5,14 @@ let buttonModalInitialized = false;
 const buttonModalSessionState = {
   currentConfig: null
 };
-const CHANNEL_BUTTON_PRESS_MS = 180;
-const CHANNEL_BUTTON_RUNTIME_REFRESH_MS = 700;
-const channelButtonRuntimeState = {
-  initialized: false,
-  pollTimerId: null,
-  refreshInFlight: null,
-  refreshQueued: false,
-  byKey: new Map(),
-  pressTimers: new Map(),
-  listeners: new Set(),
-  activeSoloKey: null,
-  soloSnapshot: null
-};
 
 function getChannelButtonActionTypes() {
   return window.CHANNEL_BUTTON_ACTION_TYPES || {
+    none: 'none',
     mute: 'mute',
     solo: 'solo',
-    setVolume: 'set-volume'
+    setVolume: 'set-volume',
+    sendKey: 'send-key'
   };
 }
 
@@ -57,28 +46,6 @@ function normalizeChannelButton(button = {}) {
     : { ...button };
 }
 
-function getChannelButtonRuntimeKey(channelId, buttonId) {
-  return `${channelId}:${buttonId}`;
-}
-
-function getChannelButtonStateByKey(buttonKey) {
-  return channelButtonRuntimeState.byKey.get(buttonKey) || {
-    actionActive: false,
-    visualActive: false,
-    indicatorActive: false,
-    meterLevel: 0,
-    latched: false,
-    flashActive: false,
-    pressed: false,
-    hasTargets: false,
-    buttonIndicatorType: getChannelButtonIndicatorTypes().press
-  };
-}
-
-function getChannelButtonState(channelId, buttonId) {
-  return getChannelButtonStateByKey(getChannelButtonRuntimeKey(channelId, buttonId));
-}
-
 function escapeButtonMarkup(value) {
   return String(value ?? '')
     .replace(/&/g, '&amp;')
@@ -88,68 +55,6 @@ function escapeButtonMarkup(value) {
     .replace(/'/g, '&#39;');
 }
 
-function getButtonTargetProcesses(channel = {}) {
-  const explicitTargets = Array.isArray(channel?.targets)
-    ? channel.targets
-        .map((target) => String(target?.process || '').trim())
-        .filter(Boolean)
-    : [];
-
-  if (explicitTargets.length > 0) {
-    return [...new Set(explicitTargets)];
-  }
-
-  const fallbackProcess = String(channel?.app || '').trim();
-  return fallbackProcess ? [fallbackProcess] : [];
-}
-
-function readButtonAudioStateMap(processes = []) {
-  const normalizedProcesses = [...new Set(
-    (Array.isArray(processes) ? processes : [])
-      .map((processName) => String(processName || '').trim())
-      .filter(Boolean)
-  )];
-  const api = typeof getApi === 'function' ? getApi() : (window.pywebview?.api ?? null);
-
-  if (!normalizedProcesses.length || !api?.get_audio_states) {
-    return Promise.resolve(new Map());
-  }
-
-  return api.get_audio_states(normalizedProcesses)
-    .then((response) => new Map(
-      (Array.isArray(response?.applications) ? response.applications : []).map((application) => [
-        String(application?.process || '').trim().toLowerCase(),
-        application
-      ])
-    ))
-    .catch((error) => {
-      console.error('get_audio_states error', error);
-      return new Map();
-    });
-}
-
-function aggregateButtonTargetState(targetProcesses = [], audioStateMap = new Map()) {
-  const states = targetProcesses
-    .map((processName) => audioStateMap.get(String(processName || '').trim().toLowerCase()))
-    .filter(Boolean);
-
-  if (!states.length) {
-    return {
-      hasTargets: targetProcesses.length > 0,
-      volume: 0,
-      muted: false
-    };
-  }
-
-  const volume = states.reduce((sum, state) => sum + (Number(state?.volume) || 0), 0) / states.length;
-  const muted = states.every((state) => Boolean(state?.muted));
-
-  return {
-    hasTargets: true,
-    volume,
-    muted
-  };
-}
 
 function getChannelButtonActionLabel(button = {}, options = {}) {
   const normalizedButton = normalizeChannelButton(button);
@@ -164,6 +69,18 @@ function getChannelButtonActionLabel(button = {}, options = {}) {
     return isCompact
       ? `${Math.round(Number(normalizedButton.actionValue) || 0)}%`
       : t('editor.buttonActionSetVolume');
+  }
+
+  if (normalizedButton.actionType === actionTypes.sendKey) {
+    return isCompact
+      ? 'KEY'
+      : t('editor.buttonActionSendKey');
+  }
+
+  if (normalizedButton.actionType === actionTypes.none) {
+    return isCompact
+      ? t('editor.buttonActionNone')
+      : t('editor.buttonActionNone');
   }
 
   return isCompact ? 'MUTE' : t('editor.buttonActionMute');
@@ -308,8 +225,22 @@ function renderChannelButtonIconMarkup(button = {}, className = 'button-icon') {
 function buildChannelButtonPresentation(channel, button) {
   const normalizedButton = normalizeChannelButton(button);
   const contentModes = getChannelButtonContentModes();
-  const runtimeKey = getChannelButtonRuntimeKey(channel.id, normalizedButton.id);
-  const runtimeState = getChannelButtonStateByKey(runtimeKey);
+  const runtimeKey = `${channel.id}:${normalizedButton.id}`;
+  // Button runtime is owned by the runtime layer now; buttons.js only
+  // consumes the current derived state for rendering.
+  const runtimeState = typeof window.getChannelButtonState === 'function'
+    ? window.getChannelButtonState(channel.id, normalizedButton.id)
+    : {
+      actionActive: false,
+      visualActive: false,
+      indicatorActive: false,
+      meterLevel: 0,
+      latched: false,
+      flashActive: false,
+      pressed: false,
+      hasTargets: false,
+      buttonIndicatorType: getChannelButtonIndicatorTypes().press
+    };
   const showIcon = normalizedButton.contentDisplay !== contentModes.titleOnly;
   const showTitle = normalizedButton.contentDisplay !== contentModes.iconOnly;
 
@@ -354,310 +285,11 @@ function getChannelButtonClassName(channel, button) {
     classNames.push(`channel-side-button--${presentation.button.contentDisplay}`);
   }
 
-  if (presentation.button.indicatorType) {
-    classNames.push(`channel-side-button--indicator-${presentation.button.indicatorType}`);
+  if (presentation.button.indicatorMode) {
+    classNames.push(`channel-side-button--indicator-${presentation.button.indicatorMode}`);
   }
 
   return classNames.join(' ');
-}
-
-function getChannelButtonRuntimeState(channelId, buttonId) {
-  return getChannelButtonState(channelId, buttonId);
-}
-
-function emitChannelButtonRuntimeChange(meta = {}) {
-  refreshChannelButtonRuntimeDom();
-  window.midiService?.syncChannelButtonIndicators?.({
-    reason: 'channel-button-runtime',
-    ...meta
-  });
-  channelButtonRuntimeState.listeners.forEach((listener) => listener(meta));
-}
-
-function areChannelButtonStatesEqual(nextState = {}, previousState = {}) {
-  return (
-    Boolean(nextState.actionActive) === Boolean(previousState.actionActive)
-    && Boolean(nextState.visualActive) === Boolean(previousState.visualActive)
-    && Boolean(nextState.indicatorActive) === Boolean(previousState.indicatorActive)
-    && Boolean(nextState.latched) === Boolean(previousState.latched)
-    && Boolean(nextState.flashActive) === Boolean(previousState.flashActive)
-    && Boolean(nextState.pressed) === Boolean(previousState.pressed)
-    && Boolean(nextState.hasTargets) === Boolean(previousState.hasTargets)
-    && Math.abs((Number(nextState.meterLevel) || 0) - (Number(previousState.meterLevel) || 0)) < 0.005
-  );
-}
-
-function refreshChannelButtonRuntimeDom() {
-  document.querySelectorAll('[data-channel-button-runtime-key]').forEach((element) => {
-    const runtimeKey = String(element.dataset.channelButtonRuntimeKey || '').trim();
-    const state = getChannelButtonStateByKey(runtimeKey);
-    const buttonRoot = element.closest('.channel-side-button');
-
-    if (buttonRoot) {
-      buttonRoot.classList.toggle('active', Boolean(state.visualActive || state.flashActive));
-      buttonRoot.classList.toggle('is-pressed-indicator', Boolean(state.pressed));
-      buttonRoot.classList.toggle('is-binding-flash', Boolean(state.flashActive));
-      buttonRoot.style.setProperty('--button-meter-level', String(Math.max(0, Math.min(1, state.meterLevel || 0))));
-    }
-  });
-}
-
-function setChannelButtonPressedState(channelId, buttonId, isPressed) {
-  const runtimeKey = getChannelButtonRuntimeKey(channelId, buttonId);
-  const previousState = getChannelButtonStateByKey(runtimeKey);
-  const indicatorTypes = getChannelButtonIndicatorTypes();
-  const buttonIndicatorType = previousState.buttonIndicatorType || indicatorTypes.press;
-  const meterVisualActive = Math.max(0, Math.min(1, previousState.meterLevel || 0)) > 0.01;
-  const nextState = {
-    ...previousState,
-    visualActive: buttonIndicatorType === indicatorTypes.press
-      ? Boolean(isPressed)
-      : buttonIndicatorType === indicatorTypes.meter
-        ? meterVisualActive
-        : Boolean(previousState.latched),
-    pressed: Boolean(isPressed),
-    indicatorActive: buttonIndicatorType === indicatorTypes.press
-      ? Boolean(isPressed)
-      : buttonIndicatorType === indicatorTypes.meter
-        ? meterVisualActive
-        : Boolean(previousState.latched)
-  };
-
-  channelButtonRuntimeState.byKey.set(runtimeKey, nextState);
-  emitChannelButtonRuntimeChange({
-    type: 'channel-button-runtime/press',
-    channelId,
-    buttonId
-  });
-}
-
-function triggerChannelButtonPressRuntime(channelId, buttonId) {
-  const runtimeKey = getChannelButtonRuntimeKey(channelId, buttonId);
-  const existingTimerId = channelButtonRuntimeState.pressTimers.get(runtimeKey);
-
-  if (existingTimerId) {
-    clearTimeout(existingTimerId);
-  }
-
-  setChannelButtonPressedState(channelId, buttonId, true);
-
-  const timerId = window.setTimeout(() => {
-    channelButtonRuntimeState.pressTimers.delete(runtimeKey);
-    setChannelButtonPressedState(channelId, buttonId, false);
-  }, CHANNEL_BUTTON_PRESS_MS);
-
-  channelButtonRuntimeState.pressTimers.set(runtimeKey, timerId);
-}
-
-function toggleChannelButtonLatchRuntime(channelId, buttonId, indicatorTypeHint = null) {
-  const indicatorTypes = getChannelButtonIndicatorTypes();
-  const runtimeKey = getChannelButtonRuntimeKey(channelId, buttonId);
-  const previousState = getChannelButtonStateByKey(runtimeKey);
-  const buttonIndicatorType = indicatorTypeHint || previousState.buttonIndicatorType || indicatorTypes.press;
-
-  if (buttonIndicatorType !== indicatorTypes.toggle) {
-    return previousState;
-  }
-
-  const nextLatched = !Boolean(previousState.latched);
-  const nextState = {
-    ...previousState,
-    latched: nextLatched,
-    visualActive: nextLatched,
-    indicatorActive: nextLatched,
-    buttonIndicatorType
-  };
-
-  channelButtonRuntimeState.byKey.set(runtimeKey, nextState);
-  emitChannelButtonRuntimeChange({
-    type: 'channel-button-runtime/latch',
-    channelId,
-    buttonId
-  });
-  return nextState;
-}
-
-function setChannelButtonFlashState(channelId, buttonId, isActive) {
-  const runtimeKey = getChannelButtonRuntimeKey(channelId, buttonId);
-  const previousState = getChannelButtonStateByKey(runtimeKey);
-  const nextState = {
-    ...previousState,
-    flashActive: Boolean(isActive)
-  };
-  channelButtonRuntimeState.byKey.set(runtimeKey, nextState);
-  emitChannelButtonRuntimeChange({
-    type: 'channel-button-runtime/flash',
-    channelId,
-    buttonId
-  });
-}
-
-function flashChannelButtonBindingRuntime(channelId, buttonId) {
-  const sequence = [0, 120, 240, 360];
-  sequence.forEach((delay, index) => {
-    window.setTimeout(() => {
-      setChannelButtonFlashState(channelId, buttonId, index % 2 === 0);
-    }, delay);
-  });
-
-  window.setTimeout(() => {
-    setChannelButtonFlashState(channelId, buttonId, false);
-  }, 460);
-}
-
-function activateSoloChannelButtonRuntime(buttonKey, snapshot = []) {
-  channelButtonRuntimeState.activeSoloKey = String(buttonKey || '').trim() || null;
-  channelButtonRuntimeState.soloSnapshot = Array.isArray(snapshot) ? snapshot : [];
-}
-
-function restoreSoloChannelButtonRuntime() {
-  const snapshot = Array.isArray(channelButtonRuntimeState.soloSnapshot)
-    ? channelButtonRuntimeState.soloSnapshot.slice()
-    : [];
-  const api = typeof getApi === 'function' ? getApi() : (window.pywebview?.api ?? null);
-
-  channelButtonRuntimeState.activeSoloKey = null;
-  channelButtonRuntimeState.soloSnapshot = null;
-
-  if (!snapshot.length || !api?.set_app_mute) {
-    return Promise.resolve();
-  }
-
-  return Promise.all(
-    snapshot.map((entry) => api.set_app_mute(entry.process, Boolean(entry.muted)))
-  );
-}
-
-function getActiveSoloChannelButtonKeyRuntime() {
-  return channelButtonRuntimeState.activeSoloKey;
-}
-
-function refreshChannelButtonRuntime(force = false) {
-  if (channelButtonRuntimeState.refreshInFlight) {
-    if (force) {
-      channelButtonRuntimeState.refreshQueued = true;
-    }
-    return channelButtonRuntimeState.refreshInFlight;
-  }
-
-  channelButtonRuntimeState.refreshInFlight = (async () => {
-    const channels = typeof getChannelsState === 'function' ? getChannelsState() : [];
-    const buttonEntries = channels.flatMap((channel) => (
-      (Array.isArray(channel?.buttons) ? channel.buttons : []).map((button) => ({
-        channel,
-        button: normalizeChannelButton(button)
-      }))
-    ));
-
-    if (!buttonEntries.length) {
-      if (channelButtonRuntimeState.byKey.size) {
-        channelButtonRuntimeState.byKey.clear();
-        emitChannelButtonRuntimeChange({ type: 'channel-button-runtime/cleared' });
-      }
-      return;
-    }
-
-    const trackedProcesses = [...new Set(buttonEntries.flatMap(({ channel }) => getButtonTargetProcesses(channel)))];
-    const audioStateMap = await readButtonAudioStateMap(trackedProcesses);
-    const nextStates = new Map();
-
-    buttonEntries.forEach(({ channel, button }) => {
-      const runtimeKey = getChannelButtonRuntimeKey(channel.id, button.id);
-      const aggregateState = aggregateButtonTargetState(getButtonTargetProcesses(channel), audioStateMap);
-      const previousState = getChannelButtonStateByKey(runtimeKey);
-      const indicatorTypes = getChannelButtonIndicatorTypes();
-      const meterLevel = aggregateState.muted
-        ? 0
-        : Math.max(0, Math.min(1, (aggregateState.volume || 0) / 100));
-      const latched = Boolean(previousState.latched);
-      let actionActive = false;
-
-      if (button.actionType === getChannelButtonActionTypes().solo) {
-        actionActive = channelButtonRuntimeState.activeSoloKey === runtimeKey;
-      } else if (button.actionType === getChannelButtonActionTypes().setVolume) {
-        actionActive = aggregateState.hasTargets
-          && !aggregateState.muted
-          && Math.abs((aggregateState.volume || 0) - (Number(button.actionValue) || 0)) <= 1;
-      } else {
-        actionActive = aggregateState.hasTargets && aggregateState.muted;
-      }
-
-      const indicatorActive = button.indicatorType === indicatorTypes.press
-        ? Boolean(previousState.pressed)
-        : button.indicatorType === indicatorTypes.meter
-          ? meterLevel > 0.01
-          : latched;
-      const visualActive = button.indicatorType === indicatorTypes.press
-        ? Boolean(previousState.pressed)
-        : button.indicatorType === indicatorTypes.meter
-          ? meterLevel > 0.01
-          : latched;
-
-      nextStates.set(runtimeKey, {
-        actionActive,
-        visualActive,
-        indicatorActive,
-        meterLevel,
-        latched,
-        pressed: Boolean(previousState.pressed),
-        hasTargets: aggregateState.hasTargets,
-        buttonIndicatorType: button.indicatorType
-      });
-    });
-
-    let hasChanged = nextStates.size !== channelButtonRuntimeState.byKey.size;
-
-    if (!hasChanged) {
-      nextStates.forEach((nextState, runtimeKey) => {
-        if (!areChannelButtonStatesEqual(nextState, channelButtonRuntimeState.byKey.get(runtimeKey))) {
-          hasChanged = true;
-        }
-      });
-    }
-
-    channelButtonRuntimeState.byKey = nextStates;
-
-    if (hasChanged) {
-      emitChannelButtonRuntimeChange({ type: 'channel-button-runtime/updated' });
-    } else {
-      refreshChannelButtonRuntimeDom();
-    }
-  })();
-
-  return channelButtonRuntimeState.refreshInFlight.finally(() => {
-    channelButtonRuntimeState.refreshInFlight = null;
-
-    if (channelButtonRuntimeState.refreshQueued) {
-      channelButtonRuntimeState.refreshQueued = false;
-      refreshChannelButtonRuntime(true);
-    }
-  });
-}
-
-function requestChannelButtonRuntimeRefresh(options = {}) {
-  return refreshChannelButtonRuntime(Boolean(options?.force));
-}
-
-function syncChannelButtonRuntimePolling() {
-  const hasChannelButtons = (typeof getChannelsState === 'function' ? getChannelsState() : []).some((channel) => (
-    Array.isArray(channel?.buttons) && channel.buttons.length > 0
-  ));
-
-  if (!hasChannelButtons) {
-    if (channelButtonRuntimeState.pollTimerId) {
-      clearInterval(channelButtonRuntimeState.pollTimerId);
-      channelButtonRuntimeState.pollTimerId = null;
-    }
-    return;
-  }
-
-  if (channelButtonRuntimeState.pollTimerId) {
-    return;
-  }
-
-  channelButtonRuntimeState.pollTimerId = window.setInterval(() => {
-    requestChannelButtonRuntimeRefresh();
-  }, CHANNEL_BUTTON_RUNTIME_REFRESH_MS);
 }
 
 function findChannel(channelId) {
@@ -836,8 +468,13 @@ function createDefaultButton() {
     id: Date.now() + Math.floor(Math.random() * 1000),
     text: '',
     icon: 'square',
+    actionEnabled: true,
     actionType: getChannelButtonActionTypes().none,
+    actionMode: window.CHANNEL_BUTTON_INTERACTION_MODES?.trigger || 'trigger',
     actionValue: window.DEFAULT_CHANNEL_BUTTON_ACTION_VALUE ?? 50,
+    indicatorEnabled: true,
+    indicatorMode: window.CHANNEL_BUTTON_INTERACTION_MODES?.trigger || 'trigger',
+    indicatorModeLinkedToAction: false,
     indicatorType: getChannelButtonIndicatorTypes().press,
     contentDisplay: getChannelButtonContentModes().iconTitle,
     metaDisplay: getChannelButtonMetaModes().actionIndicator,
@@ -1130,74 +767,10 @@ function initStandaloneButtonsStateSync() {
   standaloneButtonsUiStateSyncInitialized = true;
 }
 
-function initChannelButtonsRuntime() {
-  if (channelButtonRuntimeState.initialized) {
-    return;
-  }
-
-  if (typeof subscribeAppState === 'function') {
-    subscribeAppState((nextState, previousState, meta = {}) => {
-      if (nextState.channels === previousState.channels) {
-        return;
-      }
-
-      if (
-        meta?.type === 'channels/set-volume'
-        || meta?.type === 'channels/rename'
-        || meta?.type === 'channels/set-title-icon'
-        || meta?.type === 'channels/set-fader-mapping'
-        || meta?.type === 'channels/set-button-placement'
-      ) {
-        return;
-      }
-
-      if (
-        meta?.type
-        && ![
-          'renderer/hydrate',
-          'channels/remove',
-          'channels/set-app',
-          'channels/clear-app',
-          'channels/add-app-target',
-          'channels/remove-app-target',
-          'channels/button-add',
-          'channels/button-remove',
-          'channels/button-update'
-        ].includes(meta.type)
-      ) {
-        return;
-      }
-
-      syncChannelButtonRuntimePolling();
-      requestChannelButtonRuntimeRefresh({ force: true });
-    });
-  }
-
-  window.addEventListener('focus', () => {
-    requestChannelButtonRuntimeRefresh({ force: true });
-  });
-
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      requestChannelButtonRuntimeRefresh({ force: true });
-    }
-  });
-
-  syncChannelButtonRuntimePolling();
-  requestChannelButtonRuntimeRefresh({ force: true });
-  channelButtonRuntimeState.initialized = true;
-}
-
 window.getChannelButtonClassName = getChannelButtonClassName;
 window.renderChannelButtonBodyMarkup = renderChannelButtonBodyMarkup;
 window.renderChannelButtonIconMarkup = renderChannelButtonIconMarkup;
 window.getChannelButtonPresentation = buildChannelButtonPresentation;
-window.requestChannelButtonRuntimeRefresh = requestChannelButtonRuntimeRefresh;
-window.getChannelButtonState = getChannelButtonState;
-window.triggerChannelButtonPressRuntime = triggerChannelButtonPressRuntime;
-window.toggleChannelButtonLatchRuntime = toggleChannelButtonLatchRuntime;
-window.flashChannelButtonBindingRuntime = flashChannelButtonBindingRuntime;
-window.activateSoloChannelButtonRuntime = activateSoloChannelButtonRuntime;
-window.restoreSoloChannelButtonRuntime = restoreSoloChannelButtonRuntime;
-window.getActiveSoloChannelButtonKeyRuntime = getActiveSoloChannelButtonKeyRuntime;
-window.initChannelButtonsRuntime = initChannelButtonsRuntime;
+window.toggleButton = toggleButton;
+window.addStandaloneButton = addStandaloneButton;
+window.toggleStandaloneButton = toggleStandaloneButton;

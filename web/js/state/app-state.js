@@ -1,77 +1,14 @@
 (function initAppState(window) {
-  function createDefaultChannelCustomSettings() {
-    return {
-      faderInterpolationEnabled: false,
-      softTakeoverEnabled: false,
-      softTakeoverThreshold: 5,
-      volumeCurveEnabled: false,
-      volumeCurveType: 'ease-in-out',
-      volumeCurveAmount: 0,
-      showFractionalNumbers: false
-    };
-  }
-
-  function cloneButtonEntity(button = {}) {
-    return {
-      ...button
-    };
-  }
-
-  function createChannelTarget(process = '', name = '') {
-    const normalizedProcess = String(process || '').trim();
-
-    if (!normalizedProcess) {
-      return null;
-    }
-
-    return {
-      process: normalizedProcess,
-      name: String(name || normalizedProcess).trim() || normalizedProcess
-    };
-  }
-
-  function cloneChannelTarget(target = {}) {
-    return createChannelTarget(target.process, target.name);
-  }
-
-  function normalizeChannelTargets(channel = {}) {
-    const explicitTargets = Array.isArray(channel.targets)
-      ? channel.targets
-          .map(cloneChannelTarget)
-          .filter(Boolean)
-      : [];
-
-    if (explicitTargets.length > 0) {
-      return explicitTargets;
-    }
-
-    const fallbackTarget = createChannelTarget(channel.app, channel.appName);
-    return fallbackTarget ? [fallbackTarget] : [];
-  }
-
-  function cloneChannelCustomSettings(customSettings = {}) {
-    return {
-      ...createDefaultChannelCustomSettings(),
-      ...(customSettings || {})
-    };
-  }
-
-  function cloneChannelEntity(channel = {}) {
-    const targets = normalizeChannelTargets(channel);
-    const primaryTarget = targets[0] || null;
-
-    return {
-      ...channel,
-      app: primaryTarget?.process || '',
-      appName: primaryTarget?.name || '',
-      targets,
-      customSettingsEnabled: Boolean(channel.customSettingsEnabled),
-      customSettings: cloneChannelCustomSettings(channel.customSettings),
-      buttons: Array.isArray(channel.buttons)
-        ? channel.buttons.map(cloneButtonEntity)
-        : []
-    };
-  }
+  const {
+    cloneButtonEntity,
+    cloneChannelEntity
+  } = window.channelModel;
+  const {
+    DEFAULT_PERSISTED_UI_SETTINGS,
+    DEFAULT_SESSION_UI_STATE,
+    normalizeMidiSelectionState
+  } = window.rendererStateModel;
+  const midiSelectionStorage = window.midiSelectionStorage;
 
   function normalizeChannels(channels) {
     return Array.isArray(channels) ? channels.map(cloneChannelEntity) : [];
@@ -81,22 +18,12 @@
     return Array.isArray(buttons) ? buttons.map(cloneButtonEntity) : [];
   }
 
-  function normalizeMidiState(midiState = {}) {
-    return {
-      selectedInputId: midiState.selectedInputId || '',
-      selectedInputName: midiState.selectedInputName || ''
-    };
-  }
-
   function readInitialMidiState() {
     try {
-      return normalizeMidiState({
-        selectedInputId: localStorage.getItem('faderdeck_selected_midi_input_id') || '',
-        selectedInputName: localStorage.getItem('faderdeck_selected_midi_input_name') || ''
-      });
+      return midiSelectionStorage?.readMidiSelection?.() || normalizeMidiSelectionState();
     } catch (error) {
       console.warn('readInitialMidiState error', error);
-      return normalizeMidiState();
+      return normalizeMidiSelectionState();
     }
   }
 
@@ -111,35 +38,6 @@
     preferences: {
       order: [],
       toolbarVisible: {}
-    }
-  });
-
-  const DEFAULT_PERSISTED_UI_SETTINGS = Object.freeze({
-    advancedMode: false,
-    developerMode: false,
-    faderInterpolationEnabled: false,
-    softTakeoverEnabled: false,
-    softTakeoverThreshold: 5,
-    showFractionalNumbers: false,
-    showFractionalOnlyLow: false,
-    volumeCurveEnabled: false,
-    volumeCurveType: 'ease-in-out',
-    volumeCurveAmount: 0,
-    profileToolbarSwitcherEnabled: true,
-    volumeHudEnabled: true,
-    volumeHudPosition: 'bottom-center',
-    volumeHudOrientation: 'horizontal',
-    volumeHudShowIcon: true,
-    volumeHudShowTitle: true,
-    volumeHudShowSubtitle: true,
-    volumeHudShowPercent: true,
-    volumeHudShowMeter: true
-  });
-
-  const DEFAULT_SESSION_UI_STATE = Object.freeze({
-    menu: {
-      open: false,
-      activeTab: null
     }
   });
 
@@ -297,7 +195,7 @@
   }
 
   function setMidiSelectionState(midiState, meta = {}) {
-    const nextMidiState = normalizeMidiState(midiState);
+    const nextMidiState = normalizeMidiSelectionState(midiState);
 
     setAppState((previousState) => {
       if (
@@ -321,7 +219,7 @@
 
   function getPersistedRendererState() {
     const state = getAppState();
-    const midiState = normalizeMidiState(state.midi);
+    const midiState = normalizeMidiSelectionState(state.midi);
     const layoutState = typeof window.normalizeLayoutState === 'function'
       ? window.normalizeLayoutState(state.layout, {
         channels: state.channels,
@@ -347,7 +245,7 @@
 
   function hydrateRendererState(payload = {}, meta = {}) {
     const persistedPayload = normalizePersistedRendererPayload(payload);
-    const nextMidiState = normalizeMidiState({
+    const nextMidiState = normalizeMidiSelectionState({
       selectedInputId: persistedPayload.settings.midiInputId || '',
       selectedInputName: persistedPayload.settings.midiInputName || ''
     });

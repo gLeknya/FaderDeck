@@ -25,6 +25,8 @@
       sidePanelButtonTitleDirty: false,
       sidePanelIconPickerOpen: false,
       sidePanelIconPickerExpanded: false,
+      sidePanelKeyCaptureActive: false,
+      sidePanelMotionChoices: null,
       titleDraft: '',
       titleDirty: false,
       editingChannelButtonId: null,
@@ -328,6 +330,14 @@
     return typeof window.getAdvancedModeEnabledState === 'function'
       ? Boolean(window.getAdvancedModeEnabledState())
       : false;
+  }
+
+  function getChannelButtonInteractionModes() {
+    return window.CHANNEL_BUTTON_INTERACTION_MODES || {
+      push: 'push',
+      toggle: 'toggle',
+      trigger: 'trigger'
+    };
   }
 
   function getPreviewMappingLabel(channel) {
@@ -1039,7 +1049,8 @@
       none: t('editor.buttonActionNone'),
       mute: t('editor.buttonActionMute'),
       solo: t('editor.buttonActionSolo'),
-      'set-volume': t('editor.buttonActionSetVolume')
+      'set-volume': t('editor.buttonActionSetVolume'),
+      'send-key': t('editor.buttonActionSendKey')
     };
 
     return `
@@ -1157,6 +1168,102 @@
     `;
   }
 
+  function renderButtonChoiceRail(optionName, activeValue, options = [], renderOptions = {}) {
+    const activeIndex = options.findIndex((option) => String(option.value) === String(activeValue));
+    const hasSelection = activeIndex >= 0;
+    const extraClassName = String(renderOptions?.className || '').trim();
+    const isDisabled = Boolean(renderOptions?.disabled);
+    return `
+        <div
+          class="entity-edit-choice-rail ${hasSelection ? 'has-selection' : ''} ${extraClassName}"
+          data-editor-choice="${escapeHtml(optionName)}"
+          style="--choice-count: ${Math.max(1, options.length)}; --choice-index: ${Math.max(0, activeIndex)};">
+          <span class="entity-edit-choice-rail__highlight" aria-hidden="true"></span>
+          ${options.map((option) => `
+            <button
+            class="entity-edit-choice-rail__option ${String(activeValue) === String(option.value) ? 'is-active' : ''}"
+            type="button"
+            ${isDisabled ? 'disabled aria-disabled="true" tabindex="-1"' : ''}
+            data-editor-button-option-name="${escapeHtml(optionName)}"
+            data-editor-button-option-value="${escapeHtml(option.value)}">
+            ${escapeHtml(option.label)}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function renderButtonChoiceGrid(optionName, activeValue, options = [], renderOptions = {}) {
+    const activeIndex = options.findIndex((option) => String(option.value) === String(activeValue));
+    const hasSelection = activeIndex >= 0;
+    const activeColumn = activeIndex % 2;
+    const activeRow = Math.floor(activeIndex / 2);
+    return `
+        <div
+          class="entity-edit-choice-grid ${hasSelection ? 'has-selection' : ''}"
+          data-editor-choice="${escapeHtml(optionName)}"
+          style="--choice-grid-column: ${Math.max(0, activeColumn)}; --choice-grid-row: ${Math.max(0, activeRow)};">
+          <span class="entity-edit-choice-grid__highlight" aria-hidden="true"></span>
+          ${options.map((option) => `
+            <button
+            class="entity-edit-choice-grid__option ${String(activeValue) === String(option.value) ? 'is-active' : ''}"
+            type="button"
+            data-editor-button-option-name="${escapeHtml(optionName)}"
+            data-editor-button-option-value="${escapeHtml(option.value)}">
+            ${escapeHtml(option.label)}
+          </button>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function getNormalizedCapturedButtonKey(event) {
+    const rawKey = String(event?.key || '').trim();
+
+    if (!rawKey) {
+      return '';
+    }
+
+    if (['Shift', 'Control', 'Alt', 'Meta'].includes(rawKey)) {
+      return '';
+    }
+
+    if (rawKey === ' ') {
+      return 'Space';
+    }
+
+    if (rawKey.length === 1) {
+      return rawKey.toUpperCase();
+    }
+
+    if (rawKey === 'Esc') {
+      return 'Escape';
+    }
+
+    return rawKey;
+  }
+
+  function getButtonKeyLabel(button = {}) {
+    const normalizedKey = String(button?.key || '').trim();
+    return normalizedKey || t('editor.buttonKeyPlaceholder');
+  }
+
+  function renderButtonKeyCapture(button) {
+    const isCapturing = Boolean(editorState.sidePanelKeyCaptureActive);
+
+    return `
+      <div class="entity-edit-button-key-block">
+        <div class="entity-edit-button-side-subsection-label">${t('editor.buttonKey')}</div>
+        <button
+          class="entity-edit-button-key-capture ${isCapturing ? 'is-capturing' : ''}"
+          type="button"
+          data-editor-side-button-key-capture>
+          ${escapeHtml(isCapturing ? t('buttonModal.keyPlaceholder') : getButtonKeyLabel(button))}
+        </button>
+      </div>
+    `;
+  }
+
   function getChannelButtonIconKeys() {
     return Array.isArray(window.CHANNEL_BUTTON_ICON_KEYS)
       ? window.CHANNEL_BUTTON_ICON_KEYS
@@ -1232,15 +1339,13 @@
   function renderChannelButtonSidePanel(channel) {
     const button = getEditorChannelButton(editorState.sidePanelButtonId, channel);
     const actionTypes = window.CHANNEL_BUTTON_ACTION_TYPES || {
+      none: 'none',
       mute: 'mute',
       solo: 'solo',
-      setVolume: 'set-volume'
+      setVolume: 'set-volume',
+      sendKey: 'send-key'
     };
-    const indicatorTypes = window.CHANNEL_BUTTON_INDICATOR_TYPES || {
-      toggle: 'toggle',
-      meter: 'meter',
-      press: 'press'
-    };
+    const interactionModes = getChannelButtonInteractionModes();
     const resolvedButton = button
       ? {
         ...button,
@@ -1254,6 +1359,17 @@
       window.midiService?.getButtonMappingLabel?.(resolvedButton?.midiMapping)
       || t('editor.buttonMidiUnbound')
     );
+    const actionEnabled = Boolean(resolvedButton?.actionEnabled);
+    const indicatorEnabled = resolvedButton?.indicatorEnabled !== false;
+    const indicatorLinkedToAction = Boolean(resolvedButton?.indicatorModeLinkedToAction);
+    const showModeLinkControl = actionEnabled;
+    const isIndicatorModePassive = showModeLinkControl && indicatorLinkedToAction;
+    const resolvedActionMode = Object.values(interactionModes).includes(resolvedButton?.actionMode)
+      ? resolvedButton.actionMode
+      : interactionModes.trigger;
+    const resolvedIndicatorMode = Object.values(interactionModes).includes(resolvedButton?.indicatorMode)
+      ? resolvedButton.indicatorMode
+      : interactionModes.trigger;
 
     if (!resolvedButton) {
       return `
@@ -1284,7 +1400,7 @@
                 class="btn entity-edit-button-midi-bind"
                 type="button"
                 data-editor-bind-channel-button-midi="${resolvedButton.id}">
-                ${resolvedButton.midiMapping ? t('editor.buttonMidiRebind') : t('editor.buttonMidiBind')}
+                ${t('editor.buttonMidiBind')}
               </button>
             </div>
 
@@ -1300,39 +1416,82 @@
               : ''}
           </div>
 
-          <div class="entity-edit-button-side-card">
-            <div class="entity-edit-button-side-card-label">${t('editor.buttonAction')}</div>
-            ${renderChannelButtonOptionRow('action-type', resolvedButton.actionType, [
-              { value: actionTypes.none, label: t('editor.buttonActionNone') },
-              { value: actionTypes.mute, label: t('editor.buttonActionMute') },
-              { value: actionTypes.solo, label: t('editor.buttonActionSolo') },
-              { value: actionTypes.setVolume, label: t('editor.buttonActionSetVolume') }
-            ])}
-            ${resolvedButton.actionType === actionTypes.setVolume
-              ? `
-                <div class="entity-edit-button-side-subsection-label">${t('editor.buttonSetVolumeValue')}</div>
-                <div class="settings-range-row entity-edit-button-side-range-row">
-                  <input
-                    class="settings-range"
-                    type="range"
-                    min="0"
-                    max="100"
-                    step="1"
-                    value="${Number(resolvedButton.actionValue) || 0}"
-                    data-editor-side-button-action-value="${resolvedButton.id}">
-                  <div class="settings-range-value" data-editor-side-button-action-value-label>${Math.round(Number(resolvedButton.actionValue) || 0)}%</div>
-                </div>
-              `
-              : ''}
-          </div>
+          <div class="entity-edit-button-card-stack">
+            <div class="entity-edit-button-side-card entity-edit-button-settings-card entity-edit-button-settings-card--action ${actionEnabled ? 'is-enabled' : 'is-disabled'}">
+              <div class="entity-edit-button-side-card-header">
+                <div class="entity-edit-button-side-card-label">${t('editor.buttonAction')}</div>
+                ${renderEditorToggle(actionEnabled, 'data-editor-toggle-button-action-enabled')}
+              </div>
 
-          <div class="entity-edit-button-side-card">
-            <div class="entity-edit-button-side-card-label">${t('editor.buttonIndicator')}</div>
-            ${renderChannelButtonOptionRow('indicator-type', resolvedButton.indicatorType, [
-              { value: indicatorTypes.toggle, label: t('editor.buttonIndicatorToggle') },
-              { value: indicatorTypes.meter, label: t('editor.buttonIndicatorMeter') },
-              { value: indicatorTypes.press, label: t('editor.buttonIndicatorPress') }
-            ])}
+              <div class="entity-edit-button-side-card-body" data-editor-card-body="action">
+                ${renderButtonChoiceRail('action-mode', resolvedActionMode, [
+                  { value: interactionModes.push, label: t('editor.buttonModePush') },
+                  { value: interactionModes.toggle, label: t('editor.buttonModeToggle') },
+                  { value: interactionModes.trigger, label: t('editor.buttonModeTrigger') }
+                ])}
+
+                ${renderButtonChoiceGrid('action-type', resolvedButton.actionType, [
+                  { value: actionTypes.mute, label: t('editor.buttonActionMute') },
+                  { value: actionTypes.setVolume, label: t('editor.buttonActionSetVolume') },
+                  { value: actionTypes.sendKey, label: t('editor.buttonActionSendKey') },
+                  { value: actionTypes.solo, label: t('editor.buttonActionSolo') }
+                ])}
+
+                ${resolvedButton.actionType === actionTypes.setVolume
+                ? `
+                  <div class="entity-edit-button-side-subsection-label">${t('editor.buttonSetVolumeValue')}</div>
+                  <div class="settings-range-row entity-edit-button-side-range-row">
+                    <input
+                      class="settings-range"
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="1"
+                      value="${Number(resolvedButton.actionValue) || 0}"
+                      data-editor-side-button-action-value="${resolvedButton.id}">
+                    <div class="settings-range-value" data-editor-side-button-action-value-label>${Math.round(Number(resolvedButton.actionValue) || 0)}%</div>
+                  </div>
+                `
+                : ''}
+                ${resolvedButton.actionType === actionTypes.sendKey ? renderButtonKeyCapture(resolvedButton) : ''}
+              </div>
+            </div>
+
+            <div class="entity-edit-button-side-card entity-edit-button-settings-card entity-edit-button-settings-card--indicator ${indicatorEnabled ? 'is-enabled' : 'is-disabled'}">
+              <div class="entity-edit-button-side-card-header">
+                <div class="entity-edit-button-side-card-label">${t('editor.buttonIndicator')}</div>
+                <div class="entity-edit-button-side-card-header-actions">
+                  ${showModeLinkControl ? `
+                    <button
+                      class="entity-edit-button-link-icon ${indicatorLinkedToAction ? 'is-linked' : ''}"
+                      type="button"
+                      data-editor-toggle-button-mode-link
+                      aria-label="${escapeHtml(t('editor.buttonModeLink'))}"
+                      title="${escapeHtml(t('editor.buttonModeLink'))}">
+                      <svg viewBox="0 0 20 20" aria-hidden="true">
+                        <path d="M7.1 12.9L12.9 7.1"></path>
+                        <path d="M6.2 8.2L4.4 10a2.5 2.5 0 103.5 3.5l1.8-1.8"></path>
+                        <path d="M13.8 11.8l1.8-1.8a2.5 2.5 0 10-3.5-3.5L10.3 8.3"></path>
+                      </svg>
+                    </button>
+                  ` : ''}
+                  ${renderEditorToggle(indicatorEnabled, 'data-editor-toggle-button-indicator-enabled')}
+                </div>
+              </div>
+
+              <div class="entity-edit-button-side-card-body" data-editor-card-body="indicator">
+                <div class="entity-edit-button-indicator-mode-shell ${isIndicatorModePassive ? 'is-linked-passive' : ''}">
+                  ${renderButtonChoiceRail('indicator-mode', resolvedIndicatorMode, [
+                    { value: interactionModes.push, label: t('editor.buttonModePush') },
+                    { value: interactionModes.toggle, label: t('editor.buttonModeToggle') },
+                    { value: interactionModes.trigger, label: t('editor.buttonModeTrigger') }
+                  ], {
+                    className: isIndicatorModePassive ? 'is-passive' : '',
+                    disabled: isIndicatorModePassive
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -1593,11 +1752,196 @@
     `;
   }
 
+  function captureSidePanelMotionSnapshot() {
+    if (!dom.sidePanel) {
+      return null;
+    }
+
+    const choiceRects = new Map();
+    const bodyRects = new Map();
+
+    dom.sidePanel.querySelectorAll('[data-editor-choice]').forEach((element) => {
+      const key = String(element.dataset.editorChoice || '').trim();
+      const selected = element.querySelector('.entity-edit-choice-rail__option.is-active, .entity-edit-choice-grid__option.is-active');
+      const highlight = element.querySelector('.entity-edit-choice-rail__highlight, .entity-edit-choice-grid__highlight');
+
+      if (!key || (!selected && !highlight)) {
+        return;
+      }
+
+      choiceRects.set(
+        key,
+        (highlight?.getBoundingClientRect?.() || selected?.getBoundingClientRect?.() || null)
+      );
+    });
+
+    dom.sidePanel.querySelectorAll('[data-editor-card-body]').forEach((element) => {
+      const key = String(element.dataset.editorCardBody || '').trim();
+
+      if (!key) {
+        return;
+      }
+
+      bodyRects.set(key, {
+        height: element.getBoundingClientRect().height,
+        isDisabled: Boolean(element.closest('.entity-edit-button-settings-card.is-disabled'))
+      });
+    });
+
+    return { choiceRects, bodyRects };
+  }
+
+  function animateSidePanelChoiceGhost(previousRect, nextRect, choiceRoot = null) {
+    const highlight = choiceRoot?.querySelector('.entity-edit-choice-rail__highlight, .entity-edit-choice-grid__highlight');
+
+    if (!previousRect || !nextRect || !highlight) {
+      return;
+    }
+
+    if (
+      Math.abs(previousRect.left - nextRect.left) < 0.5
+      && Math.abs(previousRect.top - nextRect.top) < 0.5
+      && Math.abs(previousRect.width - nextRect.width) < 0.5
+      && Math.abs(previousRect.height - nextRect.height) < 0.5
+    ) {
+      return;
+    }
+
+    if (choiceRoot._choiceAnimationTimerId) {
+      window.clearTimeout(choiceRoot._choiceAnimationTimerId);
+      choiceRoot._choiceAnimationTimerId = null;
+    }
+    choiceRoot.querySelector('.entity-edit-choice-ghost')?.remove();
+
+    const rootRect = choiceRoot.getBoundingClientRect();
+    const computedHighlight = window.getComputedStyle(highlight);
+    const ghost = document.createElement('span');
+    ghost.className = 'entity-edit-choice-ghost';
+    ghost.style.left = `${previousRect.left - rootRect.left}px`;
+    ghost.style.top = `${previousRect.top - rootRect.top}px`;
+    ghost.style.width = `${previousRect.width}px`;
+    ghost.style.height = `${previousRect.height}px`;
+    ghost.style.borderRadius = computedHighlight.borderRadius;
+    ghost.style.border = computedHighlight.border;
+    ghost.style.background = computedHighlight.background;
+    ghost.style.boxShadow = computedHighlight.boxShadow;
+    ghost.style.opacity = computedHighlight.opacity || '1';
+
+    choiceRoot.appendChild(ghost);
+    choiceRoot.classList.add('is-animating-selection');
+    choiceRoot.classList.add('is-ghosting');
+    ghost.getBoundingClientRect();
+
+    ghost.style.transition = [
+      'left 320ms cubic-bezier(0.16, 1, 0.3, 1)',
+      'top 320ms cubic-bezier(0.16, 1, 0.3, 1)',
+      'width 320ms cubic-bezier(0.16, 1, 0.3, 1)',
+      'height 320ms cubic-bezier(0.16, 1, 0.3, 1)',
+      'opacity 180ms ease'
+    ].join(', ');
+
+    requestAnimationFrame(() => {
+      ghost.style.left = `${nextRect.left - rootRect.left}px`;
+      ghost.style.top = `${nextRect.top - rootRect.top}px`;
+      ghost.style.width = `${nextRect.width}px`;
+      ghost.style.height = `${nextRect.height}px`;
+    });
+
+    choiceRoot._choiceAnimationTimerId = window.setTimeout(() => {
+      choiceRoot.classList.remove('is-ghosting');
+      ghost.remove();
+      choiceRoot.classList.remove('is-animating-selection');
+      choiceRoot._choiceAnimationTimerId = null;
+    }, 330);
+  }
+
+  function animateSidePanelBodyTransition(element, previousState) {
+    if (!element) {
+      return;
+    }
+
+    const nextDisabled = Boolean(element.closest('.entity-edit-button-settings-card.is-disabled'));
+    const nextHeight = nextDisabled ? 0 : element.scrollHeight;
+    const previousHeight = previousState ? previousState.height : (nextDisabled ? 0 : nextHeight);
+    const previousDisabled = previousState ? previousState.isDisabled : nextDisabled;
+
+    if (previousDisabled === nextDisabled) {
+      return;
+    }
+
+    if (Math.abs(previousHeight - nextHeight) < 1) {
+      return;
+    }
+
+    element.style.overflow = 'hidden';
+    element.style.height = `${Math.max(0, previousHeight)}px`;
+    element.style.maxHeight = 'none';
+    element.style.opacity = previousDisabled ? '0' : '1';
+    element.style.transform = previousDisabled ? 'translateY(-8px)' : 'translateY(0)';
+    element.getBoundingClientRect();
+
+    element.style.transition = [
+      'height 320ms cubic-bezier(0.16, 1, 0.3, 1)',
+      'opacity 220ms ease',
+      'transform 260ms cubic-bezier(0.22, 0.78, 0.2, 1)'
+    ].join(', ');
+
+    requestAnimationFrame(() => {
+      element.style.height = `${Math.max(0, nextHeight)}px`;
+      element.style.opacity = nextDisabled ? '0' : '1';
+      element.style.transform = nextDisabled ? 'translateY(-8px)' : 'translateY(0)';
+    });
+
+    window.setTimeout(() => {
+      element.style.transition = '';
+      element.style.height = '';
+      element.style.maxHeight = '';
+      element.style.overflow = '';
+      element.style.opacity = '';
+      element.style.transform = '';
+    }, 340);
+  }
+
+  function applySidePanelMotionSnapshot(snapshot, options = {}) {
+    if (!snapshot || !dom.sidePanel) {
+      return;
+    }
+
+    const allowedChoiceKeys = Array.isArray(options?.choiceKeys)
+      ? new Set(options.choiceKeys.map((key) => String(key || '').trim()).filter(Boolean))
+      : null;
+
+    dom.sidePanel.querySelectorAll('[data-editor-choice]').forEach((element) => {
+      const key = String(element.dataset.editorChoice || '').trim();
+      const nextHighlight = element.querySelector('.entity-edit-choice-rail__highlight, .entity-edit-choice-grid__highlight');
+      const previousRect = snapshot.choiceRects?.get(key);
+
+      if (allowedChoiceKeys && !allowedChoiceKeys.has(key)) {
+        return;
+      }
+
+      if (!nextHighlight || !previousRect) {
+        return;
+      }
+
+      animateSidePanelChoiceGhost(previousRect, nextHighlight.getBoundingClientRect(), element);
+    });
+
+    dom.sidePanel.querySelectorAll('[data-editor-card-body]').forEach((element) => {
+      const key = String(element.dataset.editorCardBody || '').trim();
+      animateSidePanelBodyTransition(element, snapshot.bodyRects?.get(key));
+    });
+  }
+
   function renderSidePanel(channel) {
     if (!dom.sidePanel) {
       return;
     }
 
+    const motionSnapshot = captureSidePanelMotionSnapshot();
+    const motionChoiceKeys = Array.isArray(editorState.sidePanelMotionChoices)
+      ? editorState.sidePanelMotionChoices.slice()
+      : [];
     const previousButtonPanelScrollTop = editorState.sidePanelMode === 'channel-button'
       ? (dom.sidePanel.querySelector('.entity-edit-button-side-layout')?.scrollTop || 0)
       : 0;
@@ -1609,6 +1953,8 @@
 
     if (!isTargetsSidePanelMode()) {
       dom.sidePanel.innerHTML = renderChannelButtonSidePanel(channel);
+      applySidePanelMotionSnapshot(motionSnapshot, { choiceKeys: motionChoiceKeys });
+      editorState.sidePanelMotionChoices = null;
       dom.sideOptions = null;
       dom.sidePanel.querySelectorAll('.settings-range').forEach((element) => {
         updateSettingsRangeFill?.(element);
@@ -1623,6 +1969,8 @@
       }
       return;
     }
+
+    editorState.sidePanelMotionChoices = null;
 
     dom.sidePanel.innerHTML = `
       <div class="entity-edit-side-panel-inner">
@@ -2110,6 +2458,7 @@
     editorState.sidePanelButtonId = null;
     editorState.sidePanelIconPickerOpen = false;
     editorState.sidePanelIconPickerExpanded = false;
+    editorState.sidePanelKeyCaptureActive = false;
     editorState.sidePanelOpen = true;
     renderSidePanel(getEditorChannel());
     requestTargetsPanelApplicationsRefresh({ force: true });
@@ -2124,6 +2473,7 @@
     editorState.sidePanelButtonId = buttonId;
     editorState.sidePanelIconPickerOpen = false;
     editorState.sidePanelIconPickerExpanded = false;
+    editorState.sidePanelKeyCaptureActive = false;
     resetSidePanelButtonDraft(button);
     editorState.sidePanelOpen = true;
     renderSidePanel(getEditorChannel());
@@ -2147,6 +2497,7 @@
       editorState.sidePanelButtonId = null;
       editorState.sidePanelIconPickerOpen = false;
       editorState.sidePanelIconPickerExpanded = false;
+      editorState.sidePanelKeyCaptureActive = false;
       resetSidePanelButtonDraft(null);
       renderSidePanel(getEditorChannel());
     }, ENTITY_EDITOR_SIDE_PANEL_CLOSE_MS);
@@ -2424,6 +2775,22 @@
       return null;
     }
 
+    const currentButton = getEditorChannelButton(editorState.sidePanelButtonId);
+
+    if (!currentButton) {
+      return null;
+    }
+
+    const changedKeys = Object.keys(patch || {}).filter((key) => currentButton[key] !== patch[key]);
+
+    if (!changedKeys.length) {
+      return currentButton;
+    }
+
+    editorState.sidePanelMotionChoices = Array.isArray(meta?.motionChoices)
+      ? meta.motionChoices
+      : [];
+
     return window.channelActions?.updateChannelButton?.(
       editorState.channelId,
       editorState.sidePanelButtonId,
@@ -2513,6 +2880,35 @@
   }
 
   function handleSidePanelKeyDown(event) {
+    if (editorState.sidePanelKeyCaptureActive) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (event.key === 'Escape') {
+        editorState.sidePanelKeyCaptureActive = false;
+        renderSidePanel(getEditorChannel());
+        return;
+      }
+
+      const normalizedKey = getNormalizedCapturedButtonKey(event);
+
+      if (!normalizedKey) {
+        return;
+      }
+
+      editorState.sidePanelKeyCaptureActive = false;
+      updateSidePanelChannelButton({
+        actionEnabled: true,
+        actionType: (getEditorChannelButton(editorState.sidePanelButtonId)?.actionType === (window.CHANNEL_BUTTON_ACTION_TYPES?.none || 'none'))
+          ? (window.CHANNEL_BUTTON_ACTION_TYPES?.sendKey || 'send-key')
+          : getEditorChannelButton(editorState.sidePanelButtonId)?.actionType,
+        key: normalizedKey
+      }, {
+        type: 'channels/button-update'
+      });
+      return;
+    }
+
     if (!event.target.matches('[data-editor-side-button-title-input]')) {
       return;
     }
@@ -2540,11 +2936,45 @@
     }
 
     if (!isTargetsSidePanelMode()) {
+      const actionToggleButton = event.target.closest('[data-editor-toggle-button-action-enabled]');
+      const indicatorToggleButton = event.target.closest('[data-editor-toggle-button-indicator-enabled]');
       const iconPickerToggleButton = event.target.closest('[data-editor-toggle-button-icon-picker]');
       const iconPickerMoreButton = event.target.closest('[data-editor-toggle-button-icon-picker-more]');
       const iconButton = event.target.closest('[data-editor-button-icon-option]');
       const optionButton = event.target.closest('[data-editor-button-option-name]');
       const bindMidiButton = event.target.closest('[data-editor-bind-channel-button-midi]');
+      const keyCaptureButton = event.target.closest('[data-editor-side-button-key-capture]');
+      const linkModesButton = event.target.closest('[data-editor-toggle-button-mode-link]');
+      const actionTypes = window.CHANNEL_BUTTON_ACTION_TYPES || {
+        none: 'none',
+        mute: 'mute',
+        solo: 'solo',
+        setVolume: 'set-volume',
+        sendKey: 'send-key'
+      };
+      const interactionModes = getChannelButtonInteractionModes();
+
+      if (actionToggleButton) {
+        const currentButton = getEditorChannelButton(editorState.sidePanelButtonId);
+        const nextActionEnabled = !Boolean(currentButton?.actionEnabled);
+
+        updateSidePanelChannelButton({
+          actionEnabled: nextActionEnabled
+        }, {
+          type: 'channels/button-update'
+        });
+        return;
+      }
+
+      if (indicatorToggleButton) {
+        const currentButton = getEditorChannelButton(editorState.sidePanelButtonId);
+        updateSidePanelChannelButton({
+          indicatorEnabled: currentButton?.indicatorEnabled === false
+        }, {
+          type: 'channels/button-update'
+        });
+        return;
+      }
 
       if (iconPickerToggleButton) {
         editorState.sidePanelIconPickerOpen = !editorState.sidePanelIconPickerOpen;
@@ -2568,6 +2998,35 @@
           Number.parseInt(bindMidiButton.dataset.editorBindChannelButtonMidi, 10),
           { source: 'entity-editor-side-panel' }
         );
+        return;
+      }
+
+      if (keyCaptureButton) {
+        editorState.sidePanelKeyCaptureActive = !editorState.sidePanelKeyCaptureActive;
+        renderSidePanel(getEditorChannel());
+
+        if (editorState.sidePanelKeyCaptureActive) {
+          requestAnimationFrame(() => {
+            dom.sidePanel?.querySelector('[data-editor-side-button-key-capture]')?.focus?.();
+          });
+        }
+        return;
+      }
+
+      if (linkModesButton) {
+        const currentButton = getEditorChannelButton(editorState.sidePanelButtonId);
+        const nextLinkedState = !Boolean(currentButton?.indicatorModeLinkedToAction);
+        const nextActionMode = Object.values(interactionModes).includes(currentButton?.actionMode)
+          ? currentButton.actionMode
+          : interactionModes.trigger;
+
+        updateSidePanelChannelButton({
+          indicatorModeLinkedToAction: nextLinkedState,
+          ...(nextLinkedState ? { indicatorMode: nextActionMode } : {})
+        }, {
+          type: 'channels/button-update',
+          motionChoices: []
+        });
         return;
       }
 
@@ -2601,18 +3060,46 @@
 
         if (optionName === 'action-type') {
           updateSidePanelChannelButton({
+            actionEnabled: true,
             actionType: optionValue
           }, {
-            type: 'channels/button-update'
+            type: 'channels/button-update',
+            motionChoices: ['action-type']
           });
           return;
         }
 
-        if (optionName === 'indicator-type') {
+        if (optionName === 'action-mode') {
+          const currentButton = getEditorChannelButton(editorState.sidePanelButtonId);
+          const nextMode = Object.values(interactionModes).includes(optionValue)
+            ? optionValue
+            : interactionModes.trigger;
           updateSidePanelChannelButton({
-            indicatorType: optionValue
+            actionMode: nextMode,
+            ...(currentButton?.indicatorModeLinkedToAction ? { indicatorMode: nextMode } : {})
           }, {
-            type: 'channels/button-update'
+            type: 'channels/button-update',
+            motionChoices: currentButton?.indicatorModeLinkedToAction
+              ? ['action-mode', 'indicator-mode']
+              : ['action-mode']
+          });
+          return;
+        }
+
+        if (optionName === 'indicator-mode') {
+          if (getEditorChannelButton(editorState.sidePanelButtonId)?.indicatorModeLinkedToAction) {
+            return;
+          }
+
+          updateSidePanelChannelButton({
+            indicatorEnabled: true,
+            indicatorModeLinkedToAction: false,
+            indicatorMode: Object.values(interactionModes).includes(optionValue)
+              ? optionValue
+              : interactionModes.trigger
+          }, {
+            type: 'channels/button-update',
+            motionChoices: ['indicator-mode']
           });
         }
       }
@@ -2861,6 +3348,7 @@
             editorState.sidePanelClosing = false;
             editorState.sidePanelMode = 'targets';
             editorState.sidePanelButtonId = null;
+            editorState.sidePanelKeyCaptureActive = false;
             resetSidePanelButtonDraft(null);
             renderSidePanel(channel);
           } else if (editorState.sidePanelMode === 'channel-button' && editorState.sidePanelOpen) {
@@ -2928,6 +3416,7 @@
           editorState.sidePanelClosing = false;
           editorState.sidePanelMode = 'targets';
           editorState.sidePanelButtonId = null;
+          editorState.sidePanelKeyCaptureActive = false;
         }
 
         const activeTitleInput = dom.main?.querySelector('#entityEditTitleInput');

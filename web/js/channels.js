@@ -427,7 +427,7 @@ function buildChannelVolumeHudPayload(channel, meta = {}) {
 
 function emitChannelVolumeHud(channel, meta = {}) {
   const payload = buildChannelVolumeHudPayload(channel, meta);
-  const api = typeof getApi === 'function' ? getApi() : window.pywebview?.api ?? null;
+  const api = typeof getApi === 'function' ? getApi() : window.getNativeApi?.() ?? null;
 
   if (!payload || !api?.show_volume_hud) {
     return;
@@ -509,7 +509,7 @@ async function flushChannelVolumePush(channelId) {
   state.inFlight = true;
 
   try {
-    const api = typeof getApi === 'function' ? getApi() : window.pywebview?.api ?? null;
+    const api = typeof getApi === 'function' ? getApi() : window.getNativeApi?.() ?? null;
     const channelSettings = getChannelRuntimeSettings(channel);
     const targetProcesses = getChannelTargetProcesses(channel);
 
@@ -1139,6 +1139,7 @@ function initChannelUiStateSync() {
 window.applyChannelVolumeRuntime = function applyChannelVolumeRuntime(channelId, volume, meta = {}) {
   return applyVolumeToChannel(channelId, volume, { source: 'midi-runtime', ...meta });
 };
+window.createChannel = createChannel;
 window.queueChannelVolumePushRuntime = queueChannelVolumePush;
 window.resetChannelVolumePushRuntime = resetChannelVolumePushState;
 window.emitChannelVolumeHudRuntime = emitChannelVolumeHud;

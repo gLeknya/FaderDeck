@@ -119,7 +119,7 @@ class AudioSessionBridge {
           continue;
         }
 
-        let message = null;
+        let message;
 
         try {
           message = JSON.parse(line);

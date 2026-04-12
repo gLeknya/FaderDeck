@@ -114,6 +114,10 @@ const TRANSLATIONS = Object.freeze({
       buttonAction: 'Действие',
       buttonActionNone: 'Без действия',
       buttonIndicator: 'Индикатор',
+      buttonModePush: 'push',
+      buttonModeToggle: 'toggle',
+      buttonModeTrigger: 'trigger',
+      buttonModeLink: 'Связать',
       buttonContentDisplay: 'Показывать',
       buttonMetaDisplay: 'Нижний блок',
       buttonContentDisplayIconTitle: 'Иконка и имя',
@@ -125,20 +129,24 @@ const TRANSLATIONS = Object.freeze({
       buttonActionMute: 'Mute',
       buttonActionSolo: 'Solo',
       buttonActionSetVolume: 'Set volume',
+      buttonActionSendKey: 'Send key',
       buttonIndicatorToggle: 'Переключаемая',
       buttonIndicatorMeter: 'Пикометр',
       buttonIndicatorPress: 'Гореть при нажатии',
+      buttonKey: 'Клавиша',
+      buttonKeyPlaceholder: 'Нажмите клавишу...',
+      buttonKeyRequired: 'Сначала выберите клавишу для send key',
       buttonSetVolumeValue: 'Громкость',
-      buttonMidiBinding: 'MIDI бинд',
+      buttonMidiBinding: 'MIDI Bind',
       buttonMidiUnbound: 'Не привязано',
-      buttonMidiBind: 'Забиндить',
-      buttonMidiRebind: 'Перебиндить',
+      buttonMidiBind: 'Bind',
+      buttonMidiRebind: 'Bind',
       buttonIconMore: 'Ещё иконки',
       buttonIconLess: 'Скрыть иконки',
       buttonPanelStubTitle: 'Будущая панель настройки',
       buttonPanelStubText: 'Здесь позже появятся действия, режимы и дополнительные параметры кнопки.',
       titlePlaceholder: 'Название фейдера',
-      remap: 'Перебиндить',
+      remap: 'Bind',
       targets: 'Цели / приложения / устройства',
       addTarget: 'Добавить',
       noTargetAssigned: 'Нет цели',
@@ -180,7 +188,7 @@ const TRANSLATIONS = Object.freeze({
       defaultTitle: 'Канал {index}',
       unnamed: 'Без названия',
       configure: 'Настроить',
-      bindToMixer: 'Забиндить к микшеру',
+      bindToMixer: 'Bind',
       unboundWarning: 'Этот фейдер не привязан к MIDI-контроллеру. Он будет работать только через интерфейс.',
       channelNamePrompt: 'Название канала:',
       advancedControlChange: 'control_change (CC {control})',
@@ -202,13 +210,13 @@ const TRANSLATIONS = Object.freeze({
       bindSuccess: 'Фейдер забинжен',
       buttonBindSuccess: 'Кнопка забинжена',
       selectDeviceFirst: 'Сначала выберите MIDI-устройство.',
-      conflict: 'Этот контроллер уже используется каналом "{name}". Всё равно перебиндить?',
-      buttonConflict: 'Этот контроллер уже используется другим элементом "{name}". Всё равно перебиндить?'
+      conflict: 'Этот контроллер уже используется каналом "{name}". Всё равно Bind?',
+      buttonConflict: 'Этот контроллер уже используется другим элементом "{name}". Всё равно Bind?'
     },
     context: {
       edit: 'Изменить',
       select: 'Выделить',
-      remap: 'Перебиндить',
+      remap: 'Bind',
       delete: 'Удалить'
     },
     common: {
@@ -367,6 +375,10 @@ const TRANSLATIONS = Object.freeze({
       buttonAction: 'Action',
       buttonActionNone: 'No action',
       buttonIndicator: 'Indicator',
+      buttonModePush: 'push',
+      buttonModeToggle: 'toggle',
+      buttonModeTrigger: 'trigger',
+      buttonModeLink: 'Link',
       buttonContentDisplay: 'Show',
       buttonMetaDisplay: 'Bottom row',
       buttonContentDisplayIconTitle: 'Icon and title',
@@ -378,20 +390,24 @@ const TRANSLATIONS = Object.freeze({
       buttonActionMute: 'Mute',
       buttonActionSolo: 'Solo',
       buttonActionSetVolume: 'Set volume',
+      buttonActionSendKey: 'Send key',
       buttonIndicatorToggle: 'Toggle',
       buttonIndicatorMeter: 'Peak meter',
       buttonIndicatorPress: 'Light on press',
+      buttonKey: 'Key',
+      buttonKeyPlaceholder: 'Press a key...',
+      buttonKeyRequired: 'Choose a key for send key first',
       buttonSetVolumeValue: 'Volume',
-      buttonMidiBinding: 'MIDI bind',
+      buttonMidiBinding: 'MIDI Bind',
       buttonMidiUnbound: 'Not bound',
       buttonMidiBind: 'Bind',
-      buttonMidiRebind: 'Rebind',
+      buttonMidiRebind: 'Bind',
       buttonIconMore: 'More icons',
       buttonIconLess: 'Less icons',
       buttonPanelStubTitle: 'Future settings panel',
       buttonPanelStubText: 'Actions, modes, and extra button settings will appear here later.',
       titlePlaceholder: 'Fader name',
-      remap: 'Rebind',
+      remap: 'Bind',
       targets: 'Targets / apps / devices',
       addTarget: 'Add',
       noTargetAssigned: 'No target',
@@ -433,7 +449,7 @@ const TRANSLATIONS = Object.freeze({
       defaultTitle: 'Channel {index}',
       unnamed: 'Untitled',
       configure: 'Configure',
-      bindToMixer: 'Bind to mixer',
+      bindToMixer: 'Bind',
       unboundWarning: 'This fader is not bound to a MIDI control. It will only respond through the interface.',
       channelNamePrompt: 'Channel name:',
       advancedControlChange: 'control_change (CC {control})',
@@ -461,7 +477,7 @@ const TRANSLATIONS = Object.freeze({
     context: {
       edit: 'Edit',
       select: 'Select',
-      remap: 'Rebind',
+      remap: 'Bind',
       delete: 'Delete'
     },
     common: {
@@ -508,7 +524,7 @@ const TRANSLATIONS = Object.freeze({
 });
 
 const DEFAULT_LANGUAGE = 'ru';
-const LANGUAGE_STORAGE_KEY = 'faderdeck_language';
+const languageStorage = window.languageStorage;
 let currentLanguage = DEFAULT_LANGUAGE;
 
 function getNestedValue(source, path) {
@@ -524,7 +540,7 @@ function getSupportedLanguage(language) {
 }
 
 function getInitialLanguage() {
-  const savedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  const savedLanguage = languageStorage?.readLanguage('') || '';
   const browserLanguage = navigator.language?.slice(0, 2);
   return getSupportedLanguage(savedLanguage || browserLanguage || DEFAULT_LANGUAGE);
 }
@@ -572,7 +588,7 @@ function setLanguage(language, options = {}) {
   document.documentElement.lang = nextLanguage;
 
   if (shouldPersist) {
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, nextLanguage);
+    languageStorage?.writeLanguage(nextLanguage);
   }
 
   applyTranslations();

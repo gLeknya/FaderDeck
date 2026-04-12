@@ -2,7 +2,7 @@
   function getProfileApi() {
     return typeof window.getApi === 'function'
       ? window.getApi()
-      : window.pywebview?.api ?? null;
+      : window.getNativeApi?.() ?? null;
   }
 
   function captureProfileSnapshot(profileName = '') {

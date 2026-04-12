@@ -39,6 +39,32 @@ const appSessionState = {
     dragging: false
   }
 };
+const sharedUiStateModel = window.rendererStateModel || {};
+const DEFAULT_UI_SETTINGS = sharedUiStateModel.DEFAULT_PERSISTED_UI_SETTINGS || {
+  advancedMode: false,
+  developerMode: false,
+  faderInterpolationEnabled: false,
+  softTakeoverEnabled: false,
+  softTakeoverThreshold: 5,
+  showFractionalNumbers: false,
+  showFractionalOnlyLow: false,
+  volumeCurveEnabled: false,
+  volumeCurveType: 'ease-in-out',
+  volumeCurveAmount: 0,
+  profileToolbarSwitcherEnabled: true,
+  volumeHudEnabled: true,
+  volumeHudPosition: 'bottom-center',
+  volumeHudOrientation: 'horizontal',
+  volumeHudShowIcon: true,
+  volumeHudShowTitle: true,
+  volumeHudShowSubtitle: true,
+  volumeHudShowPercent: true,
+  volumeHudShowMeter: true
+};
+const DEFAULT_UI_MENU = sharedUiStateModel.DEFAULT_SESSION_UI_MENU || {
+  open: false,
+  activeTab: null
+};
 
 let uiStateSyncInitialized = false;
 let audioRuntimeBridgeInitialized = false;
@@ -52,7 +78,7 @@ function $(id) {
 }
 
 function getApi() {
-  return window.pywebview?.api ?? null;
+  return window.getNativeApi?.() ?? null;
 }
 
 function cacheDomElements() {
@@ -120,34 +146,11 @@ function cacheDomElements() {
 }
 
 function getUiSettings() {
-  return getUiSettingsState?.() || {
-    advancedMode: false,
-    developerMode: false,
-    faderInterpolationEnabled: false,
-    softTakeoverEnabled: false,
-    softTakeoverThreshold: 5,
-    showFractionalNumbers: false,
-    showFractionalOnlyLow: false,
-    volumeCurveEnabled: false,
-    volumeCurveType: 'ease-in-out',
-    volumeCurveAmount: 0,
-    profileToolbarSwitcherEnabled: true,
-    volumeHudEnabled: true,
-    volumeHudPosition: 'bottom-center',
-    volumeHudOrientation: 'horizontal',
-    volumeHudShowIcon: true,
-    volumeHudShowTitle: true,
-    volumeHudShowSubtitle: true,
-    volumeHudShowPercent: true,
-    volumeHudShowMeter: true
-  };
+  return getUiSettingsState?.() || { ...DEFAULT_UI_SETTINGS };
 }
 
 function getUiMenu() {
-  return getUiMenuState?.() || {
-    open: false,
-    activeTab: null
-  };
+  return getUiMenuState?.() || { ...DEFAULT_UI_MENU };
 }
 
 function getLayoutEditorSession() {
@@ -1722,7 +1725,7 @@ function bindGlobalUi() {
   });
 }
 
-function init() {
+function initializeAppShell() {
   cacheDomElements();
   hideLegacyVolumeHudSettingsUi();
   initUiStore?.();
@@ -1763,52 +1766,56 @@ function init() {
   initWebMIDI();
   scheduleContentMetricsUpdate();
 }
-window.getVolumeHudPresentationSettings = getVolumeHudPresentationSettings;
-window.getApi = getApi;
-window.logTest = logTest;
-window.toggleLayoutEditMode = function toggleLayoutEditMode() {
+
+function toggleLayoutEditModeShell() {
   if (isLayoutEditorParkedUi()) {
     return null;
   }
 
   return window.layoutActions?.toggleLayoutEditMode({ source: 'ui' }) || null;
-};
-window.selectLayoutSurfaceItem = function selectLayoutSurfaceItem(itemId) {
+}
+
+function selectLayoutSurfaceItemShell(itemId) {
   if (isLayoutEditorParkedUi()) {
     return null;
   }
 
   return window.layoutActions?.selectLayoutItem(itemId, { source: 'ui' }) || null;
-};
-window.hoverLayoutSurfaceItem = function hoverLayoutSurfaceItem(itemId) {
+}
+
+function hoverLayoutSurfaceItemShell(itemId) {
   if (isLayoutEditorParkedUi()) {
     return null;
   }
 
   return window.layoutActions?.hoverLayoutItem(itemId, { source: 'ui' }) || null;
-};
-window.clearLayoutSurfaceHover = function clearLayoutSurfaceHover() {
+}
+
+function clearLayoutSurfaceHoverShell() {
   if (isLayoutEditorParkedUi()) {
     return null;
   }
 
   return window.layoutActions?.clearLayoutHover({ source: 'ui' }) || null;
-};
-window.insertLayoutSpacerIntoZone = function insertLayoutSpacerIntoZone(zone) {
+}
+
+function insertLayoutSpacerIntoZoneShell(zone) {
   if (isLayoutEditorParkedUi()) {
     return null;
   }
 
   return window.layoutActions?.insertSpacer({ zone }, { source: 'ui' }) || null;
-};
-window.removeLayoutSpacer = function removeLayoutSpacer(itemId) {
+}
+
+function removeLayoutSpacerShell(itemId) {
   if (isLayoutEditorParkedUi()) {
     return null;
   }
 
   return window.layoutActions?.removeLayoutItem(itemId, { source: 'ui' }) || null;
-};
-window.startLayoutSurfaceDrag = function startLayoutSurfaceDrag(event, itemId) {
+}
+
+function startLayoutSurfaceDragShell(event, itemId) {
   if (isLayoutEditorParkedUi() || !getLayoutEditModeEnabled()) {
     return null;
   }
@@ -1821,8 +1828,9 @@ window.startLayoutSurfaceDrag = function startLayoutSurfaceDrag(event, itemId) {
   }
 
   return window.layoutActions?.beginLayoutItemDrag(itemId, { source: 'ui' }) || null;
-};
-window.previewLayoutSurfaceDrop = function previewLayoutSurfaceDrop(event, zone, itemId) {
+}
+
+function previewLayoutSurfaceDropShell(event, zone, itemId) {
   if (isLayoutEditorParkedUi() || !getLayoutEditModeEnabled()) {
     return null;
   }
@@ -1852,34 +1860,54 @@ window.previewLayoutSurfaceDrop = function previewLayoutSurfaceDrop(event, zone,
   }, {
     source: 'ui'
   }) || null;
-};
-window.dropLayoutSurfaceItem = function dropLayoutSurfaceItem(event, zone, itemId) {
+}
+
+function dropLayoutSurfaceItemShell(event, zone, itemId) {
   if (isLayoutEditorParkedUi() || !getLayoutEditModeEnabled()) {
     return null;
   }
 
-  window.previewLayoutSurfaceDrop(event, zone, itemId);
+  previewLayoutSurfaceDropShell(event, zone, itemId);
   return window.layoutActions?.commitLayoutDrop({ source: 'ui' }) || null;
-};
-window.endLayoutSurfaceDrag = function endLayoutSurfaceDrag() {
+}
+
+function endLayoutSurfaceDragShell() {
   if (isLayoutEditorParkedUi()) {
     return null;
   }
 
   return window.layoutActions?.cancelLayoutItemDrag({ source: 'ui' }) || null;
-};
-
-function safeInit() {
-  try {
-    if (getApi()) {
-      init();
-      return;
-    }
-  } catch (error) {
-    console.error(error);
-  }
-
-  setTimeout(safeInit, 200);
 }
 
-setTimeout(safeInit, 300);
+window.appShell = Object.freeze({
+  initialize: initializeAppShell,
+  getVolumeHudPresentationSettings,
+  getApi,
+  logTest,
+  toggleMainMenu,
+  toggleLayoutEditMode: toggleLayoutEditModeShell,
+  selectLayoutSurfaceItem: selectLayoutSurfaceItemShell,
+  hoverLayoutSurfaceItem: hoverLayoutSurfaceItemShell,
+  clearLayoutSurfaceHover: clearLayoutSurfaceHoverShell,
+  insertLayoutSpacerIntoZone: insertLayoutSpacerIntoZoneShell,
+  removeLayoutSpacer: removeLayoutSpacerShell,
+  startLayoutSurfaceDrag: startLayoutSurfaceDragShell,
+  previewLayoutSurfaceDrop: previewLayoutSurfaceDropShell,
+  dropLayoutSurfaceItem: dropLayoutSurfaceItemShell,
+  endLayoutSurfaceDrag: endLayoutSurfaceDragShell
+});
+
+window.getVolumeHudPresentationSettings = getVolumeHudPresentationSettings;
+window.getApi = getApi;
+window.logTest = logTest;
+window.toggleMainMenu = toggleMainMenu;
+window.toggleLayoutEditMode = toggleLayoutEditModeShell;
+window.selectLayoutSurfaceItem = selectLayoutSurfaceItemShell;
+window.hoverLayoutSurfaceItem = hoverLayoutSurfaceItemShell;
+window.clearLayoutSurfaceHover = clearLayoutSurfaceHoverShell;
+window.insertLayoutSpacerIntoZone = insertLayoutSpacerIntoZoneShell;
+window.removeLayoutSpacer = removeLayoutSpacerShell;
+window.startLayoutSurfaceDrag = startLayoutSurfaceDragShell;
+window.previewLayoutSurfaceDrop = previewLayoutSurfaceDropShell;
+window.dropLayoutSurfaceItem = dropLayoutSurfaceItemShell;
+window.endLayoutSurfaceDrag = endLayoutSurfaceDragShell;

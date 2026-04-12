@@ -23,7 +23,7 @@
   function getAudioApi() {
     return typeof window.getApi === 'function'
       ? window.getApi()
-      : (window.pywebview?.api ?? null);
+      : (window.getNativeApi?.() ?? null);
   }
 
   function cloneAudioApp(application = {}) {
@@ -214,7 +214,7 @@
         const api = getAudioApi();
 
         if (!api) {
-          console.warn('pywebview.api not ready in loadAudioApps');
+          console.warn('native api bridge not ready in loadAudioApps');
           return getAvailableAudioApps();
         }
 

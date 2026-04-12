@@ -2,9 +2,16 @@ const { app, BrowserWindow, ipcMain, Menu, dialog, shell, screen } = require('el
 const path = require('path');
 
 const { FaderDeckAPI } = require('./backend/api');
-
-const WINDOW_CONTROL_CHANNEL = 'window-control';
-const SHOW_VOLUME_HUD_CHANNEL = 'api:show_volume_hud';
+const {
+  DEFAULT_MAIN_WINDOW_STATE,
+  getMainWindowState,
+  saveMainWindowState
+} = require('./backend/app-store');
+const { createLogger } = require('./backend/logger');
+const {
+  registerIpcInvokeHandlers,
+  registerIpcSendHandlers
+} = require('./shared/ipc-contract');
 const VOLUME_HUD_UPDATE_CHANNEL = 'volume-hud:update';
 const VOLUME_HUD_VISIBILITY_CHANNEL = 'volume-hud:visibility';
 const VOLUME_HUD_HIDE_DELAY_MS = 1350;
@@ -45,7 +52,8 @@ const WINDOW_OPTIONS = {
   webPreferences: {
     preload: path.join(__dirname, 'preload.js'),
     contextIsolation: true,
-    nodeIntegration: false
+    nodeIntegration: false,
+    sandbox: false
   }
 };
 
@@ -54,7 +62,9 @@ let volumeHudWindow = null;
 let volumeHudReadyPromise = null;
 let volumeHudHideTimer = null;
 let volumeHudHideCommitTimer = null;
+let mainWindowStateSaveTimer = null;
 let api = null;
+const logger = createLogger('main');
 
 function ensureApi() {
   if (!api) {
@@ -69,8 +79,66 @@ function shutdownApi() {
     return;
   }
 
+  logger.info('shutdown api');
   api.shutdown();
   api = null;
+}
+
+function clearMainWindowStateSaveTimer() {
+  if (!mainWindowStateSaveTimer) {
+    return;
+  }
+
+  clearTimeout(mainWindowStateSaveTimer);
+  mainWindowStateSaveTimer = null;
+}
+
+async function persistMainWindowState(window = mainWindow) {
+  if (!window || window.isDestroyed()) {
+    return;
+  }
+
+  try {
+    await saveMainWindowState(window);
+  } catch (error) {
+    logger.warn('failed to persist main window state', error);
+  }
+}
+
+function scheduleMainWindowStateSave(window = mainWindow) {
+  clearMainWindowStateSaveTimer();
+
+  if (!window || window.isDestroyed()) {
+    return;
+  }
+
+  mainWindowStateSaveTimer = setTimeout(() => {
+    void persistMainWindowState(window);
+  }, 150);
+}
+
+async function resolveMainWindowState() {
+  try {
+    return await getMainWindowState();
+  } catch (error) {
+    logger.warn('failed to load persisted main window state', error);
+    return DEFAULT_MAIN_WINDOW_STATE;
+  }
+}
+
+function buildMainWindowOptions(windowState = DEFAULT_MAIN_WINDOW_STATE) {
+  const windowOptions = {
+    ...WINDOW_OPTIONS,
+    width: windowState.width,
+    height: windowState.height
+  };
+
+  if (Number.isFinite(windowState.x) && Number.isFinite(windowState.y)) {
+    windowOptions.x = windowState.x;
+    windowOptions.y = windowState.y;
+  }
+
+  return windowOptions;
 }
 
 function clearVolumeHudTimers() {
@@ -284,13 +352,36 @@ async function showVolumeHud(payload = {}) {
   return { success: true };
 }
 
-function createMainWindow() {
+async function createMainWindow() {
   ensureApi();
 
-  mainWindow = new BrowserWindow(WINDOW_OPTIONS);
+  const windowState = await resolveMainWindowState();
+
+  mainWindow = new BrowserWindow(buildMainWindowOptions(windowState));
   mainWindow.loadFile(path.join(__dirname, 'web', 'index.html'));
 
+  if (windowState.isMaximized) {
+    mainWindow.maximize();
+  }
+
+  mainWindow.on('resize', () => {
+    scheduleMainWindowStateSave(mainWindow);
+  });
+
+  mainWindow.on('move', () => {
+    scheduleMainWindowStateSave(mainWindow);
+  });
+
+  mainWindow.on('maximize', () => {
+    scheduleMainWindowStateSave(mainWindow);
+  });
+
+  mainWindow.on('unmaximize', () => {
+    scheduleMainWindowStateSave(mainWindow);
+  });
+
   mainWindow.on('closed', () => {
+    clearMainWindowStateSaveTimer();
     mainWindow = null;
     destroyVolumeHudWindow();
     shutdownApi();
@@ -343,22 +434,23 @@ function handleWindowControl(window, action) {
 }
 
 function registerIpcHandlers() {
-    const handlers = {
-      'api:get_audio_applications': () => ensureApi().getAudioApplications(),
-      'api:list_running_applications': () => ensureApi().listRunningApplications(),
-      'api:get_audio_states': (_event, processNames) => ensureApi().getAudioStates(processNames),
-      'api:set_app_volume': (_event, processName, volume) => ensureApi().setAppVolume(processName, volume),
-      'api:toggle_app_mute': (_event, processName) => ensureApi().toggleAppMute(processName),
-      'api:set_app_mute': (_event, processName, muted) => ensureApi().setAppMute(processName, muted),
-      'api:save_profile': (_event, name, data) => ensureApi().saveProfile(name, data),
-    'api:load_profile': (_event, name) => ensureApi().loadProfile(name),
-    'api:list_profiles': () => ensureApi().listProfiles(),
-    'api:delete_profile': (_event, name) => ensureApi().deleteProfile(name),
-    'api:rename_profile': (_event, fromName, toName) => ensureApi().renameProfile(fromName, toName),
-    'api:import_profile': (_event, filePath, options) => ensureApi().importProfile(filePath, options),
-    'api:get_profile_template': (_event, options) => ensureApi().getProfileTemplate(options),
-    'api:get_profiles_directory': () => ensureApi().getProfilesDirectory(),
-    'api:get_application_icons': async (_event, applicationPaths = []) => {
+  registerIpcInvokeHandlers(ipcMain, {
+    get_audio_applications: () => ensureApi().getAudioApplications(),
+    list_running_applications: () => ensureApi().listRunningApplications(),
+    get_audio_states: (_event, processNames) => ensureApi().getAudioStates(processNames),
+    set_app_volume: (_event, processName, volume) => ensureApi().setAppVolume(processName, volume),
+    toggle_app_mute: (_event, processName) => ensureApi().toggleAppMute(processName),
+    set_app_mute: (_event, processName, muted) => ensureApi().setAppMute(processName, muted),
+    send_key: (_event, key, targetHint) => ensureApi().sendKey(key, targetHint),
+    save_profile: (_event, name, data) => ensureApi().saveProfile(name, data),
+    load_profile: (_event, name) => ensureApi().loadProfile(name),
+    list_profiles: () => ensureApi().listProfiles(),
+    delete_profile: (_event, name) => ensureApi().deleteProfile(name),
+    rename_profile: (_event, fromName, toName) => ensureApi().renameProfile(fromName, toName),
+    import_profile: (_event, filePath, options) => ensureApi().importProfile(filePath, options),
+    get_profile_template: (_event, options) => ensureApi().getProfileTemplate(options),
+    get_profiles_directory: () => ensureApi().getProfilesDirectory(),
+    get_application_icons: async (_event, applicationPaths = []) => {
       const icons = {};
       const uniquePaths = Array.isArray(applicationPaths)
         ? [...new Set(applicationPaths.filter((entry) => typeof entry === 'string' && entry.trim()))]
@@ -371,7 +463,7 @@ function registerIpcHandlers() {
           if (icon && !icon.isEmpty()) {
             icons[applicationPath] = icon.toDataURL();
           }
-        } catch (_error) {
+        } catch {
           // Some processes do not expose a retrievable shell icon; skip them silently.
         }
       }));
@@ -381,18 +473,18 @@ function registerIpcHandlers() {
         icons
       };
     },
-    'api:open_profiles_folder': async () => {
+    open_profiles_folder: async () => {
       const { path: profilesPath } = ensureApi().getProfilesDirectory();
       await shell.openPath(profilesPath);
       return { success: true, path: profilesPath };
     },
-    'api:show_profile_in_folder': async (_event, profilePath) => {
+    show_profile_in_folder: async (_event, profilePath) => {
       if (profilePath) {
         shell.showItemInFolder(profilePath);
       }
       return { success: true };
     },
-    'api:pick_profile_file': async (event) => {
+    pick_profile_file: async (event) => {
       const window = getEventWindow(event) || mainWindow;
       const result = await dialog.showOpenDialog(window, {
         title: 'Import profile',
@@ -409,35 +501,38 @@ function registerIpcHandlers() {
         filePath: result.filePaths?.[0] || null
       };
     },
-    'api:toggle_devtools': (event) => toggleDevTools(getEventWindow(event)),
-    'api:exit_app': () => {
+    toggle_devtools: (event) => toggleDevTools(getEventWindow(event)),
+    exit_app: () => {
       mainWindow?.close();
     },
-    [WINDOW_CONTROL_CHANNEL]: (event, action) => handleWindowControl(getEventWindow(event), action)
-  };
-
-  Object.entries(handlers).forEach(([channel, handler]) => {
-    ipcMain.handle(channel, handler);
+    windowControl: (event, action) => handleWindowControl(getEventWindow(event), action)
   });
 
-  ipcMain.on(SHOW_VOLUME_HUD_CHANNEL, (_event, payload) => {
-    void showVolumeHud(payload);
+  registerIpcSendHandlers(ipcMain, {
+    show_volume_hud: (_event, payload) => {
+      void showVolumeHud(payload);
+    }
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   registerIpcHandlers();
-  createMainWindow();
+  await createMainWindow();
+  logger.info('application ready');
+}).catch((error) => {
+  logger.error('application bootstrap failed', error);
+  throw error;
 });
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
-    createMainWindow();
+    void createMainWindow();
   }
 });
 
 app.on('window-all-closed', () => {
+  clearMainWindowStateSaveTimer();
   destroyVolumeHudWindow();
   shutdownApi();
 

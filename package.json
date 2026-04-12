@@ -4,13 +4,32 @@
   "description": "FaderDeck - MIDI-based volume controller (Electron + WebMIDI)",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder",
+    "build:dir": "electron-builder --dir",
+    "dist:win": "electron-builder --win nsis",
+    "lint": "eslint main.js preload.js overlay-preload.js \"backend/**/*.js\" \"shared/**/*.js\" \"tests/**/*.mjs\"",
+    "format": "prettier --write \"*.{js,json,mjs,cjs}\" \"backend/**/*.js\" \"shared/**/*.js\" \"tests/**/*.mjs\" \"web/**/*.{js,css,html}\"",
+    "format:check": "prettier --check \"*.{js,json,mjs,cjs}\" \"backend/**/*.js\" \"shared/**/*.js\" \"tests/**/*.mjs\" \"web/**/*.{js,css,html}\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "electron": "^31.0.0"
+    "electron-log": "^5.4.3",
+    "electron-store": "^11.0.2",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
-    "electron": "^31.0.0"
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.6.0",
+    "electron": "^31.0.0",
+    "electron-builder": "^26.8.1",
+    "eslint": "^10.2.0",
+    "globals": "^17.4.0",
+    "prettier": "^3.8.2",
+    "typescript": "^6.0.2",
+    "vitest": "^4.1.4"
   },
   "repository": {
     "type": "git",
@@ -24,4 +43,37 @@
     "url": "https://github.com/gLeknya/FaderDeck/issues"
   },
   "homepage": "https://github.com/gLeknya/FaderDeck#readme"
+  ,
+  "build": {
+    "appId": "com.gleknya.faderdeck",
+    "productName": "FaderDeck",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "assets/**/*",
+      "backend/**/*",
+      "shared/**/*",
+      "web/**/*",
+      "main.js",
+      "preload.js",
+      "overlay-preload.js",
+      "package.json"
+    ],
+    "extraMetadata": {
+      "main": "main.js"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/FaderDeckIcon256x256.png",
+      "signAndEditExecutable": false,
+      "verifyUpdateCodeSignature": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
 }

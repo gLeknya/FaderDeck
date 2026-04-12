@@ -2,13 +2,16 @@ const os = require('os');
 const path = require('path');
 
 const { AudioManager } = require('./audio');
+const { sendKey } = require('./keyboard');
+const { createLogger } = require('./logger');
 const { ProfileManager } = require('./profiles');
 
 const DEFAULT_PROFILES_PATH = path.join(os.homedir(), '.midi_mixer', 'profiles');
 
 class FaderDeckAPI {
-  constructor({ debug = true, profilesPath = DEFAULT_PROFILES_PATH } = {}) {
+  constructor({ debug = true, profilesPath = DEFAULT_PROFILES_PATH, logger } = {}) {
     this.debugEnabled = debug;
+    this.logger = logger || createLogger('api');
     this.log = this.log.bind(this);
 
     this.profileManager = new ProfileManager(profilesPath, this.log);
@@ -17,7 +20,7 @@ class FaderDeckAPI {
 
   log(...args) {
     if (this.debugEnabled) {
-      console.log('[FaderDeck]', ...args);
+      this.logger.info(...args);
     }
   }
 
@@ -43,6 +46,10 @@ class FaderDeckAPI {
 
   setAppMute(processName, muted) {
     return this.audioManager.setMute(processName, muted);
+  }
+
+  sendKey(key, targetHint = '') {
+    return sendKey(key, targetHint);
   }
 
   saveProfile(name, data) {
@@ -84,6 +91,7 @@ class FaderDeckAPI {
   }
 
   shutdown() {
+    this.logger.info('shutdown');
     this.audioManager.shutdown();
   }
 
@@ -109,6 +117,10 @@ class FaderDeckAPI {
 
   set_app_mute(processName, muted) {
     return this.setAppMute(processName, muted);
+  }
+
+  send_key(key, targetHint = '') {
+    return this.sendKey(key, targetHint);
   }
 
   save_profile(name, data) {
