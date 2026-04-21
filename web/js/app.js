@@ -59,7 +59,9 @@ const DEFAULT_UI_SETTINGS = sharedUiStateModel.DEFAULT_PERSISTED_UI_SETTINGS || 
   volumeHudShowTitle: true,
   volumeHudShowSubtitle: true,
   volumeHudShowPercent: true,
-  volumeHudShowMeter: true
+  volumeHudShowMeter: true,
+  mediaControllerVisible: true,
+  closeToTrayEnabled: true
 };
 const DEFAULT_UI_MENU = sharedUiStateModel.DEFAULT_SESSION_UI_MENU || {
   open: false,
@@ -68,17 +70,166 @@ const DEFAULT_UI_MENU = sharedUiStateModel.DEFAULT_SESSION_UI_MENU || {
 
 let uiStateSyncInitialized = false;
 let audioRuntimeBridgeInitialized = false;
+const FRONTEND_LOG_SCOPE_STYLE = 'color:#8fd16a;font-weight:700;';
+const FRONTEND_LOG_TEXT_STYLE = 'color:#d8d8d8;';
+const MEDIA_CONTROLLER_AUTO_TARGET_VALUE = '__auto__';
+
+function trimFrontendLogString(value, maxLength = 140) {
+  const normalized = String(value ?? '');
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength)}...`;
+}
+
+function summarizeFrontendLogValue(value, depth = 0) {
+  if (value == null) {
+    return value;
+  }
+
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      stack: trimFrontendLogString(value.stack || '', 240)
+    };
+  }
+
+  if (typeof value === 'string') {
+    if (value.startsWith('data:')) {
+      return `[data-url:${value.length}]`;
+    }
+
+    return trimFrontendLogString(value);
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    const sample = value.slice(0, 6).map((entry) => summarizeFrontendLogValue(entry, depth + 1));
+
+    if (value.length > sample.length) {
+      sample.push(`...+${value.length - sample.length} more`);
+    }
+
+    return sample;
+  }
+
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+
+    if (depth >= 2) {
+      return `{${keys.slice(0, 8).join(', ')}}`;
+    }
+
+    const summary = {};
+
+    keys.slice(0, 8).forEach((key) => {
+      summary[key] = summarizeFrontendLogValue(value[key], depth + 1);
+    });
+
+    if (keys.length > 8) {
+      summary.__moreKeys = keys.length - 8;
+    }
+
+    return summary;
+  }
+
+  return String(value);
+}
+
+function writeFrontendConsole(level, scope, payload) {
+  const consoleMethod = typeof console[level] === 'function' ? console[level] : console.log;
+
+  if (typeof payload === 'undefined') {
+    consoleMethod(`%c[FD:front]%c ${scope}`, FRONTEND_LOG_SCOPE_STYLE, FRONTEND_LOG_TEXT_STYLE);
+    return;
+  }
+
+  consoleMethod(
+    `%c[FD:front]%c ${scope}`,
+    FRONTEND_LOG_SCOPE_STYLE,
+    FRONTEND_LOG_TEXT_STYLE,
+    payload
+  );
+}
+
+function frontendLog(scope, payload, level = 'log') {
+  writeFrontendConsole(level, scope, summarizeFrontendLogValue(payload));
+  return payload;
+}
+
+function frontendAction(scope, payload, level = 'log') {
+  return frontendLog(`action/${scope}`, payload, level);
+}
 
 function logTest(...args) {
-  console.log('[TEST]', ...args);
+  if (!args.length) {
+    return frontendAction('test');
+  }
+
+  if (typeof args[0] === 'string' && args.length === 1) {
+    return frontendAction(args[0]);
+  }
+
+  if (typeof args[0] === 'string') {
+    return frontendAction(args[0], args[1]);
+  }
+
+  return frontendAction('test', args);
 }
 
 function $(id) {
   return document.getElementById(id);
 }
 
+function escapeOptionHtml(value = '') {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 function getApi() {
   return window.getNativeApi?.() ?? null;
+}
+
+function ensureDynamicUiAugments() {
+  const visualSection = Array.from(document.querySelectorAll('.settings-section')).find((section) => (
+    section.querySelector('[data-i18n="settings.sections.visual"]')
+  ));
+  const profileToolbarItem = document.getElementById('profileToolbarToggle')?.closest('.settings-item');
+
+  if (visualSection && profileToolbarItem && !document.getElementById('mediaControllerToggle')) {
+    const mediaControllerItem = document.createElement('div');
+    mediaControllerItem.className = 'settings-item';
+    mediaControllerItem.innerHTML = `
+      <span id="mediaControllerToggleLabel"></span>
+      <button class="settings-toggle" id="mediaControllerToggle" type="button"></button>
+    `;
+    profileToolbarItem.insertAdjacentElement('afterend', mediaControllerItem);
+  }
+
+  const mediaControllerItem = document.getElementById('mediaControllerToggle')?.closest('.settings-item');
+
+  if (visualSection && mediaControllerItem && !document.getElementById('mediaControllerTargetSettingsSelect')) {
+    const mediaControllerTargetItem = document.createElement('label');
+    mediaControllerTargetItem.className = 'settings-item settings-item-nested';
+    mediaControllerTargetItem.innerHTML = `
+      <span id="mediaControllerTargetSettingsLabel"></span>
+      <select id="mediaControllerTargetSettingsSelect" class="settings-select"></select>
+    `;
+    mediaControllerItem.insertAdjacentElement('afterend', mediaControllerTargetItem);
+    enhanceCustomSelects?.(mediaControllerTargetItem);
+  }
+
+  window.mediaControllerUi?.ensureStandaloneButtonsTopRow?.();
 }
 
 function cacheDomElements() {
@@ -89,6 +240,7 @@ function cacheDomElements() {
   dom.settingsScrollShell = document.querySelector('.settings-scroll-shell');
   dom.advancedModeToggle = $('advancedModeToggle');
   dom.developerModeToggle = $('developerModeToggle');
+  dom.closeToTrayToggle = $('closeToTrayToggle');
   dom.faderInterpolationToggle = $('faderInterpolationToggle');
   dom.softTakeoverToggle = $('softTakeoverToggle');
   dom.softTakeoverAdvanced = $('softTakeoverAdvanced');
@@ -120,6 +272,12 @@ function cacheDomElements() {
   dom.volumeHudPreviewMeterThumb = $('volumeHudPreviewMeterThumb');
   dom.showFractionalNumbersToggle = $('showFractionalNumbersToggle');
   dom.showFractionalOnlyLowToggle = $('showFractionalOnlyLowToggle');
+  dom.mediaControllerToggle = $('mediaControllerToggle');
+  dom.mediaControllerToggleLabel = $('mediaControllerToggleLabel');
+  dom.mediaControllerTargetSettingsLabel = $('mediaControllerTargetSettingsLabel');
+  dom.mediaControllerTargetSettingsSelect = $('mediaControllerTargetSettingsSelect');
+  dom.mediaControllerShell = $('mediaControllerShell');
+  dom.mediaController = $('mediaController');
   dom.fractionalNumbersAdvanced = $('fractionalNumbersAdvanced');
   dom.volumeCurveToggle = $('volumeCurveToggle');
   dom.volumeCurveAdvanced = $('volumeCurveAdvanced');
@@ -183,6 +341,10 @@ function getDeveloperModeEnabled() {
   return getDeveloperModeEnabledState?.() ?? getUiSettings().developerMode;
 }
 
+function getCloseToTrayEnabled() {
+  return getCloseToTrayEnabledState?.() ?? getUiSettings().closeToTrayEnabled;
+}
+
 function getShowFractionalNumbersEnabled() {
   return getShowFractionalNumbersState?.() ?? getUiSettings().showFractionalNumbers;
 }
@@ -229,6 +391,100 @@ function getVolumeHudShowPercent() {
 
 function getVolumeHudShowMeter() {
   return getVolumeHudShowMeterState?.() ?? getUiSettings().volumeHudShowMeter;
+}
+
+function getMediaControllerVisible() {
+  return getMediaControllerVisibleState?.() ?? getUiSettings().mediaControllerVisible;
+}
+
+function getMediaControllerTargetAppId() {
+  return String(window.getMediaControllerTargetAppIdState?.() ?? getUiSettings().mediaControllerTargetAppId ?? '').trim();
+}
+
+function getAvailableMediaControllerSessions() {
+  return window.mediaControllerUi?.getAvailableSessions?.() || [];
+}
+
+function buildMediaControllerTargetSettingsOptionsMarkup() {
+  const selectedAppId = getMediaControllerTargetAppId();
+  const availableSessions = getAvailableMediaControllerSessions();
+  const hasSelectedSession = selectedAppId
+    ? availableSessions.some((session) => String(session?.appId || '').trim() === selectedAppId)
+    : true;
+  const autoLabel = t('mediaController.autoTarget');
+  const unavailableLabel = t('mediaController.unavailableTarget');
+  const options = [
+    `<option value="${MEDIA_CONTROLLER_AUTO_TARGET_VALUE}">${escapeOptionHtml(autoLabel)}</option>`
+  ];
+
+  if (selectedAppId && !hasSelectedSession) {
+    options.push(`<option value="${escapeOptionHtml(selectedAppId)}">${escapeOptionHtml(unavailableLabel)}</option>`);
+  }
+
+  availableSessions.forEach((session) => {
+    const appId = String(session?.appId || '').trim();
+
+    if (!appId) {
+      return;
+    }
+
+    const label = String(session?.label || appId).trim();
+    options.push(`<option value="${escapeOptionHtml(appId)}">${escapeOptionHtml(label)}</option>`);
+  });
+
+  return options.join('');
+}
+
+function syncMediaControllerTargetSettingsUi(options = {}) {
+  if (dom.mediaControllerTargetSettingsLabel) {
+    dom.mediaControllerTargetSettingsLabel.textContent = t('mediaController.targetAppLabel');
+  }
+
+  if (!dom.mediaControllerTargetSettingsSelect) {
+    return;
+  }
+
+  const select = dom.mediaControllerTargetSettingsSelect;
+  const optionsMarkup = buildMediaControllerTargetSettingsOptionsMarkup();
+  const selectedValue = getMediaControllerTargetAppId() || MEDIA_CONTROLLER_AUTO_TARGET_VALUE;
+  const customDropdown = select.nextElementSibling?.classList.contains('custom-select')
+    ? select.nextElementSibling
+    : null;
+  const isDropdownOpen = Boolean(customDropdown?.classList.contains('open'));
+
+  if (options.force === true || !isDropdownOpen) {
+    if (select.dataset.optionsMarkup !== optionsMarkup) {
+      select.innerHTML = optionsMarkup;
+      select.dataset.optionsMarkup = optionsMarkup;
+      enhanceCustomSelects?.(select);
+    }
+
+    if (select.value !== selectedValue) {
+      select.value = selectedValue;
+    }
+
+    select.dataset.pendingSync = 'false';
+  } else {
+    select.dataset.pendingSync = 'true';
+  }
+
+  select.title = select.options[select.selectedIndex]?.text || '';
+}
+
+function refreshMediaControllerTargetSettingsOptions(options = {}) {
+  const force = Boolean(options?.force);
+  const refresh = force
+    ? window.mediaControllerUi?.refreshAvailableSessions?.({ force: true })
+    : Promise.resolve(getAvailableMediaControllerSessions());
+
+  return Promise.resolve(refresh)
+    .catch((error) => {
+      console.error('refreshMediaControllerTargetSettingsOptions error', error);
+      return getAvailableMediaControllerSessions();
+    })
+    .finally(() => {
+      syncMediaControllerTargetSettingsUi({ force });
+    });
 }
 
 function getVolumeHudPresentationSettings() {
@@ -594,6 +850,41 @@ function syncDeveloperModeUi() {
   const developerMode = getDeveloperModeEnabled();
   dom.developerModeToggle.classList.toggle('on', developerMode);
   dom.developerModeToggle.textContent = developerMode ? t('settings.on') : t('settings.off');
+}
+
+function syncCloseToTrayUi() {
+  if (!dom.closeToTrayToggle) {
+    return;
+  }
+
+  const closeToTrayEnabled = getCloseToTrayEnabled();
+  dom.closeToTrayToggle.classList.toggle('on', closeToTrayEnabled);
+  dom.closeToTrayToggle.textContent = closeToTrayEnabled ? t('settings.on') : t('settings.off');
+}
+
+function syncMediaControllerUi() {
+  const mediaControllerVisible = getMediaControllerVisible();
+  dom.mediaControllerShell = dom.mediaControllerShell || $('mediaControllerShell');
+  dom.mediaController = dom.mediaController || $('mediaController');
+
+  if (dom.mediaControllerToggleLabel) {
+    dom.mediaControllerToggleLabel.textContent = getCurrentLanguage?.() === 'en'
+      ? 'Show multimedia controller'
+      : 'Показывать мультимедиа контроллер';
+  }
+
+  if (dom.mediaControllerToggle) {
+    dom.mediaControllerToggle.classList.toggle('on', mediaControllerVisible);
+    dom.mediaControllerToggle.textContent = mediaControllerVisible ? t('settings.on') : t('settings.off');
+  }
+
+  syncMediaControllerTargetSettingsUi();
+  dom.mediaControllerShell?.classList.toggle('hidden', !mediaControllerVisible);
+  window.mediaControllerUi?.render?.();
+}
+
+function syncCloseToTrayRuntime() {
+  return getApi()?.set_close_to_tray_enabled?.(getCloseToTrayEnabled()) || null;
 }
 
 function syncFaderInterpolationUi() {
@@ -1293,6 +1584,10 @@ function setupSettings() {
     window.uiActions?.toggleDeveloperMode({ source: 'ui' });
   });
 
+  dom.closeToTrayToggle?.addEventListener('click', () => {
+    window.uiActions?.toggleCloseToTrayEnabled({ source: 'ui' });
+  });
+
   dom.faderInterpolationToggle?.addEventListener('click', () => {
     window.uiActions?.toggleFaderInterpolation({ source: 'ui' });
   });
@@ -1316,6 +1611,29 @@ function setupSettings() {
 
   dom.profileToolbarToggle?.addEventListener('click', () => {
     window.uiActions?.toggleProfileToolbarSwitcher({ source: 'ui' });
+  });
+
+  dom.mediaControllerToggle?.addEventListener('click', () => {
+    window.uiActions?.toggleMediaControllerVisible({ source: 'ui' });
+  });
+
+  dom.mediaControllerTargetSettingsSelect?.addEventListener('custom-select:will-open', () => {
+    refreshMediaControllerTargetSettingsOptions({ force: true });
+  });
+
+  dom.mediaControllerTargetSettingsSelect?.addEventListener('change', (event) => {
+    const nextValue = String(event.target.value || '').trim();
+    const targetAppId = nextValue === MEDIA_CONTROLLER_AUTO_TARGET_VALUE ? '' : nextValue;
+
+    window.uiActions?.setMediaControllerTargetAppId?.(targetAppId, { source: 'ui' });
+    syncMediaControllerTargetSettingsUi({ force: true });
+    window.mediaControllerUi?.getRuntimeSnapshot?.({ force: true });
+  });
+
+  dom.mediaControllerTargetSettingsSelect?.addEventListener('blur', () => {
+    if (dom.mediaControllerTargetSettingsSelect?.dataset.pendingSync === 'true') {
+      syncMediaControllerTargetSettingsUi({ force: true });
+    }
   });
 
   dom.volumeHudToggle?.addEventListener('click', () => {
@@ -1410,18 +1728,50 @@ function hideContextMenu(options = {}) {
   }
 }
 
+function syncContextMenuUi(target = null) {
+  if (!dom.contextMenu) {
+    return;
+  }
+
+  const editItem = dom.contextMenu.querySelector('[data-action="edit"]');
+  const selectItem = dom.contextMenu.querySelector('[data-action="select"]');
+  const deleteItem = dom.contextMenu.querySelector('[data-action="delete"]');
+  const isMediaControllerTarget = String(target?.type || '') === 'media-controller';
+
+  if (editItem) {
+    editItem.textContent = t('context.edit');
+  }
+
+  if (selectItem) {
+    selectItem.textContent = t('context.select');
+  }
+
+  if (deleteItem) {
+    deleteItem.textContent = isMediaControllerTarget ? t('context.hide') : t('context.delete');
+    deleteItem.classList.toggle('context-item--danger', !isMediaControllerTarget);
+  }
+}
+
 function onContextMenu(event) {
   const channelEl = event.target.closest('.channel-strip');
   const buttonEl = event.target.closest('.control-button, .channel-side-button');
   const standaloneEl = event.target.closest('.standalone-button');
+  const mediaControllerButtonEl = event.target.closest('[data-media-controller-slot]');
+  const mediaControllerEl = event.target.closest('#mediaController, .media-controller, #mediaControllerShell, .media-controller-shell');
 
-  if (!channelEl && !buttonEl && !standaloneEl) {
+  if (!channelEl && !buttonEl && !standaloneEl && !mediaControllerEl) {
     return;
   }
 
   event.preventDefault();
 
-  if (buttonEl && buttonEl.dataset.buttonId) {
+  if (mediaControllerEl) {
+    appSessionState.contextMenu.target = {
+      type: 'media-controller',
+      buttonId: Number.parseInt(mediaControllerButtonEl?.dataset.buttonId || '', 10),
+      slot: String(mediaControllerButtonEl?.dataset.mediaControllerSlot || '').trim()
+    };
+  } else if (buttonEl && buttonEl.dataset.buttonId) {
     appSessionState.contextMenu.target = {
       type: 'button',
       channelId: Number.parseInt(buttonEl.closest('.channel-strip').dataset.channelId, 10),
@@ -1445,6 +1795,7 @@ function onContextMenu(event) {
     return;
   }
 
+  syncContextMenuUi(appSessionState.contextMenu.target);
   appSessionState.contextMenu.open = true;
   appSessionState.contextMenu.anchorX = event.clientX;
   appSessionState.contextMenu.anchorY = event.clientY;
@@ -1518,12 +1869,38 @@ function handleContextAction(action, explicitTarget = null) {
 
     if (action === 'select') return;
     if (action === 'delete') {
-      removeStandaloneButtonState?.(buttonId, { source: 'context-menu' });
-      window.profileActions?.saveRendererProfileToLocal?.();
+      window.standaloneButtonActions?.removeStandaloneButton?.(buttonId, { source: 'context-menu' });
     }
 
     if (action === 'remap') remapStandaloneButton(buttonId);
     if (action === 'edit') configureStandaloneButton(buttonId);
+    return;
+  }
+
+  if (contextTarget.type === 'media-controller') {
+    const buttonId = Number.parseInt(contextTarget.buttonId, 10);
+
+    if (action === 'select') {
+      window.mediaControllerUi?.select?.({
+        buttonId,
+        slot: contextTarget.slot,
+        source: 'context-menu'
+      });
+      return;
+    }
+
+    if (action === 'delete') {
+      window.uiActions?.setMediaControllerVisible?.(false, { source: 'context-menu' });
+      return;
+    }
+
+    if (action === 'edit') {
+      window.mediaControllerUi?.openSettings?.({
+        buttonId,
+        slot: contextTarget.slot,
+        source: 'context-menu'
+      });
+    }
   }
 }
 
@@ -1564,6 +1941,11 @@ function initUiStateSync() {
       syncDeveloperModeUi();
     }
 
+    if (nextSettings.closeToTrayEnabled !== previousSettings.closeToTrayEnabled) {
+      syncCloseToTrayUi();
+      syncCloseToTrayRuntime();
+    }
+
     if (nextSettings.faderInterpolationEnabled !== previousSettings.faderInterpolationEnabled) {
       syncFaderInterpolationUi();
     }
@@ -1590,6 +1972,14 @@ function initUiStateSync() {
       || nextSettings.volumeHudShowMeter !== previousSettings.volumeHudShowMeter
     ) {
       syncVolumeHudUi();
+    }
+
+    if (nextSettings.mediaControllerVisible !== previousSettings.mediaControllerVisible) {
+      syncMediaControllerUi();
+    }
+
+    if (nextSettings.mediaControllerTargetAppId !== previousSettings.mediaControllerTargetAppId) {
+      syncMediaControllerTargetSettingsUi({ force: true });
     }
 
     if (
@@ -1647,12 +2037,16 @@ function initLayoutEditorUiSync() {
 function handleLanguageChanged() {
   syncLayoutEditModeUi();
   syncLanguageUi();
+  syncCloseToTrayUi();
   syncAdvancedModeUi();
   syncDeveloperModeUi();
   syncFaderInterpolationUi();
   syncSoftTakeoverUi();
   syncProfileToolbarUi();
   syncVolumeHudUi();
+  syncMediaControllerUi();
+  window.mediaControllerUi?.render?.();
+  window.mediaControllerUi?.refreshEditor?.();
   syncFractionalNumberUi();
   syncVolumeCurveUi();
   window.refreshAudioRuntimeLocalization?.({ source: 'app-language-changed' });
@@ -1726,6 +2120,7 @@ function bindGlobalUi() {
 }
 
 function initializeAppShell() {
+  ensureDynamicUiAugments();
   cacheDomElements();
   hideLegacyVolumeHudSettingsUi();
   initUiStore?.();
@@ -1735,11 +2130,12 @@ function initializeAppShell() {
   initChannelUiStateSync?.();
   initStandaloneButtonsStateSync?.();
   initChannelButtonsRuntime?.();
+  initStandaloneButtonsRuntime?.();
   initUiStateSync();
   initLayoutEditorUiSync();
   initAudioRuntimeBridge();
-  // Park marker: legacy standalone-button modal stays in the codebase, but
-  // active button configuration now lives in the fader editor instead.
+  // Legacy standalone-button modal stays in the codebase, but active button
+  // configuration now goes through the shared entity editor.
   initEntityEditor?.();
   bindGlobalUi();
   setupSettings();
@@ -1747,12 +2143,15 @@ function initializeAppShell() {
   setupWindowControls();
   setupMenuTabs();
   syncMenuShellUi();
+  syncCloseToTrayRuntime();
   syncAdvancedModeUi();
+  syncCloseToTrayUi();
   syncDeveloperModeUi();
   syncFaderInterpolationUi();
   syncSoftTakeoverUi();
   syncProfileToolbarUi();
   syncVolumeHudUi();
+  syncMediaControllerUi();
   syncFractionalNumberUi();
   syncVolumeCurveUi();
   syncLayoutEditModeUi();
@@ -1762,6 +2161,8 @@ function initializeAppShell() {
   syncSettingsViewportUi();
   window.profileActions?.loadRendererProfileFromLocal?.();
   initProfilesUi?.();
+  window.mediaControllerUi?.init?.();
+  refreshMediaControllerTargetSettingsOptions({ force: true });
   window.requestAudioAppsRefresh?.('init', { force: true });
   initWebMIDI();
   scheduleContentMetricsUpdate();
@@ -1883,6 +2284,8 @@ window.appShell = Object.freeze({
   initialize: initializeAppShell,
   getVolumeHudPresentationSettings,
   getApi,
+  frontendLog,
+  frontendAction,
   logTest,
   toggleMainMenu,
   toggleLayoutEditMode: toggleLayoutEditModeShell,
@@ -1899,6 +2302,8 @@ window.appShell = Object.freeze({
 
 window.getVolumeHudPresentationSettings = getVolumeHudPresentationSettings;
 window.getApi = getApi;
+window.frontendLog = frontendLog;
+window.frontendAction = frontendAction;
 window.logTest = logTest;
 window.toggleMainMenu = toggleMainMenu;
 window.toggleLayoutEditMode = toggleLayoutEditModeShell;

@@ -29,6 +29,7 @@
   let midiButtonIndicatorSyncInitialized = false;
   let midiHealthRefreshTimerId = null;
   let midiButtonIndicatorSyncFrameId = null;
+  let midiIndicatorTestState = null;
 
   // Runtime-only parser/soft-takeover state. This never belongs in renderer
   // profile serialization and lives entirely inside the MIDI service layer.
@@ -267,6 +268,157 @@
     }
   }
 
+  function sendMidiOutputMessageToPort(port, bytes = []) {
+    if (!port || !Array.isArray(bytes) || !bytes.length) {
+      return false;
+    }
+
+    openMidiPort(port);
+
+    try {
+      port.send(bytes.map((value, index) => (
+        index === 0
+          ? (Number(value) || 0)
+          : clampMidiOutputValue(value)
+      )));
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function buildIndicatorTestMessages(value = 127) {
+    const normalizedValue = clampMidiOutputValue(value);
+    const messages = [];
+
+    for (let channel = 0; channel < 16; channel += 1) {
+      for (let control = 0; control < 128; control += 1) {
+        messages.push([
+          MIDI_STATUS.controlChange | channel,
+          control,
+          normalizedValue
+        ]);
+      }
+
+      for (let note = 0; note < 128; note += 1) {
+        messages.push([
+          MIDI_STATUS.noteOn | channel,
+          note,
+          normalizedValue
+        ]);
+      }
+    }
+
+    return messages;
+  }
+
+  function describeIndicatorTestMessage(message = []) {
+    const status = Number(message[0]) || 0;
+    const channel = (status & 0x0F) + 1;
+    const statusType = status & 0xF0;
+    const controlOrNote = Number(message[1]) || 0;
+    const value = Number(message[2]) || 0;
+
+    if (statusType === MIDI_STATUS.controlChange) {
+      return `CC ch=${channel} control=${controlOrNote} value=${value}`;
+    }
+
+    if (statusType === MIDI_STATUS.noteOn) {
+      return `NOTE ch=${channel} note=${controlOrNote} value=${value}`;
+    }
+
+    return `status=${status} data1=${controlOrNote} value=${value}`;
+  }
+
+  function stopIndicatorTest({ turnOff = true } = {}) {
+    if (!midiIndicatorTestState) {
+      return false;
+    }
+
+    const {
+      intervalId,
+      timeoutId,
+      output,
+      offMessages
+    } = midiIndicatorTestState;
+
+    if (intervalId) {
+      clearInterval(intervalId);
+    }
+
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    if (turnOff && output && Array.isArray(offMessages)) {
+      offMessages.forEach((message) => {
+        sendMidiOutputMessageToPort(output, message);
+      });
+    }
+
+    midiIndicatorTestState = null;
+    return true;
+  }
+
+  async function runIndicatorTest(durationSeconds = 5) {
+    await ensureMidiAccess();
+
+    const output = getSelectedMidiOutputPort();
+
+    if (!output) {
+      throw new Error('selected_midi_output_unavailable');
+    }
+
+    stopIndicatorTest({ turnOff: true });
+
+    const durationMs = Math.max(1, Number(durationSeconds) || 0) * 1000;
+    const onMessages = buildIndicatorTestMessages(127);
+    const offMessages = [];
+    let cursor = 0;
+
+    const activateNextIndicator = () => {
+      if (!midiIndicatorTestState || midiIndicatorTestState.output !== output) {
+        return;
+      }
+
+      const message = onMessages[cursor];
+      const sent = sendMidiOutputMessageToPort(output, message);
+
+      if (sent) {
+        offMessages.push([
+          message[0],
+          message[1],
+          0
+        ]);
+        window.console?.info?.('[indicatorstest]', describeIndicatorTestMessage(message));
+      }
+
+      cursor = (cursor + 1) % onMessages.length;
+    };
+
+    midiIndicatorTestState = {
+      output,
+      offMessages,
+      intervalId: null,
+      timeoutId: null
+    };
+
+    activateNextIndicator();
+
+    midiIndicatorTestState.intervalId = window.setInterval(activateNextIndicator, 50);
+    midiIndicatorTestState.timeoutId = window.setTimeout(() => {
+      stopIndicatorTest({ turnOff: true });
+    }, durationMs);
+
+    return {
+      success: true,
+      durationMs,
+      outputId: output.id || '',
+      outputName: output.name || output.id || '',
+      messageCount: onMessages.length
+    };
+  }
+
   function sendChannelButtonOutputValue(button = {}, value = 0) {
     const mapping = button?.midiMapping;
 
@@ -302,6 +454,10 @@
         ? channel.buttons.map((button) => ({ channel, button }))
         : []
     ));
+  }
+
+  function getStandaloneButtonEntries() {
+    return (window.getStandaloneButtonsState?.() || []).map((button) => ({ button }));
   }
 
   function getChannelButtonInteractionModes() {
@@ -354,6 +510,18 @@
       sendChannelButtonOutputValue(button, value);
     });
 
+    getStandaloneButtonEntries().forEach(({ button }) => {
+      const mapping = button?.midiMapping;
+
+      if (!mapping || typeof window.getStandaloneButtonState !== 'function') {
+        return;
+      }
+
+      const state = window.getStandaloneButtonState(button.id);
+      const value = getChannelButtonIndicatorMidiValue(button, state);
+      sendChannelButtonOutputValue(button, value);
+    });
+
     return true;
   }
 
@@ -377,6 +545,32 @@
       syncChannelButtonIndicators({
         reason: 'button-bind-flash-finish',
         channelId,
+        buttonId,
+        ...meta
+      });
+    }, 460);
+
+    return true;
+  }
+
+  function flashStandaloneButtonBindingFeedback(buttonId, meta = {}) {
+    const button = (window.getStandaloneButtonsState?.() || []).find((item) => item.id === buttonId) || null;
+
+    window.flashStandaloneButtonBindingRuntime?.(buttonId);
+
+    if (!button?.midiMapping) {
+      return false;
+    }
+
+    [0, 120, 240, 360].forEach((delay, index) => {
+      window.setTimeout(() => {
+        sendChannelButtonOutputValue(button, index % 2 === 0 ? 127 : 0);
+      }, delay);
+    });
+
+    window.setTimeout(() => {
+      syncChannelButtonIndicators({
+        reason: 'standalone-button-bind-flash-finish',
         buttonId,
         ...meta
       });
@@ -769,7 +963,11 @@
     }
 
     window.subscribeAppState((nextState, previousState) => {
-      if (nextState.channels !== previousState.channels || nextState.midi !== previousState.midi) {
+      if (
+        nextState.channels !== previousState.channels
+        || nextState.standaloneButtons !== previousState.standaloneButtons
+        || nextState.midi !== previousState.midi
+      ) {
         scheduleChannelButtonIndicatorSync({ type: 'channel-button-indicator-sync' });
       }
     });
@@ -1370,6 +1568,10 @@
     return `${channelId}:${buttonId}`;
   }
 
+  function getStandaloneButtonTriggerKey(buttonId) {
+    return `standalone:${buttonId}`;
+  }
+
   function getButtonMappingLabel(mapping) {
     if (!mapping) {
       return '';
@@ -1434,6 +1636,57 @@
           window.channelActions?.executeChannelButton?.(channel.id, button.id, {
             source: 'midi-runtime',
             type: 'channels/button-toggle',
+            phase: 'release'
+          });
+        }
+      }
+    });
+
+    getStandaloneButtonEntries().forEach(({ button }) => {
+      if (!isButtonMappingMatch(button?.midiMapping, message)) {
+        return;
+      }
+
+      const triggerKey = getStandaloneButtonTriggerKey(button.id);
+      const wasPressed = Boolean(buttonTriggerRuntimeState.get(triggerKey));
+      const interactionModes = getChannelButtonInteractionModes();
+      const actionMode = Object.values(interactionModes).includes(button?.actionMode)
+        ? button.actionMode
+        : interactionModes.trigger;
+      const indicatorMode = Object.values(interactionModes).includes(button?.indicatorMode)
+        ? button.indicatorMode
+        : interactionModes.trigger;
+
+      if (isButtonPressMessage(message)) {
+        if (wasPressed) {
+          return;
+        }
+
+        buttonTriggerRuntimeState.set(triggerKey, true);
+
+        if (button?.indicatorEnabled !== false && indicatorMode === interactionModes.push) {
+          window.setStandaloneButtonPressedRuntime?.(button.id, true);
+        }
+
+        window.standaloneButtonActions?.executeStandaloneButton?.(button.id, {
+          source: 'midi-runtime',
+          type: 'standalone-buttons/toggle',
+          phase: 'press'
+        });
+        return;
+      }
+
+      if (isButtonReleaseMessage(message)) {
+        buttonTriggerRuntimeState.set(triggerKey, false);
+
+        if (button?.indicatorEnabled !== false && indicatorMode === interactionModes.push) {
+          window.setStandaloneButtonPressedRuntime?.(button.id, false);
+        }
+
+        if (actionMode === interactionModes.push) {
+          window.standaloneButtonActions?.executeStandaloneButton?.(button.id, {
+            source: 'midi-runtime',
+            type: 'standalone-buttons/toggle',
             phase: 'release'
           });
         }
@@ -1534,8 +1787,9 @@
     )) || null;
   }
 
-  function findButtonMappingConflict(channelId, buttonId, mapping) {
+  function findButtonMappingConflict(channelId, buttonId, mapping, options = {}) {
     const channels = window.getChannelsState?.() || [];
+    const standalone = Boolean(options?.standalone);
     const controlConflict = mapping?.type === 'control_change'
       ? channels.find((channel) => (
         channel.id !== channelId
@@ -1560,6 +1814,15 @@
       if (buttonConflict) {
         return buttonConflict;
       }
+    }
+
+    const standaloneConflict = (window.getStandaloneButtonsState?.() || []).find((button) => (
+      !(standalone && button.id === buttonId)
+      && isSameButtonMapping(button?.midiMapping, mapping)
+    ));
+
+    if (standaloneConflict) {
+      return standaloneConflict;
     }
 
     return null;
@@ -1587,6 +1850,23 @@
     }) || null;
 
     scheduleChannelButtonIndicatorSync({ type: 'button-mapping-update' });
+    return updatedButton;
+  }
+
+  function applyStandaloneButtonMapping(buttonId, mapping, meta = {}) {
+    const updatedButton = window.standaloneButtonActions?.updateStandaloneButton?.(buttonId, {
+      midiMapping: mapping ? {
+        type: mapping.type === 'control_change' ? 'control_change' : 'note',
+        channel: Number(mapping.channel) || 0,
+        note: Number.isInteger(Number(mapping.note)) ? Number(mapping.note) : null,
+        control: Number.isInteger(Number(mapping.control)) ? Number(mapping.control) : null
+      } : null
+    }, {
+      source: 'midi-service',
+      ...meta
+    }) || null;
+
+    scheduleChannelButtonIndicatorSync({ type: 'standalone-button-mapping-update' });
     return updatedButton;
   }
 
@@ -1618,9 +1898,22 @@
     findButtonMappingConflict,
     applyChannelFaderMapping,
     applyChannelButtonMapping,
+    applyStandaloneButtonMapping,
     getButtonMappingLabel,
     syncChannelButtonIndicators,
     flashChannelButtonBindingFeedback,
-    resetPickupRuntime
+    flashStandaloneButtonBindingFeedback,
+    resetPickupRuntime,
+    runIndicatorTest,
+    stopIndicatorTest
   };
+
+  Object.defineProperty(window, 'indicatorstest', {
+    configurable: true,
+    writable: false,
+    enumerable: false,
+    value(durationSeconds = 5) {
+      return runIndicatorTest(durationSeconds);
+    }
+  });
 })(window);

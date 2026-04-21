@@ -146,7 +146,11 @@
     };
   }
 
-  function getButtonTargetProcesses(channel = {}) {
+  function getButtonTargetProcesses(channel = {}, button = {}) {
+    if (typeof window.channelActions?.getButtonTargetProcesses === 'function') {
+      return window.channelActions.getButtonTargetProcesses(channel, button);
+    }
+
     const explicitTargets = Array.isArray(channel?.targets)
       ? channel.targets
           .map((target) => String(target?.process || '').trim())
@@ -414,13 +418,13 @@
         return;
       }
 
-      const trackedProcesses = [...new Set(buttonEntries.flatMap(({ channel }) => getButtonTargetProcesses(channel)))];
+      const trackedProcesses = [...new Set(buttonEntries.flatMap(({ channel, button }) => getButtonTargetProcesses(channel, button)))];
       const audioStateMap = await readButtonAudioStateMap(trackedProcesses);
       const nextStates = new Map();
 
       buttonEntries.forEach(({ channel, button }) => {
         const runtimeKey = getChannelButtonRuntimeKey(channel.id, button.id);
-        const aggregateState = aggregateButtonTargetState(getButtonTargetProcesses(channel), audioStateMap);
+        const aggregateState = aggregateButtonTargetState(getButtonTargetProcesses(channel, button), audioStateMap);
         const previousState = getChannelButtonStateByKey(runtimeKey);
         const meterLevel = aggregateState.muted
           ? 0

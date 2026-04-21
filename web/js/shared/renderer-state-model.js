@@ -23,7 +23,10 @@
     volumeHudShowTitle: true,
     volumeHudShowSubtitle: true,
     volumeHudShowPercent: true,
-    volumeHudShowMeter: true
+    volumeHudShowMeter: true,
+    mediaControllerVisible: true,
+    mediaControllerTargetAppId: '',
+    closeToTrayEnabled: true
   });
 
   const DEFAULT_SESSION_UI_MENU = Object.freeze({

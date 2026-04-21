@@ -2,9 +2,12 @@ const os = require('os');
 const path = require('path');
 
 const { AudioManager } = require('./audio');
+const { AudioDeviceManager } = require('./audio-devices');
+const { MediaControlManager } = require('./media-control');
 const { sendKey } = require('./keyboard');
 const { createLogger } = require('./logger');
 const { ProfileManager } = require('./profiles');
+const { SystemActionManager } = require('./system-actions');
 
 const DEFAULT_PROFILES_PATH = path.join(os.homedir(), '.midi_mixer', 'profiles');
 
@@ -16,6 +19,9 @@ class FaderDeckAPI {
 
     this.profileManager = new ProfileManager(profilesPath, this.log);
     this.audioManager = new AudioManager(this.log);
+    this.audioDeviceManager = new AudioDeviceManager(this.log);
+    this.systemActionManager = new SystemActionManager(this.log);
+    this.mediaControlManager = new MediaControlManager(this.log);
   }
 
   log(...args) {
@@ -50,6 +56,46 @@ class FaderDeckAPI {
 
   sendKey(key, targetHint = '') {
     return sendKey(key, targetHint);
+  }
+
+  listAudioDevices(flow = 'all') {
+    return this.audioDeviceManager.listDevices(flow);
+  }
+
+  setDefaultAudioDevice(deviceId, flow = 'all') {
+    return this.audioDeviceManager.setDefaultDevice(deviceId, flow);
+  }
+
+  launchApp(filePath) {
+    return this.systemActionManager.launchApplication(filePath);
+  }
+
+  runUserScript(filePath) {
+    return this.systemActionManager.runUserScript(filePath);
+  }
+
+  setProcessWindowVisibility(processName, visible = null, executablePath = '') {
+    return this.systemActionManager.setProcessWindowVisibility(processName, visible, executablePath);
+  }
+
+  setMediaOption(command, enabled = true, targetAppId = '') {
+    return this.mediaControlManager.setMediaOption(command, enabled, targetAppId);
+  }
+
+  sendMediaTransport(command, targetAppId = '') {
+    return this.mediaControlManager.sendMediaTransportCommand(command, targetAppId);
+  }
+
+  getMediaSessionState(targetAppId = '') {
+    return this.mediaControlManager.getMediaSessionState(targetAppId);
+  }
+
+  setMediaRepeatMode(mode = 'off', targetAppId = '') {
+    return this.mediaControlManager.setMediaRepeatMode(mode, targetAppId);
+  }
+
+  listMediaSessions() {
+    return this.mediaControlManager.listMediaSessions();
   }
 
   saveProfile(name, data) {
@@ -121,6 +167,46 @@ class FaderDeckAPI {
 
   send_key(key, targetHint = '') {
     return this.sendKey(key, targetHint);
+  }
+
+  list_audio_devices(flow = 'all') {
+    return this.listAudioDevices(flow);
+  }
+
+  set_default_audio_device(deviceId, flow = 'all') {
+    return this.setDefaultAudioDevice(deviceId, flow);
+  }
+
+  launch_app(filePath) {
+    return this.launchApp(filePath);
+  }
+
+  run_user_script(filePath) {
+    return this.runUserScript(filePath);
+  }
+
+  set_process_window_visibility(processName, visible = null, executablePath = '') {
+    return this.setProcessWindowVisibility(processName, visible, executablePath);
+  }
+
+  set_media_option(command, enabled = true, targetAppId = '') {
+    return this.mediaControlManager.setMediaOption(command, enabled, targetAppId);
+  }
+
+  send_media_transport(command, targetAppId = '') {
+    return this.mediaControlManager.sendMediaTransportCommand(command, targetAppId);
+  }
+
+  get_media_session_state(targetAppId = '') {
+    return this.mediaControlManager.getMediaSessionState(targetAppId);
+  }
+
+  set_media_repeat_mode(mode = 'off', targetAppId = '') {
+    return this.mediaControlManager.setMediaRepeatMode(mode, targetAppId);
+  }
+
+  list_media_sessions() {
+    return this.listMediaSessions();
   }
 
   save_profile(name, data) {

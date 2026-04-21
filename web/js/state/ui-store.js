@@ -24,7 +24,10 @@
     volumeHudShowTitle: 'faderdeck_volume_hud_show_title',
     volumeHudShowSubtitle: 'faderdeck_volume_hud_show_subtitle',
     volumeHudShowPercent: 'faderdeck_volume_hud_show_percent',
-    volumeHudShowMeter: 'faderdeck_volume_hud_show_meter'
+    volumeHudShowMeter: 'faderdeck_volume_hud_show_meter',
+    mediaControllerVisible: 'faderdeck_media_controller_visible',
+    mediaControllerTargetAppId: 'faderdeck_media_controller_target_app_id',
+    closeToTrayEnabled: 'faderdeck_close_to_tray_enabled'
   });
 
   const HUD_POSITIONS = Object.freeze([
@@ -101,6 +104,15 @@
       ),
       volumeHudShowMeter: Boolean(
         settings.volumeHudShowMeter ?? DEFAULT_PERSISTED_UI_SETTINGS.volumeHudShowMeter
+      ),
+      mediaControllerVisible: Boolean(
+        settings.mediaControllerVisible ?? DEFAULT_PERSISTED_UI_SETTINGS.mediaControllerVisible
+      ),
+      mediaControllerTargetAppId: String(
+        settings.mediaControllerTargetAppId ?? DEFAULT_PERSISTED_UI_SETTINGS.mediaControllerTargetAppId ?? ''
+      ).trim(),
+      closeToTrayEnabled: Boolean(
+        settings.closeToTrayEnabled ?? DEFAULT_PERSISTED_UI_SETTINGS.closeToTrayEnabled
       ),
       volumeCurveType: nextType,
       volumeCurveAmount: Math.max(
@@ -285,6 +297,18 @@
       saveUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowMeter, nextSettings.volumeHudShowMeter);
     }
 
+    if ('mediaControllerVisible' in (patch || {})) {
+      saveUiBooleanSetting(UI_STORAGE_KEYS.mediaControllerVisible, nextSettings.mediaControllerVisible);
+    }
+
+    if ('mediaControllerTargetAppId' in (patch || {})) {
+      saveUiStringSetting(UI_STORAGE_KEYS.mediaControllerTargetAppId, nextSettings.mediaControllerTargetAppId);
+    }
+
+    if ('closeToTrayEnabled' in (patch || {})) {
+      saveUiBooleanSetting(UI_STORAGE_KEYS.closeToTrayEnabled, nextSettings.closeToTrayEnabled);
+    }
+
     return setUiSettingsState(nextSettings, meta);
   }
 
@@ -386,7 +410,10 @@
       volumeHudShowTitle: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowTitle, true),
       volumeHudShowSubtitle: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowSubtitle, true),
       volumeHudShowPercent: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowPercent, true),
-      volumeHudShowMeter: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowMeter, true)
+      volumeHudShowMeter: readUiBooleanSetting(UI_STORAGE_KEYS.volumeHudShowMeter, true),
+      mediaControllerVisible: readUiBooleanSetting(UI_STORAGE_KEYS.mediaControllerVisible, true),
+      mediaControllerTargetAppId: uiPreferencesStorage?.readString(UI_STORAGE_KEYS.mediaControllerTargetAppId, '') || '',
+      closeToTrayEnabled: readUiBooleanSetting(UI_STORAGE_KEYS.closeToTrayEnabled, true)
     }, {
       type: 'ui/init-settings',
       source: 'ui-store'
@@ -483,6 +510,18 @@
 
   function getVolumeHudShowMeterState() {
     return getUiSettingsState().volumeHudShowMeter;
+  }
+
+  function getMediaControllerVisibleState() {
+    return getUiSettingsState().mediaControllerVisible;
+  }
+
+  function getMediaControllerTargetAppIdState() {
+    return String(getUiSettingsState().mediaControllerTargetAppId || '').trim();
+  }
+
+  function getCloseToTrayEnabledState() {
+    return getUiSettingsState().closeToTrayEnabled;
   }
 
   function getIsMenuOpenState() {
@@ -626,6 +665,27 @@
     });
   }
 
+  function setMediaControllerVisibleState(value, meta = {}) {
+    return patchUiSettingsState({ mediaControllerVisible: Boolean(value) }, {
+      type: 'ui/settings/media-controller-visible',
+      ...meta
+    });
+  }
+
+  function setMediaControllerTargetAppIdState(value, meta = {}) {
+    return patchUiSettingsState({ mediaControllerTargetAppId: String(value || '').trim() }, {
+      type: 'ui/settings/media-controller-target-app-id',
+      ...meta
+    });
+  }
+
+  function setCloseToTrayEnabledState(value, meta = {}) {
+    return patchUiSettingsState({ closeToTrayEnabled: Boolean(value) }, {
+      type: 'ui/settings/close-to-tray-enabled',
+      ...meta
+    });
+  }
+
   function setMenuOpenState(value, meta = {}) {
     return patchUiMenuState({ open: Boolean(value) }, {
       type: 'ui/menu/open',
@@ -672,6 +732,9 @@
   window.getVolumeHudShowSubtitleState = getVolumeHudShowSubtitleState;
   window.getVolumeHudShowPercentState = getVolumeHudShowPercentState;
   window.getVolumeHudShowMeterState = getVolumeHudShowMeterState;
+  window.getMediaControllerVisibleState = getMediaControllerVisibleState;
+  window.getMediaControllerTargetAppIdState = getMediaControllerTargetAppIdState;
+  window.getCloseToTrayEnabledState = getCloseToTrayEnabledState;
   window.getIsMenuOpenState = getIsMenuOpenState;
   window.getActiveMenuTabState = getActiveMenuTabState;
   window.setAdvancedModeState = setAdvancedModeState;
@@ -693,6 +756,9 @@
   window.setVolumeHudShowSubtitleState = setVolumeHudShowSubtitleState;
   window.setVolumeHudShowPercentState = setVolumeHudShowPercentState;
   window.setVolumeHudShowMeterState = setVolumeHudShowMeterState;
+  window.setMediaControllerVisibleState = setMediaControllerVisibleState;
+  window.setMediaControllerTargetAppIdState = setMediaControllerTargetAppIdState;
+  window.setCloseToTrayEnabledState = setCloseToTrayEnabledState;
   window.setMenuOpenState = setMenuOpenState;
   window.setActiveMenuTabState = setActiveMenuTabState;
 })(window);

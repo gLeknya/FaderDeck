@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, Menu, dialog, shell, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, dialog, shell, screen } = require('electron');
 const path = require('path');
 
 const { FaderDeckAPI } = require('./backend/api');
@@ -53,7 +53,8 @@ const WINDOW_OPTIONS = {
     preload: path.join(__dirname, 'preload.js'),
     contextIsolation: true,
     nodeIntegration: false,
-    sandbox: false
+    sandbox: false,
+    backgroundThrottling: false
   }
 };
 
@@ -64,7 +65,164 @@ let volumeHudHideTimer = null;
 let volumeHudHideCommitTimer = null;
 let mainWindowStateSaveTimer = null;
 let api = null;
+let tray = null;
+let isQuitting = false;
+let closeToTrayEnabled = true;
 const logger = createLogger('main');
+const IPC_QUERY_METHODS = new Set([
+  'get_audio_applications',
+  'list_running_applications',
+  'get_audio_states',
+  'list_audio_devices',
+  'list_media_sessions',
+  'list_profiles',
+  'get_profile_template',
+  'get_profiles_directory',
+  'get_application_icons',
+  'pick_profile_file',
+  'pick_action_file'
+]);
+const SUPPRESSED_IPC_LOG_METHODS = new Set([
+  'get_audio_states',
+  'get_media_session_state',
+  'list_media_sessions'
+]);
+
+function trimLogString(value, maxLength = 140) {
+  const normalized = String(value ?? '');
+
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, maxLength)}...`;
+}
+
+function summarizeLogValue(value, depth = 0) {
+  if (value == null) {
+    return value;
+  }
+
+  if (value instanceof Error) {
+    return {
+      name: value.name,
+      message: value.message,
+      code: value.code || undefined
+    };
+  }
+
+  if (typeof value === 'string') {
+    if (value.startsWith('data:')) {
+      return `[data-url:${value.length}]`;
+    }
+
+    return trimLogString(value);
+  }
+
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    const sample = value.slice(0, 6).map((entry) => summarizeLogValue(entry, depth + 1));
+
+    if (value.length > sample.length) {
+      sample.push(`...+${value.length - sample.length} more`);
+    }
+
+    return sample;
+  }
+
+  if (Buffer.isBuffer(value)) {
+    return `[buffer:${value.length}]`;
+  }
+
+  if (typeof value === 'object') {
+    const keys = Object.keys(value);
+
+    if (depth >= 2) {
+      return `{${keys.slice(0, 8).join(', ')}}`;
+    }
+
+    const summary = {};
+
+    keys.slice(0, 8).forEach((key) => {
+      if (key === 'iconDataUrl') {
+        summary[key] = '[data-url]';
+        return;
+      }
+
+      summary[key] = summarizeLogValue(value[key], depth + 1);
+    });
+
+    if (keys.length > 8) {
+      summary.__moreKeys = keys.length - 8;
+    }
+
+    return summary;
+  }
+
+  return String(value);
+}
+
+function getIpcLoggerMethod(methodName) {
+  return IPC_QUERY_METHODS.has(methodName) ? 'debug' : 'info';
+}
+
+function logIpcMessage(methodName, phase, payload, level = getIpcLoggerMethod(methodName)) {
+  if (SUPPRESSED_IPC_LOG_METHODS.has(methodName)) {
+    return;
+  }
+
+  const loggerMethod = typeof logger[level] === 'function' ? logger[level] : logger.info;
+  loggerMethod(`[ipc:${phase}] ${methodName}`, payload);
+}
+
+function createLoggedInvokeHandler(methodName, handler) {
+  return async (event, ...args) => {
+    logIpcMessage(methodName, 'invoke', {
+      args: summarizeLogValue(args)
+    });
+
+    try {
+      const result = await handler(event, ...args);
+      logIpcMessage(methodName, 'result', summarizeLogValue(result));
+      return result;
+    } catch (error) {
+      logger.error(`[ipc:error] ${methodName}`, summarizeLogValue(error));
+      throw error;
+    }
+  };
+}
+
+function createLoggedSendHandler(methodName, handler) {
+  return (event, ...args) => {
+    logIpcMessage(methodName, 'send', {
+      args: summarizeLogValue(args)
+    }, 'debug');
+
+    try {
+      return handler(event, ...args);
+    } catch (error) {
+      logger.error(`[ipc:error] ${methodName}`, summarizeLogValue(error));
+      throw error;
+    }
+  };
+}
+
+function attachRendererConsoleIsolation(window, label = 'renderer') {
+  if (!window?.webContents) {
+    return;
+  }
+
+  window.webContents.on('console-message', (event) => {
+    if (typeof event?.preventDefault === 'function') {
+      event.preventDefault();
+    }
+  });
+
+  logger.debug(`attached ${label} console isolation`);
+}
 
 function ensureApi() {
   if (!api) {
@@ -82,6 +240,89 @@ function shutdownApi() {
   logger.info('shutdown api');
   api.shutdown();
   api = null;
+}
+
+function getTrayIconPath() {
+  return path.join(__dirname, 'assets', 'favicon.png');
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    logger.info('show main window requested without active window');
+    void createMainWindow();
+    return;
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  mainWindow.show();
+  mainWindow.focus();
+  logger.info('main window shown');
+}
+
+function hideMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.hide();
+  logger.info('main window hidden to tray');
+}
+
+function setCloseToTrayEnabled(value) {
+  closeToTrayEnabled = value !== false;
+  logger.info('close-to-tray setting updated', {
+    enabled: closeToTrayEnabled
+  });
+
+  return {
+    success: true,
+    closeToTrayEnabled
+  };
+}
+
+function quitApplication() {
+  isQuitting = true;
+  logger.info('quit application requested');
+  app.quit();
+}
+
+function buildTrayMenu() {
+  return Menu.buildFromTemplate([
+    {
+      label: 'Open FaderDeck',
+      click: () => {
+        showMainWindow();
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: 'Exit',
+      click: () => {
+        quitApplication();
+      }
+    }
+  ]);
+}
+
+function ensureTray() {
+  if (tray && !tray.isDestroyed?.()) {
+    return tray;
+  }
+
+  tray = new Tray(getTrayIconPath());
+  tray.setToolTip('FaderDeck');
+  tray.setContextMenu(buildTrayMenu());
+  tray.on('click', () => {
+    logger.info('tray icon clicked');
+    showMainWindow();
+  });
+
+  return tray;
 }
 
 function clearMainWindowStateSaveTimer() {
@@ -354,10 +595,12 @@ async function showVolumeHud(payload = {}) {
 
 async function createMainWindow() {
   ensureApi();
+  ensureTray();
 
   const windowState = await resolveMainWindowState();
 
   mainWindow = new BrowserWindow(buildMainWindowOptions(windowState));
+  attachRendererConsoleIsolation(mainWindow);
   mainWindow.loadFile(path.join(__dirname, 'web', 'index.html'));
 
   if (windowState.isMaximized) {
@@ -380,6 +623,20 @@ async function createMainWindow() {
     scheduleMainWindowStateSave(mainWindow);
   });
 
+  mainWindow.on('close', (event) => {
+    if (isQuitting || !closeToTrayEnabled) {
+      logger.info('main window close accepted', {
+        isQuitting,
+        closeToTrayEnabled
+      });
+      return;
+    }
+
+    event.preventDefault();
+    logger.info('main window close intercepted and redirected to tray');
+    hideMainWindow();
+  });
+
   mainWindow.on('closed', () => {
     clearMainWindowStateSaveTimer();
     mainWindow = null;
@@ -395,10 +652,12 @@ function toggleDevTools(window) {
 
   if (window.webContents.isDevToolsOpened()) {
     window.webContents.closeDevTools();
+    logger.info('devtools closed');
     return { success: true, isOpen: false };
   }
 
   window.webContents.openDevTools({ mode: 'detach' });
+  logger.info('devtools opened');
   return { success: true, isOpen: true };
 }
 
@@ -434,7 +693,8 @@ function handleWindowControl(window, action) {
 }
 
 function registerIpcHandlers() {
-  registerIpcInvokeHandlers(ipcMain, {
+  registerIpcInvokeHandlers(ipcMain, Object.fromEntries(
+    Object.entries({
     get_audio_applications: () => ensureApi().getAudioApplications(),
     list_running_applications: () => ensureApi().listRunningApplications(),
     get_audio_states: (_event, processNames) => ensureApi().getAudioStates(processNames),
@@ -442,6 +702,18 @@ function registerIpcHandlers() {
     toggle_app_mute: (_event, processName) => ensureApi().toggleAppMute(processName),
     set_app_mute: (_event, processName, muted) => ensureApi().setAppMute(processName, muted),
     send_key: (_event, key, targetHint) => ensureApi().sendKey(key, targetHint),
+    list_audio_devices: (_event, flow) => ensureApi().listAudioDevices(flow),
+    set_default_audio_device: (_event, deviceId, flow) => ensureApi().setDefaultAudioDevice(deviceId, flow),
+    launch_app: (_event, filePath) => ensureApi().launchApp(filePath),
+    run_user_script: (_event, filePath) => ensureApi().runUserScript(filePath),
+    set_process_window_visibility: (_event, processName, visible, executablePath) => (
+      ensureApi().setProcessWindowVisibility(processName, visible, executablePath)
+    ),
+    set_media_option: (_event, command, enabled, targetAppId) => ensureApi().setMediaOption(command, enabled, targetAppId),
+    send_media_transport: (_event, command, targetAppId) => ensureApi().sendMediaTransport(command, targetAppId),
+    list_media_sessions: () => ensureApi().listMediaSessions(),
+    get_media_session_state: (_event, targetAppId) => ensureApi().getMediaSessionState(targetAppId),
+    set_media_repeat_mode: (_event, mode, targetAppId) => ensureApi().setMediaRepeatMode(mode, targetAppId),
     save_profile: (_event, name, data) => ensureApi().saveProfile(name, data),
     load_profile: (_event, name) => ensureApi().loadProfile(name),
     list_profiles: () => ensureApi().listProfiles(),
@@ -501,22 +773,51 @@ function registerIpcHandlers() {
         filePath: result.filePaths?.[0] || null
       };
     },
+    pick_action_file: async (event, mode = 'app') => {
+      const window = getEventWindow(event) || mainWindow;
+      const normalizedMode = String(mode || 'app').trim().toLowerCase();
+      const filters = normalizedMode === 'script'
+        ? [
+          { name: 'Scripts', extensions: ['ps1', 'cmd', 'bat', 'js', 'cjs', 'mjs', 'vbs', 'wsf'] },
+          { name: 'All Files', extensions: ['*'] }
+        ]
+        : [
+          { name: 'Applications', extensions: ['exe', 'lnk', 'cmd', 'bat', 'appref-ms'] },
+          { name: 'All Files', extensions: ['*'] }
+        ];
+      const result = await dialog.showOpenDialog(window, {
+        title: normalizedMode === 'script' ? 'Select script' : 'Select application',
+        properties: ['openFile'],
+        filters
+      });
+
+      return {
+        success: !result.canceled,
+        canceled: result.canceled,
+        filePath: result.filePaths?.[0] || null
+      };
+    },
     toggle_devtools: (event) => toggleDevTools(getEventWindow(event)),
+    set_close_to_tray_enabled: (_event, enabled) => setCloseToTrayEnabled(enabled),
     exit_app: () => {
-      mainWindow?.close();
+      quitApplication();
     },
     windowControl: (event, action) => handleWindowControl(getEventWindow(event), action)
-  });
+    }).map(([methodName, handler]) => [methodName, createLoggedInvokeHandler(methodName, handler)])
+  ));
 
-  registerIpcSendHandlers(ipcMain, {
+  registerIpcSendHandlers(ipcMain, Object.fromEntries(
+    Object.entries({
     show_volume_hud: (_event, payload) => {
       void showVolumeHud(payload);
     }
-  });
+    }).map(([methodName, handler]) => [methodName, createLoggedSendHandler(methodName, handler)])
+  ));
 }
 
 app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
+  ensureTray();
   registerIpcHandlers();
   await createMainWindow();
   logger.info('application ready');
@@ -539,4 +840,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
   }
+});
+
+app.on('before-quit', () => {
+  isQuitting = true;
 });

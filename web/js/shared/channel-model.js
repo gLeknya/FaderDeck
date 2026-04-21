@@ -4,7 +4,21 @@
     mute: 'mute',
     solo: 'solo',
     setVolume: 'set-volume',
-    sendKey: 'send-key'
+    toggleAppVisibility: 'toggle-app-visibility',
+    sendKey: 'send-key',
+    mediaPreviousTrack: 'media-previous-track',
+    mediaNextTrack: 'media-next-track',
+    mediaPlay: 'media-play',
+    mediaPause: 'media-pause',
+    mediaPlayPause: 'media-play-pause',
+    mediaRewind: 'media-rewind',
+    mediaFastForward: 'media-fast-forward',
+    mediaRepeat: 'media-repeat',
+    mediaShuffle: 'media-shuffle',
+    runUserScript: 'run-user-script',
+    launchApp: 'launch-app',
+    setDefaultOutputDevice: 'set-default-output-device',
+    setDefaultInputDevice: 'set-default-input-device'
   });
 
   const CHANNEL_BUTTON_INDICATOR_TYPES = Object.freeze({
@@ -41,6 +55,9 @@
     'flash',
     'play',
     'pause',
+    'play-pause',
+    'skip-previous',
+    'skip-next',
     'circle',
     'diamond',
     'triangle',
@@ -54,6 +71,16 @@
   function normalizeChannelButtonKey(value = '') {
     const normalizedValue = String(value ?? '').trim();
     return normalizedValue ? normalizedValue : null;
+  }
+
+  function normalizeChannelButtonPath(value = '') {
+    const normalizedValue = String(value ?? '').trim();
+    return normalizedValue || '';
+  }
+
+  function normalizeChannelButtonDeviceId(value = '') {
+    const normalizedValue = String(value ?? '').trim();
+    return normalizedValue || '';
   }
 
   function normalizeChannelButtonMode(
@@ -157,10 +184,16 @@
       id: button.id ?? (Date.now() + Math.floor(Math.random() * 1000)),
       text: normalizedText,
       icon,
+      linkedChannelId: Number.isFinite(Number(button.linkedChannelId))
+        ? Number(button.linkedChannelId)
+        : null,
       actionEnabled,
       actionType,
       actionMode,
       actionValue,
+      scriptPath: normalizeChannelButtonPath(button.scriptPath),
+      launchPath: normalizeChannelButtonPath(button.launchPath),
+      deviceId: normalizeChannelButtonDeviceId(button.deviceId),
       indicatorEnabled,
       indicatorMode,
       indicatorModeLinkedToAction,
@@ -271,6 +304,8 @@
     CHANNEL_BUTTON_ICON_KEYS,
     DEFAULT_CHANNEL_BUTTON_ACTION_VALUE,
     normalizeChannelButtonKey,
+    normalizeChannelButtonPath,
+    normalizeChannelButtonDeviceId,
     normalizeChannelButtonMode,
     resolveLegacyIndicatorMode,
     createDefaultChannelCustomSettings,

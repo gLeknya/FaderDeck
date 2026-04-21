@@ -158,12 +158,72 @@
     return learned;
   }
 
+  async function learnStandaloneButtonMapping(buttonId, meta = {}) {
+    const button = window.findStandaloneButtonState?.(buttonId) || null;
+    const midiService = getMidiService();
+
+    if (!button || !midiService) {
+      return null;
+    }
+
+    window.showToast?.('pending', window.t?.('midi.moveButton', {
+      name: button.text || window.t?.('buttons.defaultLabel') || 'Button'
+    }));
+
+    if (!midiService.getSelectedInputId?.() || midiService.isDisabledSelection?.()) {
+      window.showToast?.('error', window.t?.('midi.selectDeviceFirst'), { updatePending: true });
+      return null;
+    }
+
+    try {
+      await midiService.ensureAccess?.();
+    } catch (error) {
+      if (error?.code === 'midi_unsupported') {
+        window.showToast?.('error', window.t?.('midi.unsupported'), { updatePending: true });
+        return null;
+      }
+
+      window.showToast?.('error', window.t?.('midi.initFailed'), { updatePending: true });
+      return null;
+    }
+
+    const learned = await midiService.learnButtonMapping?.();
+
+    if (!learned) {
+      window.showToast?.('error', window.t?.('midi.failedToDetect'), { updatePending: true });
+      return null;
+    }
+
+    const conflict = midiService.findButtonMappingConflict?.(null, buttonId, learned, { standalone: true });
+
+    if (conflict) {
+      const conflictName = conflict.title || conflict.text || conflict.appName || conflict.process || 'Control';
+      const confirmed = window.confirm?.(window.t?.('midi.buttonConflict', { name: conflictName }));
+
+      if (!confirmed) {
+        window.showToast?.('warn', window.t?.('midi.bindCancelled'), { updatePending: true });
+        return null;
+      }
+    }
+
+    midiService.applyStandaloneButtonMapping?.(buttonId, learned, {
+      source: 'midi-actions',
+      ...meta
+    });
+    persistProfile();
+    midiService.flashStandaloneButtonBindingFeedback?.(buttonId, { reason: 'button-bind' });
+    midiService.syncChannelButtonIndicators?.({ reason: 'button-bind' });
+    window.showToast?.('success', window.t?.('midi.buttonBindSuccess'), { updatePending: true });
+    return learned;
+  }
+
   window.midiActions = {
     selectMidiInput,
     disableMidiInputSelection,
     clearMidiSelection,
     scanMidiInputs,
     learnChannelFaderMapping,
-    learnChannelButtonMapping
+    learnChannelButtonMapping,
+    learnStandaloneButtonMapping
   };
 })(window);

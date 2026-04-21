@@ -72,6 +72,17 @@
     return setDeveloperMode(!(window.getDeveloperModeEnabledState?.() ?? false), meta);
   }
 
+  function setCloseToTrayEnabled(value, meta = {}) {
+    return patchUiSettings({ closeToTrayEnabled: Boolean(value) }, {
+      type: 'ui-actions/settings-close-to-tray-enabled',
+      ...meta
+    });
+  }
+
+  function toggleCloseToTrayEnabled(meta = {}) {
+    return setCloseToTrayEnabled(!(window.getCloseToTrayEnabledState?.() ?? true), meta);
+  }
+
   function setFaderInterpolationEnabled(value, meta = {}) {
     return patchUiSettings({ faderInterpolationEnabled: Boolean(value) }, {
       type: 'ui-actions/settings-fader-interpolation',
@@ -202,6 +213,24 @@
     return setVolumeHudShowMeter(!(window.getVolumeHudShowMeterState?.() ?? true), meta);
   }
 
+  function setMediaControllerVisible(value, meta = {}) {
+    return patchUiSettings({ mediaControllerVisible: Boolean(value) }, {
+      type: 'ui-actions/settings-media-controller-visible',
+      ...meta
+    });
+  }
+
+  function setMediaControllerTargetAppId(value, meta = {}) {
+    return patchUiSettings({ mediaControllerTargetAppId: String(value || '').trim() }, {
+      type: 'ui-actions/settings-media-controller-target-app-id',
+      ...meta
+    });
+  }
+
+  function toggleMediaControllerVisible(meta = {}) {
+    return setMediaControllerVisible(!(window.getMediaControllerVisibleState?.() ?? true), meta);
+  }
+
   function setShowFractionalNumbers(value, meta = {}) {
     return patchUiSettings({ showFractionalNumbers: Boolean(value) }, {
       type: 'ui-actions/settings-show-fractional',
@@ -260,6 +289,8 @@
     toggleAdvancedMode,
     setDeveloperMode,
     toggleDeveloperMode,
+    setCloseToTrayEnabled,
+    toggleCloseToTrayEnabled,
     setFaderInterpolationEnabled,
     toggleFaderInterpolation,
     setSoftTakeoverEnabled,
@@ -282,6 +313,9 @@
     toggleVolumeHudShowPercent,
     setVolumeHudShowMeter,
     toggleVolumeHudShowMeter,
+    setMediaControllerVisible,
+    setMediaControllerTargetAppId,
+    toggleMediaControllerVisible,
     setShowFractionalNumbers,
     toggleShowFractionalNumbers,
     setShowFractionalOnlyLow,

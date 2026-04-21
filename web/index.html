@@ -398,6 +398,11 @@
                 <div class="settings-toggle disabled" data-i18n="settings.off">Выкл</div>
               </label>
 
+              <div class="settings-item">
+                <span data-i18n="settings.closeToTray">Hide to tray on close</span>
+                <button class="settings-toggle" id="closeToTrayToggle" type="button" data-i18n="settings.on">On</button>
+              </div>
+
               <label class="settings-item">
                 <span data-i18n="settings.language">Язык</span>
                 <select id="languageSelect" class="settings-select">
@@ -560,8 +565,10 @@
   <script src="js/actions/ui-actions.js"></script>
   <script src="js/state/channel-store.js"></script>
   <script src="js/runtime/channel-button-runtime.js"></script>
+  <script src="js/runtime/standalone-button-runtime.js"></script>
   <script src="js/actions/layout-actions.js"></script>
   <script src="js/actions/channel-actions.js"></script>
+  <script src="js/actions/standalone-button-actions.js"></script>
   <script src="js/channels.js"></script>
   <script src="js/buttons.js"></script>
   <script src="js/actions/midi-actions.js"></script>
