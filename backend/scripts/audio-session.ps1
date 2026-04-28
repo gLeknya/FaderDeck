@@ -30,6 +30,7 @@ namespace FaderDeck.Audio
         public string ProcessName { get; set; }
         public string MainWindowTitle { get; set; }
         public float Volume { get; set; }
+        public float Peak { get; set; }
         public bool Muted { get; set; }
     }
 
@@ -149,6 +150,17 @@ namespace FaderDeck.Audio
         int GetMute(out bool isMuted);
     }
 
+    [ComImport]
+    [Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    internal interface IAudioMeterInformation
+    {
+        int GetPeakValue(out float peak);
+        int GetMeteringChannelCount(out int channelCount);
+        int GetChannelsPeakValues(int channelCount, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 0)] float[] peakValues);
+        int QueryHardwareSupport(out int hardwareSupportMask);
+    }
+
     public static class AudioSessionNative
     {
         private const int CLSCTX_ALL = 23;
@@ -178,6 +190,7 @@ namespace FaderDeck.Audio
 
                 var sessionControl2 = sessionControl as IAudioSessionControl2;
                 var simpleAudioVolume = sessionControl as ISimpleAudioVolume;
+                var meterInformation = sessionControl as IAudioMeterInformation;
 
                 if (sessionControl2 == null || simpleAudioVolume == null)
                 {
@@ -193,11 +206,23 @@ namespace FaderDeck.Audio
                 }
 
                 float volumeLevel;
+                float peakLevel = 0f;
                 bool isMuted;
                 Marshal.ThrowExceptionForHR(simpleAudioVolume.GetMasterVolume(out volumeLevel));
                 Marshal.ThrowExceptionForHR(simpleAudioVolume.GetMute(out isMuted));
+                if (meterInformation != null)
+                {
+                    try
+                    {
+                        Marshal.ThrowExceptionForHR(meterInformation.GetPeakValue(out peakLevel));
+                    }
+                    catch
+                    {
+                        peakLevel = 0f;
+                    }
+                }
 
-                results.Add(CreateSnapshot((int)processId, volumeLevel, isMuted));
+                results.Add(CreateSnapshot((int)processId, volumeLevel, peakLevel, isMuted));
             }
 
             return results.ToArray();
@@ -268,7 +293,7 @@ namespace FaderDeck.Audio
             return matchedSessions;
         }
 
-        private static AudioSessionSnapshot CreateSnapshot(int processId, float volumeLevel, bool isMuted)
+        private static AudioSessionSnapshot CreateSnapshot(int processId, float volumeLevel, float peakLevel, bool isMuted)
         {
             var processExecutable = string.Empty;
             var processName = string.Empty;
@@ -301,6 +326,7 @@ namespace FaderDeck.Audio
                 ProcessName = processName,
                 MainWindowTitle = windowTitle,
                 Volume = volumeLevel * 100f,
+                Peak = isMuted ? 0f : peakLevel,
                 Muted = isMuted
             };
         }
@@ -396,13 +422,14 @@ function Group-Sessions {
     }
 
     if (-not $grouped.ContainsKey($processKey)) {
-      $grouped[$processKey] = [PSCustomObject]@{
+        $grouped[$processKey] = [PSCustomObject]@{
         name = if ([string]::IsNullOrWhiteSpace($session.ProcessName)) { $session.Process } else { $session.ProcessName }
         process = $session.Process
         processName = $session.ProcessName
         mainWindowTitle = $session.MainWindowTitle
         sessionCount = 0
         volumeSum = 0.0
+        peakMax = 0.0
         mutedCount = 0
       }
     }
@@ -410,6 +437,7 @@ function Group-Sessions {
     $entry = $grouped[$processKey]
     $entry.sessionCount += 1
     $entry.volumeSum += [double]$session.Volume
+    $entry.peakMax = [math]::Max([double]$entry.peakMax, [double]$session.Peak)
 
     if ($session.Muted) {
       $entry.mutedCount += 1
@@ -429,6 +457,7 @@ function Group-Sessions {
         mainWindowTitle = $_.mainWindowTitle
         sessionCount = $_.sessionCount
         volume = [math]::Round($_.volumeSum / [math]::Max($_.sessionCount, 1), 3)
+        peak = [math]::Round($_.peakMax, 6)
         muted = ($_.mutedCount -ge $_.sessionCount)
         hasAudioSession = $true
       }

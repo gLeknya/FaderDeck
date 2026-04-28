@@ -1,7 +1,9 @@
 param(
   [string]$Action = 'list',
   [string]$Flow = 'all',
-  [string]$DeviceId = ''
+  [string]$DeviceId = '',
+  [double]$Volume = 100,
+  [bool]$Muted = $false
 )
 
 [Console]::InputEncoding = [System.Text.Encoding]::UTF8
@@ -75,6 +77,40 @@ namespace FaderDeckAudioDevices {
   }
 
   [ComImport]
+  [Guid("5CDF2C82-841E-4546-9722-0CF74078229A")]
+  [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  internal interface IAudioEndpointVolume {
+    int RegisterControlChangeNotify(IntPtr notify);
+    int UnregisterControlChangeNotify(IntPtr notify);
+    int GetChannelCount(out uint channelCount);
+    int SetMasterVolumeLevel(float levelDb, ref Guid eventContext);
+    int SetMasterVolumeLevelScalar(float level, ref Guid eventContext);
+    int GetMasterVolumeLevel(out float levelDb);
+    int GetMasterVolumeLevelScalar(out float level);
+    int SetChannelVolumeLevel(uint channelNumber, float levelDb, ref Guid eventContext);
+    int SetChannelVolumeLevelScalar(uint channelNumber, float level, ref Guid eventContext);
+    int GetChannelVolumeLevel(uint channelNumber, out float levelDb);
+    int GetChannelVolumeLevelScalar(uint channelNumber, out float level);
+    int SetMute([MarshalAs(UnmanagedType.Bool)] bool mute, ref Guid eventContext);
+    int GetMute(out bool mute);
+    int GetVolumeStepInfo(out uint step, out uint stepCount);
+    int VolumeStepUp(ref Guid eventContext);
+    int VolumeStepDown(ref Guid eventContext);
+    int QueryHardwareSupport(out uint hardwareSupportMask);
+    int GetVolumeRange(out float volumeMindB, out float volumeMaxdB, out float volumeIncrementdB);
+  }
+
+  [ComImport]
+  [Guid("C02216F6-8C67-4B5B-9D00-D008E73E0064")]
+  [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  internal interface IAudioMeterInformation {
+    int GetPeakValue(out float peak);
+    int GetMeteringChannelCount(out uint channelCount);
+    int GetChannelsPeakValues(uint channelCount, [Out, MarshalAs(UnmanagedType.LPArray, SizeParamIndex = 0)] float[] peakValues);
+    int QueryHardwareSupport(out uint hardwareSupportMask);
+  }
+
+  [ComImport]
   [Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E")]
   [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
   internal interface IMMDeviceCollection {
@@ -125,11 +161,16 @@ namespace FaderDeckAudioDevices {
     public string name { get; set; }
     public string flow { get; set; }
     public bool isDefault { get; set; }
+    public float volume { get; set; }
+    public bool muted { get; set; }
+    public float peak { get; set; }
+    public float peakLevel { get; set; }
   }
 
   public static class AudioDeviceBridge {
     private const int DEVICE_STATE_ACTIVE = 0x00000001;
     private const int STGM_READ = 0x00000000;
+    private const int CLSCTX_ALL = 23;
 
     [DllImport("ole32.dll")]
     private static extern int PropVariantClear(ref PROPVARIANT pvar);
@@ -176,6 +217,95 @@ namespace FaderDeckAudioDevices {
       } finally {
         if (device != null) {
           Marshal.ReleaseComObject(device);
+        }
+      }
+    }
+
+    private static IAudioEndpointVolume GetEndpointVolume(IMMDevice device) {
+      object endpointObject = null;
+      var endpointGuid = typeof(IAudioEndpointVolume).GUID;
+
+      try {
+        Marshal.ThrowExceptionForHR(device.Activate(ref endpointGuid, CLSCTX_ALL, IntPtr.Zero, out endpointObject));
+        return (IAudioEndpointVolume)endpointObject;
+      } catch {
+        if (endpointObject != null) {
+          Marshal.ReleaseComObject(endpointObject);
+        }
+
+        return null;
+      }
+    }
+
+    private static IAudioMeterInformation GetAudioMeter(IMMDevice device) {
+      object meterObject = null;
+      var meterGuid = typeof(IAudioMeterInformation).GUID;
+
+      try {
+        Marshal.ThrowExceptionForHR(device.Activate(ref meterGuid, CLSCTX_ALL, IntPtr.Zero, out meterObject));
+        return (IAudioMeterInformation)meterObject;
+      } catch {
+        if (meterObject != null) {
+          Marshal.ReleaseComObject(meterObject);
+        }
+
+        return null;
+      }
+    }
+
+    private static void ReadEndpointState(IMMDevice device, AudioDeviceInfo info) {
+      var endpointVolume = GetEndpointVolume(device);
+      var audioMeter = GetAudioMeter(device);
+
+      if (endpointVolume == null && audioMeter == null) {
+        info.volume = 100f;
+        info.muted = false;
+        info.peak = 0f;
+        info.peakLevel = 0f;
+        return;
+      }
+
+      try {
+        float level = 1f;
+        bool isMuted = false;
+        float peak = 0f;
+
+        if (endpointVolume != null) {
+          Marshal.ThrowExceptionForHR(endpointVolume.GetMasterVolumeLevelScalar(out level));
+          Marshal.ThrowExceptionForHR(endpointVolume.GetMute(out isMuted));
+        }
+
+        if (audioMeter != null) {
+          Marshal.ThrowExceptionForHR(audioMeter.GetPeakValue(out peak));
+        }
+
+        info.volume = (float)Math.Round(level * 100f, 3);
+        info.muted = isMuted;
+        info.peak = (float)Math.Round(Math.Max(0f, Math.Min(1f, peak)), 6);
+        info.peakLevel = info.muted
+          ? 0f
+          : (float)Math.Round(Math.Max(0f, Math.Min(1f, peak)) * level, 6);
+      } finally {
+        if (endpointVolume != null) {
+          Marshal.ReleaseComObject(endpointVolume);
+        }
+
+        if (audioMeter != null) {
+          Marshal.ReleaseComObject(audioMeter);
+        }
+      }
+    }
+
+    private static IMMDevice GetDeviceById(string deviceId) {
+      var enumerator = CreateEnumerator();
+      IMMDevice device = null;
+
+      try {
+        Marshal.ThrowExceptionForHR(enumerator.GetDevice(deviceId, out device));
+        return device;
+      } finally {
+        if (enumerator != null) {
+          Marshal.ReleaseComObject(enumerator);
         }
       }
     }
@@ -229,6 +359,7 @@ namespace FaderDeckAudioDevices {
                   flow = ToFlowLabel(flow),
                   isDefault = string.Equals(deviceId, defaultDeviceId, StringComparison.OrdinalIgnoreCase)
                 });
+                ReadEndpointState(device, devices[devices.Count - 1]);
               } finally {
                 if (device != null) {
                   Marshal.ReleaseComObject(device);
@@ -261,6 +392,55 @@ namespace FaderDeckAudioDevices {
         Marshal.ReleaseComObject(policyConfig);
       }
     }
+
+    public static void SetVolume(string deviceId, float volumePercent) {
+      var device = GetDeviceById(deviceId);
+      var endpointVolume = GetEndpointVolume(device);
+
+      if (endpointVolume == null) {
+        if (device != null) {
+          Marshal.ReleaseComObject(device);
+        }
+
+        throw new InvalidOperationException("endpoint-volume-unavailable");
+      }
+
+      try {
+        var context = Guid.Empty;
+        var normalized = Math.Max(0f, Math.Min(100f, volumePercent)) / 100f;
+        Marshal.ThrowExceptionForHR(endpointVolume.SetMasterVolumeLevelScalar(normalized, ref context));
+      } finally {
+        Marshal.ReleaseComObject(endpointVolume);
+
+        if (device != null) {
+          Marshal.ReleaseComObject(device);
+        }
+      }
+    }
+
+    public static void SetMute(string deviceId, bool mute) {
+      var device = GetDeviceById(deviceId);
+      var endpointVolume = GetEndpointVolume(device);
+
+      if (endpointVolume == null) {
+        if (device != null) {
+          Marshal.ReleaseComObject(device);
+        }
+
+        throw new InvalidOperationException("endpoint-volume-unavailable");
+      }
+
+      try {
+        var context = Guid.Empty;
+        Marshal.ThrowExceptionForHR(endpointVolume.SetMute(mute, ref context));
+      } finally {
+        Marshal.ReleaseComObject(endpointVolume);
+
+        if (device != null) {
+          Marshal.ReleaseComObject(device);
+        }
+      }
+    }
   }
 }
 "@
@@ -269,14 +449,87 @@ if (-not ("FaderDeckAudioDevices.AudioDeviceBridge" -as [type])) {
   Add-Type -TypeDefinition $source -Language CSharp
 }
 
-if ($Action -eq 'set-default') {
-  [FaderDeckAudioDevices.AudioDeviceBridge]::SetDefaultDevice($DeviceId)
-  [pscustomobject]@{
-    success = $true
-    deviceId = $DeviceId
-    flow = $Flow
-  } | ConvertTo-Json -Compress
+function Invoke-AudioDeviceAction {
+  param(
+    [string]$RequestedAction = 'list',
+    [string]$RequestedFlow = 'all',
+    [string]$RequestedDeviceId = '',
+    [double]$RequestedVolume = 100,
+    [bool]$RequestedMuted = $false
+  )
+
+  if ($RequestedAction -eq 'set-default') {
+    [FaderDeckAudioDevices.AudioDeviceBridge]::SetDefaultDevice($RequestedDeviceId)
+    return [pscustomobject]@{
+      success = $true
+      deviceId = $RequestedDeviceId
+      flow = $RequestedFlow
+    }
+  }
+
+  if ($RequestedAction -eq 'set-volume') {
+    [FaderDeckAudioDevices.AudioDeviceBridge]::SetVolume($RequestedDeviceId, [float]$RequestedVolume)
+    return [pscustomobject]@{
+      success = $true
+      deviceId = $RequestedDeviceId
+      flow = $RequestedFlow
+      volume = [math]::Round([double]$RequestedVolume, 3)
+    }
+  }
+
+  if ($RequestedAction -eq 'set-mute') {
+    [FaderDeckAudioDevices.AudioDeviceBridge]::SetMute($RequestedDeviceId, [bool]$RequestedMuted)
+    return [pscustomobject]@{
+      success = $true
+      deviceId = $RequestedDeviceId
+      flow = $RequestedFlow
+      muted = [bool]$RequestedMuted
+    }
+  }
+
+  return [FaderDeckAudioDevices.AudioDeviceBridge]::ListDevices($RequestedFlow)
+}
+
+if ($Action -eq 'serve') {
+  while (($line = [Console]::In.ReadLine()) -ne $null) {
+    if ([string]::IsNullOrWhiteSpace($line)) {
+      continue
+    }
+
+    $requestId = ''
+
+    try {
+      $request = $line | ConvertFrom-Json -ErrorAction Stop
+      $requestId = [string]$request.id
+      $result = Invoke-AudioDeviceAction `
+        -RequestedAction ([string]$request.action) `
+        -RequestedFlow ([string]$request.flow) `
+        -RequestedDeviceId ([string]$request.deviceId) `
+        -RequestedVolume ([double]$request.volume) `
+        -RequestedMuted ([bool]$request.muted)
+
+      [Console]::Out.WriteLine(([pscustomobject]@{
+        id = $requestId
+        ok = $true
+        result = $result
+      } | ConvertTo-Json -Compress -Depth 8))
+    } catch {
+      [Console]::Out.WriteLine(([pscustomobject]@{
+        id = $requestId
+        ok = $false
+        error = ($_.Exception.Message | Out-String).Trim()
+      } | ConvertTo-Json -Compress -Depth 8))
+    }
+
+    [Console]::Out.Flush()
+  }
+
   exit 0
 }
 
-[FaderDeckAudioDevices.AudioDeviceBridge]::ListDevices($Flow) | ConvertTo-Json -Compress -Depth 4
+Invoke-AudioDeviceAction `
+  -RequestedAction $Action `
+  -RequestedFlow $Flow `
+  -RequestedDeviceId $DeviceId `
+  -RequestedVolume $Volume `
+  -RequestedMuted $Muted | ConvertTo-Json -Compress -Depth 4

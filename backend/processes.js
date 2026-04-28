@@ -1,10 +1,13 @@
 const os = require('os');
 const path = require('path');
 const { execFile } = require('child_process');
+const { spawn } = require('child_process');
+const readline = require('readline');
 const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
 const SCRIPT_PATH = path.join(__dirname, 'scripts', 'process-list.ps1');
+const FOCUSED_SCRIPT_PATH = path.join(__dirname, 'scripts', 'focused-application.ps1');
 const WINDOWS_DIRECTORY = (process.env.WINDIR || 'C:\\Windows').toLowerCase();
 const SYSTEM_PATH_PREFIXES = [
   path.join(WINDOWS_DIRECTORY, 'system32'),
@@ -89,6 +92,155 @@ function shouldIncludeProcess(entry) {
 class ProcessCatalog {
   constructor(logFunction) {
     this._log = logFunction || (() => {});
+    this._focusServerProcess = null;
+    this._focusServerReadline = null;
+    this._focusServerRequestId = 0;
+    this._focusServerPending = new Map();
+  }
+
+  _resetFocusServerState(error = null) {
+    if (this._focusServerReadline) {
+      this._focusServerReadline.removeAllListeners();
+      this._focusServerReadline.close();
+      this._focusServerReadline = null;
+    }
+
+    const focusServerProcess = this._focusServerProcess;
+    this._focusServerProcess = null;
+
+    const pendingEntries = Array.from(this._focusServerPending.values());
+    this._focusServerPending.clear();
+    pendingEntries.forEach((entry) => {
+      if (entry?.timeoutId) {
+        clearTimeout(entry.timeoutId);
+      }
+
+      entry?.reject?.(error || new Error('focused-application-server-closed'));
+    });
+
+    if (!focusServerProcess) {
+      return;
+    }
+
+    focusServerProcess.removeAllListeners();
+    focusServerProcess.stdout?.removeAllListeners();
+    focusServerProcess.stderr?.removeAllListeners();
+
+    try {
+      if (!focusServerProcess.killed) {
+        focusServerProcess.kill();
+      }
+    } catch (killError) {
+      this._log('focused-application-server kill error:', killError);
+    }
+  }
+
+  _ensureFocusServerProcess() {
+    if (this._focusServerProcess && !this._focusServerProcess.killed) {
+      return this._focusServerProcess;
+    }
+
+    const focusServerProcess = spawn(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', FOCUSED_SCRIPT_PATH, '-Action', 'serve'],
+      {
+        windowsHide: true,
+        stdio: ['pipe', 'pipe', 'pipe']
+      }
+    );
+
+    focusServerProcess.stdout.setEncoding('utf8');
+    focusServerProcess.stderr.setEncoding('utf8');
+
+    const rl = readline.createInterface({
+      input: focusServerProcess.stdout,
+      crlfDelay: Infinity
+    });
+
+    rl.on('line', (line) => {
+      const normalizedLine = String(line || '').trim();
+
+      if (!normalizedLine) {
+        return;
+      }
+
+      let parsedMessage;
+      try {
+        parsedMessage = JSON.parse(normalizedLine);
+      } catch (error) {
+        this._log('focused-application-server parse error:', error, normalizedLine);
+        return;
+      }
+
+      const requestId = String(parsedMessage?.id || '').trim();
+      const pending = this._focusServerPending.get(requestId);
+
+      if (!pending) {
+        return;
+      }
+
+      this._focusServerPending.delete(requestId);
+
+      if (pending.timeoutId) {
+        clearTimeout(pending.timeoutId);
+      }
+
+      if (parsedMessage?.ok === false) {
+        pending.reject(new Error(String(parsedMessage?.error || 'focused-application-server-error')));
+        return;
+      }
+
+      pending.resolve(parsedMessage?.result || null);
+    });
+
+    focusServerProcess.stderr.on('data', (chunk) => {
+      const message = String(chunk || '').trim();
+
+      if (message) {
+        this._log('focused-application-server stderr:', message);
+      }
+    });
+
+    focusServerProcess.on('error', (error) => {
+      this._log('focused-application-server error:', error);
+      this._resetFocusServerState(error);
+    });
+
+    focusServerProcess.on('exit', (code, signal) => {
+      const exitError = new Error(`focused-application-server-exit:${code ?? 'null'}:${signal ?? 'null'}`);
+      this._log('focused-application-server exit:', { code, signal });
+      this._resetFocusServerState(exitError);
+    });
+
+    this._focusServerProcess = focusServerProcess;
+    this._focusServerReadline = rl;
+    return focusServerProcess;
+  }
+
+  async _sendFocusServerRequest(payload = {}) {
+    const focusServerProcess = this._ensureFocusServerProcess();
+    const requestId = String(++this._focusServerRequestId);
+
+    return new Promise((resolve, reject) => {
+      const timeoutId = setTimeout(() => {
+        this._focusServerPending.delete(requestId);
+        reject(new Error(`focused-application-server-timeout:${payload?.action || 'get'}`));
+      }, 3000);
+
+      this._focusServerPending.set(requestId, {
+        resolve,
+        reject,
+        timeoutId
+      });
+
+      try {
+        focusServerProcess.stdin.write(`${JSON.stringify({ id: requestId, ...payload })}\n`);
+      } catch (error) {
+        clearTimeout(timeoutId);
+        this._focusServerPending.delete(requestId);
+        reject(error);
+      }
+    });
   }
 
   async listRunningApplications() {
@@ -146,6 +298,43 @@ class ProcessCatalog {
       this._log('list_running_applications error:', error);
       return [];
     }
+  }
+
+  async getFocusedApplication() {
+    if (os.platform() !== 'win32') {
+      return {
+        success: false,
+        error: 'unsupported-platform'
+      };
+    }
+
+    try {
+      const parsed = await this._sendFocusServerRequest({
+        action: 'get'
+      });
+
+      return parsed && typeof parsed === 'object'
+        ? parsed
+        : { success: false, error: 'invalid-response' };
+    } catch (error) {
+      this._log('get_focused_application error:', error);
+      return {
+        success: false,
+        error: 'focused-application-failed'
+      };
+    }
+  }
+
+  async prewarm() {
+    try {
+      await this.getFocusedApplication();
+    } catch (error) {
+      this._log('focused-application prewarm error:', error);
+    }
+  }
+
+  shutdown() {
+    this._resetFocusServerState(new Error('focused-application-server-shutdown'));
   }
 }
 

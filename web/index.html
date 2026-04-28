@@ -8,6 +8,16 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg width="0" height="0" aria-hidden="true" focusable="false" class="shape-filter-defs">
+    <filter id="media-controller-round-filter" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="0.45" result="blur"></feGaussianBlur>
+      <feComponentTransfer in="blur" result="rounded">
+        <feFuncA type="table" tableValues="0 0.15 1 1"></feFuncA>
+      </feComponentTransfer>
+      <feBlend in="SourceGraphic" in2="rounded" mode="normal"></feBlend>
+    </filter>
+  </svg>
+
   <div class="toolbar">
     <div class="toolbar-section toolbar-left">
       <button class="btn icon-btn" onclick="toggleMainMenu()" data-i18n="toolbar.menu">Меню</button>
@@ -543,6 +553,7 @@
 
   <script src="js/shared/renderer-state-model.js"></script>
   <script src="js/shared/channel-model.js"></script>
+  <script src="js/shared/channel-targeting.js"></script>
   <script src="js/adapters/api-bridge.js"></script>
   <script src="js/adapters/local-storage.js"></script>
   <script src="js/adapters/language-storage.js"></script>

@@ -1,5 +1,19 @@
 (function initAudioRuntime(window) {
   const AUDIO_APPS_REFRESH_MIN_INTERVAL_MS = 1500;
+  const SYSTEM_ICON_PLACEHOLDER_PROCESSES = new Set([
+    'applicationframehost.exe',
+    'backgroundtaskhost.exe',
+    'dllhost.exe',
+    'lockapp.exe',
+    'rundll32.exe',
+    'searchapp.exe',
+    'searchhost.exe',
+    'shellexperiencehost.exe',
+    'startmenuexperiencehost.exe',
+    'systemsettings.exe',
+    'textinputhost.exe',
+    'widgetservice.exe'
+  ]);
   const FALLBACK_AUDIO_APPS = [
     { name: 'Chrome', process: 'chrome.exe' },
     { name: 'Spotify', process: 'spotify.exe' },
@@ -9,6 +23,7 @@
   ];
 
   const audioAppIconCache = new Map();
+  const audioAppIconRequests = new Map();
   const runtimeListeners = new Set();
   const runtimeState = {
     apps: [],
@@ -30,6 +45,40 @@
     return {
       ...application
     };
+  }
+
+  function isWindowsSystemPath(applicationPath = '') {
+    const normalizedPath = String(applicationPath || '').trim().toLowerCase();
+    return normalizedPath.includes('\\windows\\system32\\')
+      || normalizedPath.includes('\\windows\\syswow64\\')
+      || normalizedPath.includes('\\windows\\winsxs\\');
+  }
+
+  function isMeaningfulAudioAppIcon(application = {}, iconDataUrl = application?.iconDataUrl || '') {
+    const normalizedDataUrl = String(iconDataUrl || '').trim();
+
+    if (!normalizedDataUrl) {
+      return false;
+    }
+
+    const processName = String(application?.process || '').trim().toLowerCase();
+    const applicationPath = String(application?.path || '').trim().toLowerCase();
+
+    if (SYSTEM_ICON_PLACEHOLDER_PROCESSES.has(processName)) {
+      return false;
+    }
+
+    if (
+      normalizedDataUrl.length < 900
+      && (
+        isWindowsSystemPath(applicationPath)
+        || processName.endsWith('host.exe')
+      )
+    ) {
+      return false;
+    }
+
+    return true;
   }
 
   function cloneAudioRuntimeState() {
@@ -59,14 +108,80 @@
     return [localizedMaster, ...externalApps];
   }
 
-  function getAudioAppIconCacheKey(application = {}) {
+  function getAudioAppIconCacheKeys(application = {}) {
+    const cacheKeys = [];
     const pathKey = String(application?.path || '').trim().toLowerCase();
+    const processKey = String(application?.process || '').trim().toLowerCase();
 
     if (pathKey) {
-      return pathKey;
+      cacheKeys.push(pathKey);
     }
 
-    return String(application?.process || '').trim().toLowerCase();
+    if (processKey && !cacheKeys.includes(processKey)) {
+      cacheKeys.push(processKey);
+    }
+
+    return cacheKeys;
+  }
+
+  function getCachedAudioAppIconDataUrl(application = {}) {
+    const cacheKeys = getAudioAppIconCacheKeys(application);
+
+    for (const cacheKey of cacheKeys) {
+      const cachedIconDataUrl = String(audioAppIconCache.get(cacheKey) || '').trim();
+
+      if (isMeaningfulAudioAppIcon(application, cachedIconDataUrl)) {
+        return cachedIconDataUrl;
+      }
+    }
+
+    return '';
+  }
+
+  function cacheAudioAppIconDataUrl(application = {}, iconDataUrl = '') {
+    const normalizedIconDataUrl = String(iconDataUrl || '').trim();
+    const resolvedIconDataUrl = isMeaningfulAudioAppIcon(application, normalizedIconDataUrl)
+      ? normalizedIconDataUrl
+      : getCachedAudioAppIconDataUrl(application);
+    const cacheKeys = getAudioAppIconCacheKeys(application);
+
+    if (!cacheKeys.length || !resolvedIconDataUrl) {
+      return '';
+    }
+
+    cacheKeys.forEach((cacheKey) => {
+      audioAppIconCache.set(cacheKey, resolvedIconDataUrl);
+    });
+
+    return resolvedIconDataUrl;
+  }
+
+  function syncRuntimeAppsWithIconCache(meta = {}) {
+    let hasChanged = false;
+    const nextApplications = runtimeState.apps.map((application) => {
+      const resolvedIconDataUrl = getCachedAudioAppIconDataUrl(application);
+
+      if (String(application?.iconDataUrl || '') === resolvedIconDataUrl) {
+        return application;
+      }
+
+      hasChanged = true;
+      return {
+        ...application,
+        iconDataUrl: resolvedIconDataUrl
+      };
+    });
+
+    if (!hasChanged) {
+      return getAvailableAudioApps();
+    }
+
+    return setAudioRuntimeApps(nextApplications, {
+      type: 'audio-runtime/apps-updated',
+      source: 'audio-runtime',
+      reason: meta?.reason || 'icon-cache-sync',
+      markRefreshed: meta?.markRefreshed === true
+    });
   }
 
   function areAudioAppsEqual(nextApplications = [], previousApplications = []) {
@@ -87,17 +202,63 @@
 
   function applyCachedAudioAppIcons(applications = []) {
     return applications.map((application) => {
-      const cacheKey = getAudioAppIconCacheKey(application);
-
-      if (!cacheKey || !audioAppIconCache.has(cacheKey)) {
-        return cloneAudioApp(application);
-      }
+      const resolvedIconDataUrl = isMeaningfulAudioAppIcon(application, application?.iconDataUrl)
+        ? String(application?.iconDataUrl || '').trim()
+        : getCachedAudioAppIconDataUrl(application);
 
       return {
         ...application,
-        iconDataUrl: audioAppIconCache.get(cacheKey)
+        iconDataUrl: resolvedIconDataUrl
       };
     });
+  }
+
+  async function ensureAudioAppIconDataUrl(application = {}, options = {}) {
+    const resolvedApplication = cloneAudioApp(application);
+    const cachedIconDataUrl = getCachedAudioAppIconDataUrl(resolvedApplication);
+
+    if (cachedIconDataUrl) {
+      return cachedIconDataUrl;
+    }
+
+    const applicationPath = String(resolvedApplication?.path || '').trim();
+    const api = getAudioApi();
+
+    if (!applicationPath || !api?.get_application_icons) {
+      return '';
+    }
+
+    const requestKey = applicationPath.toLowerCase();
+
+    if (audioAppIconRequests.has(requestKey)) {
+      return audioAppIconRequests.get(requestKey);
+    }
+
+    const requestPromise = Promise.resolve(api.get_application_icons([applicationPath]))
+      .then((response) => {
+        const iconMap = response?.success && response?.icons && typeof response.icons === 'object'
+          ? response.icons
+          : {};
+        const nextIconDataUrl = cacheAudioAppIconDataUrl(resolvedApplication, iconMap[applicationPath]);
+
+        if (nextIconDataUrl && options?.syncRuntime !== false) {
+          syncRuntimeAppsWithIconCache({
+            reason: options?.reason || 'icon-fetch'
+          });
+        }
+
+        return nextIconDataUrl;
+      })
+      .catch((error) => {
+        console.error('ensureAudioAppIconDataUrl error', error);
+        return '';
+      })
+      .finally(() => {
+        audioAppIconRequests.delete(requestKey);
+      });
+
+    audioAppIconRequests.set(requestKey, requestPromise);
+    return requestPromise;
   }
 
   async function enrichAudioAppsWithIcons(applications = []) {
@@ -110,10 +271,9 @@
     const uncachedPaths = [];
 
     applications.forEach((application) => {
-      const cacheKey = getAudioAppIconCacheKey(application);
       const applicationPath = String(application?.path || '').trim();
 
-      if (!cacheKey || !applicationPath || audioAppIconCache.has(cacheKey)) {
+      if (!applicationPath || getCachedAudioAppIconDataUrl(application)) {
         return;
       }
 
@@ -128,13 +288,10 @@
           : {};
 
         applications.forEach((application) => {
-          const cacheKey = getAudioAppIconCacheKey(application);
           const applicationPath = String(application?.path || '').trim();
           const iconDataUrl = applicationPath ? iconMap[applicationPath] : '';
 
-          if (cacheKey && iconDataUrl) {
-            audioAppIconCache.set(cacheKey, iconDataUrl);
-          }
+          cacheAudioAppIconDataUrl(application, iconDataUrl);
         });
       } catch (error) {
         console.error('loadAudioAppIcons error', error);
@@ -294,6 +451,8 @@
     getState: getAudioRuntimeState,
     subscribe: subscribeAudioRuntime,
     getAvailableAudioApps,
+    getCachedAudioAppIconDataUrl,
+    ensureAudioAppIconDataUrl,
     setAudioRuntimeApps,
     loadAudioApps,
     requestAudioAppsRefresh,
@@ -304,6 +463,9 @@
   window.getAudioRuntimeState = getAudioRuntimeState;
   window.subscribeAudioRuntime = subscribeAudioRuntime;
   window.getAvailableAudioApps = getAvailableAudioApps;
+  window.isMeaningfulAudioAppIcon = isMeaningfulAudioAppIcon;
+  window.getCachedAudioAppIconDataUrl = getCachedAudioAppIconDataUrl;
+  window.ensureAudioAppIconDataUrl = ensureAudioAppIconDataUrl;
   window.setAudioRuntimeApps = setAudioRuntimeApps;
   window.loadAudioApps = loadAudioApps;
   window.requestAudioAppsRefresh = requestAudioAppsRefresh;

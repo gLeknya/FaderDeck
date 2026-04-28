@@ -25,6 +25,10 @@
       : (window.getNativeApi?.() ?? null);
   }
 
+  function getTargeting() {
+    return window.channelTargeting || null;
+  }
+
   function getMediaControllerTargetAppId() {
     return String(window.getMediaControllerTargetAppIdState?.() || '').trim();
   }
@@ -96,6 +100,14 @@
   }
 
   function getChannelTargetProcesses(channel = {}) {
+    if (getTargeting()?.getChannelTargetMode?.(channel) === window.CHANNEL_TARGET_MODES?.devices) {
+      return [];
+    }
+
+    if (getTargeting()?.getChannelTargetMode?.(channel) === window.CHANNEL_TARGET_MODES?.focus) {
+      return [];
+    }
+
     const explicitTargets = Array.isArray(channel?.targets)
       ? channel.targets
           .map((target) => String(target?.process || '').trim())
@@ -259,6 +271,27 @@
     return getLegacyButtonTargetProcesses(button);
   }
 
+  async function resolveButtonTargetBinding(button = {}, options = {}) {
+    const linkedChannel = getLinkedChannel(button);
+
+    if (linkedChannel && getTargeting()?.resolveChannelTargetBinding) {
+      return getTargeting().resolveChannelTargetBinding(linkedChannel, options);
+    }
+
+    const appTargets = getLegacyButtonTargetProcesses(button)
+      .map((processName) => getTargeting()?.createAppTarget?.({ process: processName, name: processName }) || { process: processName, name: processName });
+
+    return {
+      mode: 'apps',
+      appTargets,
+      deviceTargets: [],
+      deviceFlow: 'output',
+      focusTarget: null,
+      focusExclusions: [],
+      hasTargets: appTargets.length > 0
+    };
+  }
+
   function getButtonExecutablePath(button = {}) {
     const targetProcesses = getButtonTargetProcesses(button);
 
@@ -373,6 +406,54 @@
       console.error('get_audio_states error', error);
       return new Map();
     }
+  }
+
+  async function readBindingState(binding = {}, options = {}) {
+    const targeting = getTargeting();
+    return targeting?.readBindingState
+      ? targeting.readBindingState(binding, options)
+      : {
+        hasTargets: false,
+        volume: 0,
+        muted: false,
+        appStateMap: new Map(),
+        deviceStateMap: new Map()
+      };
+  }
+
+  function createBindingSnapshot(binding = {}, state = {}) {
+    const targeting = getTargeting();
+    return targeting?.createBindingSnapshot
+      ? targeting.createBindingSnapshot(binding, state)
+      : [];
+  }
+
+  function restoreBindingSnapshot(snapshot = []) {
+    const targeting = getTargeting();
+    return targeting?.restoreBindingSnapshot
+      ? targeting.restoreBindingSnapshot(snapshot)
+      : Promise.resolve([]);
+  }
+
+  function setBindingVolume(binding = {}, volume = 0) {
+    const targeting = getTargeting();
+    return targeting?.setBindingVolume
+      ? targeting.setBindingVolume(binding, volume)
+      : Promise.resolve([]);
+  }
+
+  function setBindingMuted(binding = {}, muted = false) {
+    const targeting = getTargeting();
+    return targeting?.setBindingMuted
+      ? targeting.setBindingMuted(binding, muted)
+      : Promise.resolve([]);
+  }
+
+  function getBindingExecutablePath(binding = {}) {
+    const targeting = getTargeting();
+    return targeting?.getBindingExecutablePath
+      ? targeting.getBindingExecutablePath(binding)
+      : '';
   }
 
   function createProcessStateSnapshot(processStateMap = new Map()) {
@@ -629,20 +710,24 @@
   }
 
   async function executeMuteStandaloneButton(button) {
-    const targetProcesses = getButtonTargetProcesses(button);
-    const targetStateMap = await getProcessAudioStates(targetProcesses);
-    const allMuted = targetProcesses.length > 0
-      && targetProcesses.every((processName) => Boolean(targetStateMap.get(processName.toLowerCase())?.muted));
+    const binding = await resolveButtonTargetBinding(button, { force: true });
+    const bindingState = await readBindingState(binding, { force: true });
+    const allMuted = Boolean(binding.hasTargets) && Boolean(bindingState.muted);
 
-    await setProcessesMuted(targetProcesses, !allMuted);
+    await setBindingMuted(binding, !allMuted);
     return !allMuted;
   }
 
   async function executeSoloStandaloneButton(button) {
     const buttonKey = getButtonRuntimeKey(button.id);
-    const targetProcesses = getButtonTargetProcesses(button);
-    const allProfileProcesses = getAllProfileTargetProcesses();
-    const otherProcesses = allProfileProcesses.filter((processName) => !targetProcesses.includes(processName));
+    const targetBinding = await resolveButtonTargetBinding(button, { force: true });
+    const channels = window.getChannelsState?.() || [];
+    const resolvedChannelBindings = await Promise.all(
+      channels.map((channel) => getTargeting()?.resolveChannelTargetBinding?.(channel, { force: true }) || null)
+    );
+    const resolvedStandaloneBindings = await Promise.all(
+      getButtons().map((entry) => resolveButtonTargetBinding(entry, { force: true }))
+    );
     const activeSoloKey = window.getActiveStandaloneSoloButtonRuntimeKey?.() || null;
 
     if (activeSoloKey === buttonKey) {
@@ -650,25 +735,45 @@
       return false;
     }
 
-    const processStateMap = await getProcessAudioStates(allProfileProcesses);
-    const snapshot = Array.from(processStateMap.values()).map((application) => ({
-      process: application.process,
-      muted: Boolean(application.muted)
-    }));
+    const snapshot = (
+      await Promise.all(
+        [...resolvedChannelBindings, ...resolvedStandaloneBindings]
+          .filter(Boolean)
+          .map(async (binding) => {
+            const state = await readBindingState(binding, { force: true });
+            return createBindingSnapshot(binding, state);
+          })
+      )
+    ).flat();
+    const otherAppTargets = [...resolvedChannelBindings, ...resolvedStandaloneBindings]
+      .filter(Boolean)
+      .flatMap((binding) => Array.isArray(binding?.appTargets) ? binding.appTargets : [])
+      .filter((target) => !targetBinding.appTargets.some((selectedTarget) => selectedTarget.process === target.process));
+    const otherDeviceTargets = [...resolvedChannelBindings, ...resolvedStandaloneBindings]
+      .filter(Boolean)
+      .flatMap((binding) => Array.isArray(binding?.deviceTargets) ? binding.deviceTargets.map((target) => ({
+        ...target,
+        flow: target?.flow || binding.deviceFlow
+      })) : [])
+      .filter((target) => !targetBinding.deviceTargets.some((selectedTarget) => selectedTarget.id === target.id && (selectedTarget.flow || targetBinding.deviceFlow) === target.flow));
 
     await window.restoreSoloChannelButtonRuntime?.();
     await window.restoreStandaloneSoloRuntime?.();
-    await setProcessesMuted(otherProcesses, true);
-    await setProcessesMuted(targetProcesses, false);
+    await setBindingMuted({
+      appTargets: otherAppTargets,
+      deviceTargets: otherDeviceTargets,
+      deviceFlow: targetBinding.deviceFlow
+    }, true);
+    await setBindingMuted(targetBinding, false);
     window.activateStandaloneSoloRuntime?.(button.id, snapshot);
     return true;
   }
 
   async function executeSetVolumeStandaloneButton(button) {
-    const targetProcesses = getButtonTargetProcesses(button);
+    const binding = await resolveButtonTargetBinding(button, { force: true });
     const nextVolume = Math.max(0, Math.min(100, Number(button?.actionValue) || 0));
 
-    await setProcessesVolume(targetProcesses, nextVolume);
+    await setBindingVolume(binding, nextVolume);
     return true;
   }
 
@@ -691,8 +796,9 @@
 
   async function executeToggleAppVisibilityStandaloneButton(button) {
     const api = getApi();
-    const primaryProcess = getButtonTargetProcesses(button)[0] || '';
-    const executablePath = getButtonExecutablePath(button);
+    const binding = await resolveButtonTargetBinding(button, { force: true });
+    const primaryProcess = binding.appTargets?.[0]?.process || '';
+    const executablePath = getBindingExecutablePath(binding) || getButtonExecutablePath(button);
 
     if (!primaryProcess && !executablePath) {
       const toastKey = Number.isFinite(Number(button?.linkedChannelId))
@@ -799,7 +905,7 @@
   }
 
   async function activatePushStandaloneButton(button) {
-    const targetProcesses = getButtonTargetProcesses(button);
+    const targetBinding = await resolveButtonTargetBinding(button, { force: true });
     const actionTypes = getActionTypes();
 
     if (button.actionType === actionTypes.solo) {
@@ -842,22 +948,22 @@
       return executeSetDefaultAudioDeviceStandaloneButton(button);
     }
 
-    const processStateMap = await getProcessAudioStates(targetProcesses);
+    const bindingState = await readBindingState(targetBinding, { force: true });
 
     if (button.actionType === actionTypes.setVolume) {
       setPushActionRuntime(button.id, {
-        kind: 'process-state',
-        entries: createProcessStateSnapshot(processStateMap)
+        kind: 'binding-state',
+        entries: createBindingSnapshot(targetBinding, bindingState)
       });
-      await setProcessesVolume(targetProcesses, Math.max(0, Math.min(100, Number(button?.actionValue) || 0)));
+      await setBindingVolume(targetBinding, Math.max(0, Math.min(100, Number(button?.actionValue) || 0)));
       return true;
     }
 
     setPushActionRuntime(button.id, {
-      kind: 'mute-state',
-      entries: createMuteStateSnapshot(processStateMap)
+      kind: 'binding-state',
+      entries: createBindingSnapshot(targetBinding, bindingState)
     });
-    await setProcessesMuted(targetProcesses, true);
+    await setBindingMuted(targetBinding, true);
     return true;
   }
 
@@ -904,18 +1010,12 @@
       return false;
     }
 
-    if (snapshot.kind === 'mute-state') {
-      await restoreMuteStateSnapshot(snapshot.entries);
-      return false;
-    }
-
-    await restoreProcessStateSnapshot(snapshot.entries);
+    await restoreBindingSnapshot(snapshot.entries);
     return false;
   }
 
   async function executeStandaloneButton(buttonId, meta = {}) {
     const button = getButtonById(buttonId);
-    const targetProcesses = getButtonTargetProcesses(button);
     const actionTypes = getActionTypes();
     const interactionModes = getInteractionModes();
     const actionMode = Object.values(interactionModes).includes(button?.actionMode)
@@ -936,10 +1036,14 @@
       clearUiPushReleaseTimer(buttonId);
     }
 
+    const actionTargetBinding = actionEnabled
+      ? await resolveButtonTargetBinding(button, { force: true })
+      : null;
+
     if (
       actionEnabled
       && isStandaloneButtonChannelAction(button.actionType)
-      && !targetProcesses.length
+      && !actionTargetBinding?.hasTargets
     ) {
       const toastKey = Number.isFinite(Number(button?.linkedChannelId))
         ? 'editor.noTargetAssigned'
@@ -1057,6 +1161,7 @@
     removeTarget: removeStandaloneButtonTarget,
     executeStandaloneButton,
     getTargetProcesses: getButtonTargetProcesses,
+    resolveTargetBinding: resolveButtonTargetBinding,
     getLinkedChannel,
     isChannelActionType: isStandaloneButtonChannelAction,
     isMediaActionType: isStandaloneButtonMediaAction

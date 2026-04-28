@@ -6,6 +6,10 @@
     const ENTITY_EDITOR_PREVIEW_ENTRANCE_CLASS = 'is-preview-entering';
 
   const dom = {};
+  const editorRuntimeSync = {
+    frameId: null,
+    initialized: false
+  };
 
   // Entity editor state is transient renderer session state for the active modal.
   function createDefaultEditorSessionState() {
@@ -27,6 +31,7 @@
       sidePanelIconPickerExpanded: false,
       sidePanelKeyCaptureActive: false,
       sidePanelMotionChoices: null,
+      channelIconPickerOpen: false,
       titleDraft: '',
       titleDirty: false,
       editingChannelButtonId: null,
@@ -228,25 +233,65 @@
     return getAvailableApps().find((application) => application.process === normalizedProcess) || null;
   }
 
+  function getChannelTargetMode(channel = {}) {
+    return window.channelTargeting?.getChannelTargetMode?.(channel)
+      || window.CHANNEL_TARGET_MODES?.apps
+      || 'apps';
+  }
+
+  function getChannelDeviceTargetFlow(channel = {}) {
+    return window.channelTargeting?.getChannelDeviceTargetFlow?.(channel)
+      || window.CHANNEL_DEVICE_TARGET_FLOWS?.output
+      || 'output';
+  }
+
+  function getChannelDeviceTargets(channel = {}, flow = null) {
+    return window.channelTargeting?.getChannelDeviceTargets?.(channel, flow)
+      || [];
+  }
+
+  function getChannelFocusExclusions(channel = {}) {
+    return window.channelTargeting?.getChannelFocusExclusions?.(channel)
+      || [];
+  }
+
   function resolveTargetDisplayEntry(target = {}) {
     const matchedApplication = getAvailableAppByProcess(target.process);
+    const process = String(target.process || matchedApplication?.process || '').trim();
+    const resolvedPath = String(target?.path || matchedApplication?.path || '').trim();
 
     return {
-      process: String(target.process || matchedApplication?.process || '').trim(),
+      process,
       name: String(matchedApplication?.name || target.name || target.process || '').trim(),
-      iconDataUrl: String(matchedApplication?.iconDataUrl || '').trim()
+      iconDataUrl: String(
+        matchedApplication?.iconDataUrl
+        || window.getCachedAudioAppIconDataUrl?.({
+          process,
+          path: resolvedPath
+        })
+        || ''
+      ).trim()
+    };
+  }
+
+  function resolveDeviceTargetDisplayEntry(target = {}) {
+    return {
+      id: String(target?.id || '').trim(),
+      name: String(target?.name || target?.id || '').trim(),
+      flow: String(target?.flow || getChannelDeviceTargetFlow(getEditorChannel())).trim() || 'output'
     };
   }
 
   function renderAppIconMarkup(entry, className) {
-    const iconLabel = String(entry?.name || entry?.process || '').trim().charAt(0).toUpperCase() || 'A';
     const hasImage = Boolean(entry?.iconDataUrl);
 
+    if (!hasImage) {
+      return '';
+    }
+
     return `
-      <span class="${className} ${hasImage ? 'has-image' : ''}">
-        ${hasImage
-          ? `<img class="entity-edit-app-icon-image" src="${escapeHtml(entry.iconDataUrl)}" alt="${escapeHtml(entry.name || entry.process || 'App')}">`
-          : escapeHtml(iconLabel)}
+      <span class="${className} has-image">
+        <img class="entity-edit-app-icon-image" src="${escapeHtml(entry.iconDataUrl)}" alt="${escapeHtml(entry.name || entry.process || 'App')}">
       </span>
     `;
   }
@@ -486,14 +531,27 @@
   }
 
   function renderPreviewTitleMarkup(channel, title) {
-    const titleIconTarget = getPreviewTitleIconTarget(channel);
-
-    if (!titleIconTarget) {
-      return `<span class="channel-title-text">${escapeHtml(title)}</span>`;
+    if (channel?.icon && typeof window.renderChannelButtonIconMarkup === 'function') {
+      return `
+        <span class="channel-title-inner has-icon">
+          ${window.renderChannelButtonIconMarkup({ icon: channel.icon }, 'channel-title-icon')}
+          <span class="channel-title-text">${escapeHtml(title)}</span>
+        </span>
+      `;
     }
 
-    return `
-      <span class="channel-title-inner has-icon">
+  const titleIconTarget = getPreviewTitleIconTarget(channel);
+
+  if (!titleIconTarget) {
+    return `<span class="channel-title-text">${escapeHtml(title)}</span>`;
+  }
+
+  if (!titleIconTarget.iconDataUrl) {
+    return `<span class="channel-title-text">${escapeHtml(title)}</span>`;
+  }
+
+  return `
+    <span class="channel-title-inner has-icon">
         ${renderAppIconMarkup(titleIconTarget, 'channel-title-icon')}
         <span class="channel-title-text">${escapeHtml(title)}</span>
       </span>
@@ -1069,12 +1127,81 @@
   }
 
   function renderEditorTargets(channel) {
-    const targets = getChannelTargets(channel).map(resolveTargetDisplayEntry);
+    const targetMode = getChannelTargetMode(channel);
     const activeTitleIconProcess = channel?.showTargetIconInTitle
       ? String(channel?.titleIconTargetProcess || '').trim()
       : '';
 
-    if (!targets.length) {
+    if (targetMode === (window.CHANNEL_TARGET_MODES?.devices || 'devices')) {
+      const deviceTargets = getChannelDeviceTargets(channel).map(resolveDeviceTargetDisplayEntry);
+
+      if (!deviceTargets.length) {
+        return `
+          <button class="entity-edit-target-placeholder" type="button" data-editor-open-targets>
+            ${t('editor.targetPlaceholder')}
+          </button>
+        `;
+      }
+
+      return `
+        <div class="entity-edit-target-list">
+          ${deviceTargets.map((target) => `
+            <div class="entity-edit-target-chip" data-editor-device-target-chip="${escapeHtml(target.id)}">
+              <span class="entity-edit-target-icon">${escapeHtml(target.flow === 'input' ? 'IN' : 'OUT')}</span>
+              <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
+              <span class="entity-edit-target-inline-meta">${escapeHtml(target.flow === 'input' ? t('editor.deviceFlowInput') : t('editor.deviceFlowOutput'))}</span>
+              <button
+                class="entity-edit-target-remove"
+                type="button"
+                data-editor-remove-device-target="${escapeHtml(target.id)}"
+                data-editor-remove-device-target-flow="${escapeHtml(target.flow)}"
+                aria-label="${escapeHtml(t('editor.removeTarget'))}">
+                <span>&times;</span>
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    if (targetMode === (window.CHANNEL_TARGET_MODES?.focus || 'focus')) {
+      const exclusions = getChannelFocusExclusions(channel).map(resolveTargetDisplayEntry);
+
+      return `
+        <div class="entity-edit-target-list">
+          <div class="entity-edit-target-chip entity-edit-target-chip--focus-summary has-icon">
+            <span class="entity-edit-target-icon">F</span>
+            <span class="entity-edit-target-label">${escapeHtml(t('editor.targetModeFocusCurrent'))}</span>
+            <span class="entity-edit-target-inline-meta">${escapeHtml(
+              exclusions.length
+                ? t('editor.focusExclusionsCount', { count: exclusions.length })
+                : t('editor.focusExclusionsNone')
+            )}</span>
+          </div>
+          ${exclusions.length
+            ? exclusions.map((target) => `
+              <div class="entity-edit-target-chip ${target.iconDataUrl ? 'has-icon' : ''}" data-editor-focus-exclusion-chip="${escapeHtml(target.process)}">
+                ${renderAppIconMarkup(target, 'entity-edit-target-icon')}
+                <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
+                <span class="entity-edit-target-inline-meta">${escapeHtml(t('editor.focusExcludedApp'))}</span>
+                <button
+                  class="entity-edit-target-remove"
+                  type="button"
+                  data-editor-remove-focus-exclusion="${escapeHtml(target.process)}"
+                  aria-label="${escapeHtml(t('editor.removeTarget'))}">
+                  <span>&times;</span>
+                </button>
+              </div>
+            `).join('')
+            : ''}
+        </div>
+      `;
+    }
+
+    const targets = getChannelTargets(channel).map(resolveTargetDisplayEntry);
+    const deviceTargets = getChannelDeviceTargets(channel).map(resolveDeviceTargetDisplayEntry);
+
+    if (!targets.length && !deviceTargets.length) {
       return `
         <button class="entity-edit-target-placeholder" type="button" data-editor-open-targets>
           ${t('editor.targetPlaceholder')}
@@ -1085,7 +1212,7 @@
     return `
       <div class="entity-edit-target-list">
         ${targets.map((target) => `
-          <div class="entity-edit-target-chip" data-editor-target-chip="${escapeHtml(target.process)}">
+          <div class="entity-edit-target-chip ${target.iconDataUrl ? 'has-icon' : ''}" data-editor-target-chip="${escapeHtml(target.process)}">
             ${renderAppIconMarkup(target, 'entity-edit-target-icon')}
             <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
             <button
@@ -1110,6 +1237,20 @@
             </button>
           </div>
         `).join('')}
+        ${deviceTargets.map((target) => `
+          <div class="entity-edit-target-chip" data-editor-device-target-chip="${escapeHtml(target.id)}">
+            <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
+            <span class="entity-edit-target-inline-meta">${escapeHtml(target.flow === 'input' ? t('editor.deviceFlowInput') : t('editor.deviceFlowOutput'))}</span>
+            <button
+              class="entity-edit-target-remove"
+              type="button"
+              data-editor-remove-device-target="${escapeHtml(target.id)}"
+              data-editor-remove-device-target-flow="${escapeHtml(target.flow)}"
+              aria-label="${escapeHtml(t('editor.removeTarget'))}">
+              <span>&times;</span>
+            </button>
+          </div>
+        `).join('')}
       </div>
       `;
   }
@@ -1129,7 +1270,7 @@
       <div class="entity-edit-target-list">
         ${targets.map((target) => `
           <div
-            class="entity-edit-target-chip entity-edit-target-chip--standalone"
+            class="entity-edit-target-chip entity-edit-target-chip--standalone ${target.iconDataUrl ? 'has-icon' : ''}"
             data-editor-target-chip="${escapeHtml(target.process)}">
             ${renderAppIconMarkup(target, 'entity-edit-target-icon')}
             <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
@@ -1253,6 +1394,7 @@
 
   function getEditorButtonActionGroups() {
     return [
+      { value: 'none', label: translateOrFallback('editor.buttonActionGroupNone', 'None') },
       { value: 'faders', label: translateOrFallback('editor.buttonActionGroupFaders', 'Faders') },
       { value: 'multimedia', label: translateOrFallback('editor.buttonActionGroupMedia', 'Multimedia') },
       { value: 'system', label: translateOrFallback('editor.buttonActionGroupSystem', 'System') }
@@ -1262,6 +1404,10 @@
   function getEditorButtonActionGroup(actionType = '') {
     const actionTypes = getStandaloneButtonActionTypes();
     const normalizedActionType = String(actionType || '').trim();
+
+    if (!normalizedActionType || normalizedActionType === actionTypes.none) {
+      return 'none';
+    }
 
     if ([
       actionTypes.mute,
@@ -1296,11 +1442,17 @@
       return 'system';
     }
 
-    return 'faders';
+    return 'none';
   }
 
   function getEditorButtonActionOptions(group = 'faders') {
     const actionTypes = getStandaloneButtonActionTypes();
+
+    if (group === 'none') {
+      return [
+        { value: actionTypes.none, label: translateOrFallback('editor.buttonActionNone', 'No action') }
+      ];
+    }
 
     if (group === 'multimedia') {
       return [
@@ -1334,6 +1486,255 @@
     ];
   }
 
+  function getChannelButtonIndicatorBehaviors() {
+    return window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
+      actionState: 'action-state',
+      peakMeter: 'peak-meter',
+      targetActivity: 'target-activity'
+    };
+  }
+
+  function getButtonIndicatorThresholdBounds() {
+    return {
+      min: Number(window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60),
+      max: Number(window.MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? 0),
+      fallback: Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20)
+    };
+  }
+
+  function clampButtonIndicatorThreshold(value) {
+    const bounds = getButtonIndicatorThresholdBounds();
+    const numericValue = Number(value);
+    return Math.max(
+      bounds.min,
+      Math.min(bounds.max, Number.isFinite(numericValue) ? numericValue : bounds.fallback)
+    );
+  }
+
+  function formatButtonIndicatorThreshold(value) {
+    return `${Math.round(clampButtonIndicatorThreshold(value))} dB`;
+  }
+
+  function convertButtonMeterLevelToDb(meterLevel = 0) {
+    const bounds = getButtonIndicatorThresholdBounds();
+    const normalizedLevel = Math.max(0, Math.min(1, Number(meterLevel) || 0));
+
+    if (normalizedLevel <= 0) {
+      return bounds.min;
+    }
+
+    return Math.max(bounds.min, Math.min(bounds.max, 20 * Math.log10(normalizedLevel)));
+  }
+
+  function getEditorButtonLivePeakSnapshot(button = {}, options = {}) {
+    const bounds = getButtonIndicatorThresholdBounds();
+    const thresholdDb = clampButtonIndicatorThreshold(
+      options?.thresholdDb ?? button?.indicatorThreshold
+    );
+    const channelId = Number(options?.channelId);
+    const runtimeState = Number.isFinite(channelId)
+      ? window.getChannelButtonState?.(channelId, button?.id)
+      : window.getStandaloneButtonState?.(button?.id);
+    const rawMeterLevel = Math.max(0, Math.min(1, Number(runtimeState?.rawMeterLevel) || 0));
+    const rawMeterDb = Number.isFinite(Number(runtimeState?.rawMeterDb))
+      ? Math.max(bounds.min, Math.min(bounds.max, Number(runtimeState.rawMeterDb)))
+      : convertButtonMeterLevelToDb(rawMeterLevel);
+    const levelPercent = ((rawMeterDb - bounds.min) / (bounds.max - bounds.min)) * 100;
+    const thresholdPercent = ((thresholdDb - bounds.min) / (bounds.max - bounds.min)) * 100;
+
+    return {
+      rawMeterLevel,
+      rawMeterDb,
+      thresholdDb,
+      levelPercent: Math.max(0, Math.min(100, levelPercent)),
+      thresholdPercent: Math.max(0, Math.min(100, thresholdPercent))
+    };
+  }
+
+  function renderButtonIndicatorLiveMeter(button = {}, options = {}) {
+    const snapshot = getEditorButtonLivePeakSnapshot(button, options);
+    const channelId = Number.isFinite(Number(options?.channelId)) ? Number(options.channelId) : null;
+    const bounds = getButtonIndicatorThresholdBounds();
+
+    return `
+      <div
+        class="entity-edit-button-live-meter"
+        data-editor-button-live-meter
+        data-editor-button-id="${button.id}"
+        data-editor-channel-id="${channelId ?? ''}"
+        data-editor-button-threshold="${snapshot.thresholdDb}">
+        <div class="entity-edit-button-live-meter-track">
+          <div
+            class="entity-edit-button-live-meter-fill"
+            data-editor-button-live-meter-fill
+            style="transform: scaleX(${snapshot.levelPercent / 100});"></div>
+          <div
+            class="entity-edit-button-live-meter-threshold"
+            data-editor-button-live-meter-threshold
+            style="left: ${snapshot.thresholdPercent}%;"></div>
+        </div>
+        <div class="entity-edit-button-live-meter-meta">
+          <span class="entity-edit-button-live-meter-scale-min">${bounds.min} dB</span>
+          <span class="entity-edit-button-live-meter-value" data-editor-button-live-meter-value>${Math.round(snapshot.rawMeterDb)} dB</span>
+          <span class="entity-edit-button-live-meter-scale-max">${bounds.max} dB</span>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateEntityEditorLivePeakMeters() {
+    const meterRoots = dom.modal?.querySelectorAll?.('[data-editor-button-live-meter]')
+      || document.querySelectorAll('[data-editor-button-live-meter]');
+
+    meterRoots.forEach((meterRoot) => {
+      const buttonId = Number.parseInt(meterRoot.dataset.editorButtonId || '', 10);
+      const channelId = Number.parseInt(meterRoot.dataset.editorChannelId || '', 10);
+      const thresholdDb = clampButtonIndicatorThreshold(meterRoot.dataset.editorButtonThreshold);
+
+      if (!Number.isFinite(buttonId)) {
+        return;
+      }
+
+      const snapshot = getEditorButtonLivePeakSnapshot(
+        { id: buttonId, indicatorThreshold: thresholdDb },
+        {
+          channelId: Number.isFinite(channelId) ? channelId : null,
+          thresholdDb
+        }
+      );
+      const fill = meterRoot.querySelector('[data-editor-button-live-meter-fill]');
+      const threshold = meterRoot.querySelector('[data-editor-button-live-meter-threshold]');
+      const value = meterRoot.querySelector('[data-editor-button-live-meter-value]');
+
+      if (fill) {
+        fill.style.transform = `scaleX(${snapshot.levelPercent / 100})`;
+        fill.style.opacity = snapshot.rawMeterLevel > 0.001 ? '1' : '0';
+      }
+
+      if (threshold) {
+        threshold.style.left = `${snapshot.thresholdPercent}%`;
+      }
+
+      if (value) {
+        value.textContent = `${Math.round(snapshot.rawMeterDb)} dB`;
+      }
+    });
+  }
+
+  function scheduleEntityEditorLivePeakMeterUpdate() {
+    if (editorRuntimeSync.frameId) {
+      return;
+    }
+
+    editorRuntimeSync.frameId = window.requestAnimationFrame(() => {
+      editorRuntimeSync.frameId = null;
+
+      if (getCurrentActiveModalId() !== ENTITY_EDITOR_MODAL_ID) {
+        return;
+      }
+
+      updateEntityEditorLivePeakMeters();
+    });
+  }
+
+  function initEntityEditorRuntimeSync() {
+    if (editorRuntimeSync.initialized) {
+      return;
+    }
+
+    window.channelButtonRuntime?.subscribe?.(() => {
+      scheduleEntityEditorLivePeakMeterUpdate();
+    });
+    window.standaloneButtonRuntime?.subscribe?.(() => {
+      scheduleEntityEditorLivePeakMeterUpdate();
+    });
+
+    editorRuntimeSync.initialized = true;
+  }
+
+  function getDefaultIconForButtonActionType(actionType = '', fallbackIcon = 'square') {
+    const actionTypes = getStandaloneButtonActionTypes();
+    const normalizedActionType = String(actionType || '').trim();
+
+    if (normalizedActionType === actionTypes.none) {
+      return 'square';
+    }
+
+    if (normalizedActionType === actionTypes.mute) {
+      return 'mute';
+    }
+
+    if (normalizedActionType === actionTypes.solo) {
+      return 'target';
+    }
+
+    if (normalizedActionType === actionTypes.setVolume) {
+      return 'speaker';
+    }
+
+    if (normalizedActionType === actionTypes.toggleAppVisibility) {
+      return 'layers';
+    }
+
+    if (normalizedActionType === actionTypes.sendKey) {
+      return 'flash';
+    }
+
+    if (normalizedActionType === actionTypes.mediaPreviousTrack) {
+      return 'skip-previous';
+    }
+
+    if (normalizedActionType === actionTypes.mediaNextTrack) {
+      return 'skip-next';
+    }
+
+    if (normalizedActionType === actionTypes.mediaPlay) {
+      return 'play';
+    }
+
+    if (normalizedActionType === actionTypes.mediaPause) {
+      return 'pause';
+    }
+
+    if (normalizedActionType === actionTypes.mediaPlayPause) {
+      return 'play-pause';
+    }
+
+    if (normalizedActionType === actionTypes.mediaRewind) {
+      return 'rewind';
+    }
+
+    if (normalizedActionType === actionTypes.mediaFastForward) {
+      return 'fast-forward';
+    }
+
+    if (normalizedActionType === actionTypes.mediaRepeat) {
+      return 'repeat';
+    }
+
+    if (normalizedActionType === actionTypes.mediaShuffle) {
+      return 'shuffle';
+    }
+
+    if (normalizedActionType === actionTypes.runUserScript) {
+      return 'bolt';
+    }
+
+    if (normalizedActionType === actionTypes.launchApp) {
+      return 'layers';
+    }
+
+    if (normalizedActionType === actionTypes.setDefaultOutputDevice) {
+      return 'speaker';
+    }
+
+    if (normalizedActionType === actionTypes.setDefaultInputDevice) {
+      return 'wave';
+    }
+
+    return fallbackIcon;
+  }
+
   function renderEditorButtonSelect(label, value, options = [], attrs = '', placeholder = '') {
     const normalizedValue = String(value ?? '');
     const resolvedAttrs = String(attrs || '').trim();
@@ -1364,11 +1765,12 @@
 
   function ensureEditorAudioDevicesLoaded(flow = 'output', options = {}) {
     const normalizedFlow = flow === 'input' ? 'input' : 'output';
+    const targeting = window.channelTargeting || null;
     const api = typeof window.getApi === 'function'
       ? window.getApi()
       : (window.getNativeApi?.() ?? null);
 
-    if (!api?.list_audio_devices) {
+    if (!targeting?.listAudioDevices && !api?.list_audio_devices) {
       return Promise.resolve([]);
     }
 
@@ -1385,11 +1787,17 @@
     editorState.audioDeviceLoading[normalizedFlow] = true;
     editorState.audioDeviceErrors[normalizedFlow] = '';
 
-    return Promise.resolve(api.list_audio_devices(normalizedFlow))
+    const loader = targeting?.listAudioDevices
+      ? targeting.listAudioDevices(normalizedFlow, { force: Boolean(options?.force) })
+      : api.list_audio_devices(normalizedFlow);
+
+    return Promise.resolve(loader)
       .then((response) => {
-        editorState.audioDeviceOptions[normalizedFlow] = Array.isArray(response?.devices)
-          ? response.devices
-          : [];
+        const devices = Array.isArray(response)
+          ? response
+          : (Array.isArray(response?.devices) ? response.devices : []);
+
+        editorState.audioDeviceOptions[normalizedFlow] = devices;
         return editorState.audioDeviceOptions[normalizedFlow];
       })
       .catch((error) => {
@@ -1605,6 +2013,12 @@
   }
 
   function renderButtonActionCard(button = {}, options = {}) {
+    const actionTypes = getStandaloneButtonActionTypes();
+
+    if (String(button?.actionType || '').trim() === actionTypes.none) {
+      return '';
+    }
+
     const actionGroup = getEditorButtonActionGroup(button?.actionType);
     const actionOptions = getEditorButtonActionOptions(actionGroup);
     const resolvedActionType = actionOptions.some((option) => String(option.value) === String(button?.actionType || ''))
@@ -1626,6 +2040,63 @@
             translateOrFallback('editor.buttonActionNone', 'No action')
           )}
           ${renderButtonActionFields(button, options)}
+        </div>
+      </div>
+    `;
+  }
+
+  function renderButtonIndicatorBehaviorCard(button = {}, options = {}) {
+    const indicatorBehaviors = getChannelButtonIndicatorBehaviors();
+    const resolvedIndicatorBehavior = Object.values(indicatorBehaviors).includes(button?.indicatorBehavior)
+      ? button.indicatorBehavior
+      : indicatorBehaviors.actionState;
+    const thresholdBounds = getButtonIndicatorThresholdBounds();
+    const indicatorThreshold = clampButtonIndicatorThreshold(button?.indicatorThreshold);
+
+    return `
+      <div class="entity-edit-button-side-card entity-edit-button-settings-card entity-edit-button-settings-card--indicator">
+        <div class="entity-edit-button-side-card-header">
+          <div class="entity-edit-button-side-card-label">${t('editor.buttonIndicator')}</div>
+        </div>
+
+        <div class="entity-edit-button-side-card-body" data-editor-card-body="indicator">
+          ${renderButtonChoiceRail('indicator-behavior', resolvedIndicatorBehavior, [
+            {
+              value: indicatorBehaviors.actionState,
+              label: translateOrFallback('editor.buttonIndicatorBehaviorActionState', 'Action state')
+            },
+            {
+              value: indicatorBehaviors.peakMeter,
+              label: translateOrFallback('editor.buttonIndicatorBehaviorPeakMeter', 'Peak meter')
+            },
+            {
+              value: indicatorBehaviors.targetActivity,
+              label: translateOrFallback('editor.buttonIndicatorBehaviorTargetActivity', 'Target activity')
+            }
+          ], {
+            className: 'entity-edit-choice-rail--compact'
+          })}
+          ${resolvedIndicatorBehavior === indicatorBehaviors.peakMeter
+            ? `
+              <div class="entity-edit-button-main-subsection">
+                <div class="entity-edit-button-side-subsection-label">${escapeHtml(
+                  translateOrFallback('editor.buttonIndicatorPeakThreshold', 'Peak threshold (dB)')
+                )}</div>
+                <div class="settings-range-row entity-edit-button-side-range-row">
+                  <input
+                    class="settings-range"
+                    type="range"
+                    min="${thresholdBounds.min}"
+                    max="${thresholdBounds.max}"
+                    step="1"
+                    value="${indicatorThreshold}"
+                    data-editor-side-button-indicator-threshold="${button.id}">
+                  <div class="settings-range-value" data-editor-side-button-indicator-threshold-label>${formatButtonIndicatorThreshold(indicatorThreshold)}</div>
+                </div>
+                ${renderButtonIndicatorLiveMeter(button, options)}
+              </div>
+            `
+            : ''}
         </div>
       </div>
     `;
@@ -1883,7 +2354,7 @@
   function getChannelButtonIconKeys() {
     return Array.isArray(window.CHANNEL_BUTTON_ICON_KEYS)
       ? window.CHANNEL_BUTTON_ICON_KEYS
-      : ['square', 'spark', 'speaker', 'mute', 'layers', 'target', 'flash', 'play', 'pause'];
+      : ['square', 'spark', 'speaker', 'mute', 'layers', 'target', 'flash', 'play', 'pause', 'play-pause', 'skip-previous', 'skip-next', 'stop', 'rewind', 'fast-forward', 'shuffle', 'repeat', 'circle', 'diamond', 'triangle', 'wave', 'bolt', 'ring'];
   }
 
   function renderChannelButtonIconOptions(button, iconKeys = []) {
@@ -1904,6 +2375,58 @@
               : `<span class="entity-edit-button-icon-option-shell">${escapeHtml(iconKey)}</span>`}
           </button>
         `).join('')}
+      </div>
+    `;
+  }
+
+  function getChannelIconKeys() {
+    return Array.isArray(window.CHANNEL_BUTTON_ICON_KEYS)
+      ? window.CHANNEL_BUTTON_ICON_KEYS
+      : ['square', 'spark', 'speaker', 'mute', 'layers', 'target', 'flash', 'play', 'pause', 'play-pause', 'skip-previous', 'skip-next', 'stop', 'rewind', 'fast-forward', 'shuffle', 'repeat', 'circle', 'diamond', 'triangle', 'wave', 'bolt', 'ring'];
+  }
+
+  function renderChannelIconPicker(channel = {}) {
+    const pickerOpen = Boolean(editorState.channelIconPickerOpen);
+    const iconKeys = getChannelIconKeys();
+    const currentIcon = String(channel?.icon || '').trim();
+
+    return `
+      <div class="entity-edit-channel-icon-picker" data-editor-channel-icon-picker>
+        <button
+          class="entity-edit-channel-icon-trigger ${pickerOpen ? 'is-open' : ''}"
+          type="button"
+          data-editor-toggle-channel-icon-picker
+          aria-expanded="${pickerOpen ? 'true' : 'false'}"
+          aria-label="${escapeHtml(t('editor.buttonIcon'))}">
+          ${currentIcon && typeof window.renderChannelButtonIconMarkup === 'function'
+            ? window.renderChannelButtonIconMarkup({ icon: currentIcon }, 'entity-edit-channel-icon-trigger-shell')
+            : '<span class="entity-edit-channel-icon-trigger-shell entity-edit-channel-icon-trigger-shell--empty">A</span>'}
+        </button>
+
+        ${pickerOpen
+          ? `
+            <div class="entity-edit-channel-icon-popover">
+              <button
+                class="entity-edit-channel-icon-option ${currentIcon ? '' : 'active'}"
+                type="button"
+                data-editor-channel-icon-option=""
+                aria-label="${escapeHtml(t('editor.buttonIcon'))}">
+                <span class="entity-edit-channel-icon-option-shell entity-edit-channel-icon-option-shell--empty">A</span>
+              </button>
+              ${iconKeys.map((iconKey) => `
+                <button
+                  class="entity-edit-channel-icon-option ${currentIcon === iconKey ? 'active' : ''}"
+                  type="button"
+                  data-editor-channel-icon-option="${escapeHtml(iconKey)}"
+                  aria-label="${escapeHtml(iconKey)}">
+                  ${typeof window.renderChannelButtonIconMarkup === 'function'
+                    ? window.renderChannelButtonIconMarkup({ icon: iconKey }, 'entity-edit-channel-icon-option-shell')
+                    : `<span class="entity-edit-channel-icon-option-shell">${escapeHtml(iconKey)}</span>`}
+                </button>
+              `).join('')}
+            </div>
+          `
+          : ''}
       </div>
     `;
   }
@@ -2001,13 +2524,29 @@
 
           <div class="entity-edit-button-card-stack">
             ${renderButtonActionCard(resolvedButton, { ownerChannelId: channel?.id })}
+            ${renderButtonIndicatorBehaviorCard(resolvedButton, { channelId: channel?.id })}
           </div>
         </div>
       </div>
     `;
   }
 
-  function renderSidePanelOptions(channel) {
+  function renderTargetModeRail(channel) {
+    return renderButtonChoiceRail('target-mode', getChannelTargetMode(channel), [
+      { value: window.CHANNEL_TARGET_MODES?.apps || 'apps', label: t('editor.targetModeApps') },
+      { value: window.CHANNEL_TARGET_MODES?.devices || 'devices', label: t('editor.targetModeDevices') },
+      { value: window.CHANNEL_TARGET_MODES?.focus || 'focus', label: t('editor.targetModeFocus') }
+    ]);
+  }
+
+  function renderDeviceFlowRail(channel) {
+    return renderButtonChoiceRail('device-target-flow', getChannelDeviceTargetFlow(channel), [
+      { value: window.CHANNEL_DEVICE_TARGET_FLOWS?.output || 'output', label: t('editor.deviceFlowOutput') },
+      { value: window.CHANNEL_DEVICE_TARGET_FLOWS?.input || 'input', label: t('editor.deviceFlowInput') }
+    ]);
+  }
+
+  function renderTargetPanelApps(channel) {
     const selectedTargets = new Set(getChannelTargets(channel).map((target) => target.process));
     const availableApps = getAvailableApps();
 
@@ -2017,13 +2556,84 @@
 
     return availableApps.map((application) => `
       <button
-        class="entity-edit-side-option ${selectedTargets.has(application.process) ? 'active' : ''}"
+        class="entity-edit-side-option ${application.iconDataUrl ? 'has-icon' : ''} ${selectedTargets.has(application.process) ? 'active' : ''}"
         type="button"
         data-editor-toggle-target="${escapeHtml(application.process)}">
         ${renderAppIconMarkup(application, 'entity-edit-side-option-icon')}
         <span class="entity-edit-side-option-label">${escapeHtml(application.name || application.process)}</span>
       </button>
     `).join('');
+  }
+
+  function renderTargetPanelDevices(channel) {
+    const targetFlow = getChannelDeviceTargetFlow(channel);
+    const selectedTargetIds = new Set(getChannelDeviceTargets(channel, targetFlow).map((target) => target.id));
+    const devices = Array.isArray(editorState.audioDeviceOptions[targetFlow])
+      ? editorState.audioDeviceOptions[targetFlow]
+      : [];
+    const isLoading = Boolean(editorState.audioDeviceLoading[targetFlow]);
+    const errorMessage = String(editorState.audioDeviceErrors[targetFlow] || '').trim();
+
+    if (errorMessage) {
+      return `<div class="entity-edit-side-empty">${escapeHtml(errorMessage)}</div>`;
+    }
+
+    if (isLoading && !devices.length) {
+      return `<div class="entity-edit-side-empty">${t('editor.loading')}</div>`;
+    }
+
+    if (!devices.length) {
+      return `<div class="entity-edit-side-empty">${t('editor.noDevicesAvailable')}</div>`;
+    }
+
+    return devices.map((device) => `
+      <button
+        class="entity-edit-side-option ${selectedTargetIds.has(device.id) ? 'active' : ''}"
+        type="button"
+        data-editor-toggle-device-target="${escapeHtml(device.id)}"
+        data-editor-toggle-device-target-flow="${escapeHtml(targetFlow)}">
+        <span class="entity-edit-side-option-label">
+          ${escapeHtml(device.name || device.id)}
+          ${device.isDefault ? ` (${escapeHtml(t('editor.defaultDeviceLabel'))})` : ''}
+        </span>
+      </button>
+    `).join('');
+  }
+
+  function renderTargetPanelFocus(channel) {
+    const exclusions = new Set(getChannelFocusExclusions(channel).map((target) => target.process));
+    const availableApps = getAvailableApps();
+
+    if (!availableApps.length) {
+      return `<div class="entity-edit-side-empty">${t('editor.sidePanelEmpty')}</div>`;
+    }
+
+    return `
+      <div class="entity-edit-side-note">${escapeHtml(t('editor.focusExclusionsHint'))}</div>
+      ${availableApps.map((application) => `
+        <button
+          class="entity-edit-side-option ${application.iconDataUrl ? 'has-icon' : ''} ${exclusions.has(application.process) ? 'active' : ''}"
+          type="button"
+          data-editor-toggle-focus-exclusion="${escapeHtml(application.process)}">
+          ${renderAppIconMarkup(application, 'entity-edit-side-option-icon')}
+          <span class="entity-edit-side-option-label">${escapeHtml(application.name || application.process)}</span>
+        </button>
+      `).join('')}
+    `;
+  }
+
+  function renderSidePanelOptions(channel) {
+    const targetMode = getChannelTargetMode(channel);
+
+    if (targetMode === (window.CHANNEL_TARGET_MODES?.devices || 'devices')) {
+      return renderTargetPanelDevices(channel);
+    }
+
+    if (targetMode === (window.CHANNEL_TARGET_MODES?.focus || 'focus')) {
+      return renderTargetPanelFocus(channel);
+    }
+
+    return renderTargetPanelApps(channel);
   }
 
   function renderCurveModeButtons(selectedType) {
@@ -2196,6 +2806,7 @@
         </div>
 
         <div class="entity-edit-title-row">
+          ${renderChannelIconPicker(channel)}
           <input
             class="entity-edit-title-input"
             id="entityEditTitleInput"
@@ -2290,6 +2901,7 @@
 
         <div class="entity-edit-button-main-stack">
           ${renderButtonActionCard(button)}
+          ${renderButtonIndicatorBehaviorCard(button)}
         </div>
       </div>
     `;
@@ -2528,6 +3140,7 @@
       dom.sidePanel.querySelectorAll('.settings-range').forEach((element) => {
         updateSettingsRangeFill?.(element);
       });
+      scheduleEntityEditorLivePeakMeterUpdate();
       const nextLayout = dom.sidePanel.querySelector('.entity-edit-button-side-layout');
 
       if (nextLayout) {
@@ -2543,17 +3156,27 @@
 
     dom.sidePanel.innerHTML = `
       <div class="entity-edit-side-panel-inner">
-        <div class="entity-edit-side-header">
-          <button
-            class="entity-edit-side-header-pill"
-            type="button"
-            data-editor-close-targets
-            aria-label="${escapeHtml(t('editor.close'))}">
+          <div class="entity-edit-side-header">
+            <button
+              class="entity-edit-side-header-pill"
+              type="button"
+              data-editor-close-targets
+              aria-label="${escapeHtml(t('editor.close'))}">
               <span class="entity-edit-side-header-pill-arrow" aria-hidden="true"></span>
               <span class="entity-edit-type-badge entity-edit-side-type-badge">${t('editor.sidePanelTitle')}</span>
             </button>
-            <div class="entity-edit-side-subtitle">${t('editor.sidePanelSubtitle')}</div>
           </div>
+
+          ${editorState.entityType === 'fader'
+            ? `
+              <div class="entity-edit-side-target-controls">
+                ${renderTargetModeRail(resolvedTargetEntity)}
+                ${getChannelTargetMode(resolvedTargetEntity) === (window.CHANNEL_TARGET_MODES?.devices || 'devices')
+                  ? renderDeviceFlowRail(resolvedTargetEntity)
+                  : ''}
+              </div>
+            `
+            : ''}
 
           <div class="entity-edit-side-options-shell">
             <div class="entity-edit-side-options" id="entityEditSideOptions">
@@ -2730,8 +3353,25 @@
       return;
     }
 
-    const selectedTargets = new Set(getChannelTargets(channel).map((target) => target.process));
+    const targetMode = getChannelTargetMode(channel);
 
+    if (targetMode === (window.CHANNEL_TARGET_MODES?.devices || 'devices')) {
+      const selectedTargetIds = new Set(getChannelDeviceTargets(channel, getChannelDeviceTargetFlow(channel)).map((target) => target.id));
+      dom.sideOptions.querySelectorAll('[data-editor-toggle-device-target]').forEach((option) => {
+        option.classList.toggle('active', selectedTargetIds.has(option.dataset.editorToggleDeviceTarget));
+      });
+      return;
+    }
+
+    if (targetMode === (window.CHANNEL_TARGET_MODES?.focus || 'focus')) {
+      const selectedExclusions = new Set(getChannelFocusExclusions(channel).map((target) => target.process));
+      dom.sideOptions.querySelectorAll('[data-editor-toggle-focus-exclusion]').forEach((option) => {
+        option.classList.toggle('active', selectedExclusions.has(option.dataset.editorToggleFocusExclusion));
+      });
+      return;
+    }
+
+    const selectedTargets = new Set(getChannelTargets(channel).map((target) => target.process));
     dom.sideOptions.querySelectorAll('[data-editor-toggle-target]').forEach((option) => {
       option.classList.toggle('active', selectedTargets.has(option.dataset.editorToggleTarget));
     });
@@ -2966,6 +3606,7 @@
       enhanceEntityEditorCustomSelects(dom.main);
       renderSidePanel(channel);
       syncEditorRangeFills();
+      scheduleEntityEditorLivePeakMeterUpdate();
       dom.main.scrollTop = previousMainScrollTop;
       requestAnimationFrame(() => {
         dom.main.scrollTop = previousMainScrollTop;
@@ -2990,6 +3631,7 @@
       enhanceEntityEditorCustomSelects(dom.main);
       renderSidePanel(getEditorTargetEntity());
       syncEditorRangeFills();
+      scheduleEntityEditorLivePeakMeterUpdate();
       dom.main.scrollTop = previousMainScrollTop;
       requestAnimationFrame(() => {
         dom.main.scrollTop = previousMainScrollTop;
@@ -3063,6 +3705,22 @@
     editorState.sidePanelKeyCaptureActive = false;
     editorState.sidePanelOpen = true;
     renderSidePanel(getEditorTargetEntity());
+
+    if (editorState.entityType === 'fader') {
+      const channel = getEditorChannel();
+      const targetMode = getChannelTargetMode(channel);
+
+      if (targetMode === (window.CHANNEL_TARGET_MODES?.devices || 'devices')) {
+        void ensureEditorAudioDevicesLoaded(getChannelDeviceTargetFlow(channel));
+        return;
+      }
+
+      if (targetMode === (window.CHANNEL_TARGET_MODES?.focus || 'focus')) {
+        requestTargetsPanelApplicationsRefresh({ force: true });
+        return;
+      }
+    }
+
     requestTargetsPanelApplicationsRefresh({ force: true });
   }
 
@@ -3130,9 +3788,16 @@
     const nextPatch = {
       actionType: normalizedActionType,
       actionEnabled: normalizedActionType !== actionTypes.none,
-      indicatorEnabled: normalizedActionType !== actionTypes.none,
+      indicatorEnabled: typeof currentButton?.indicatorEnabled === 'boolean'
+        ? currentButton.indicatorEnabled
+        : true,
       indicatorModeLinkedToAction: true
     };
+
+    nextPatch.icon = getDefaultIconForButtonActionType(
+      normalizedActionType,
+      String(currentButton?.icon || 'square').trim() || 'square'
+    );
 
     if (normalizedActionType !== actionTypes.none) {
       const interactionModes = getChannelButtonInteractionModes();
@@ -3161,6 +3826,11 @@
 
   function getDefaultActionTypeForGroup(group = 'faders') {
     const actionTypes = getStandaloneButtonActionTypes();
+
+    if (String(group || '').trim() === 'none') {
+      return actionTypes.none;
+    }
+
     return getEditorButtonActionOptions(group)
       .find((option) => option.value !== actionTypes.none)?.value || actionTypes.none;
   }
@@ -3293,12 +3963,11 @@
       }
 
       if (optionName === 'action-type-none') {
-        updateSidePanelChannelButton({
-          actionEnabled: false,
-          actionType: getStandaloneButtonActionTypes().none,
-          indicatorEnabled: false,
-          indicatorModeLinkedToAction: true
-        }, {
+        updateSidePanelChannelButton(buildSynchronizedButtonActionPatch(
+          currentButton,
+          getStandaloneButtonActionTypes().none,
+          null
+        ), {
           type: 'standalone-buttons/update'
         });
         return true;
@@ -3308,6 +3977,16 @@
         updateSidePanelChannelButton(buildSynchronizedButtonModePatch(optionValue), {
           type: 'standalone-buttons/update',
           motionChoices: ['action-mode']
+        });
+        return true;
+      }
+
+      if (optionName === 'indicator-behavior') {
+        updateSidePanelChannelButton({
+          indicatorBehavior: optionValue
+        }, {
+          type: 'standalone-buttons/update',
+          motionChoices: ['indicator-behavior']
         });
         return true;
       }
@@ -3327,6 +4006,29 @@
     }
 
     const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
+    const indicatorThresholdRange = event.target.closest('[data-editor-side-button-indicator-threshold]');
+
+    if (indicatorThresholdRange) {
+      const nextValue = clampButtonIndicatorThreshold(indicatorThresholdRange.value);
+      const valueLabel = indicatorThresholdRange.parentElement?.querySelector('[data-editor-side-button-indicator-threshold-label]');
+      updateSettingsRangeFill?.(indicatorThresholdRange);
+
+      if (valueLabel) {
+        valueLabel.textContent = formatButtonIndicatorThreshold(nextValue);
+      }
+
+      const meterRoot = indicatorThresholdRange
+        .closest('.entity-edit-button-side-subsection, .entity-edit-button-main-subsection')
+        ?.querySelector('[data-editor-button-live-meter]');
+
+      if (meterRoot) {
+        meterRoot.dataset.editorButtonThreshold = String(nextValue);
+      }
+
+      scheduleEntityEditorLivePeakMeterUpdate();
+
+      return true;
+    }
 
     if (!actionValueRange) {
       return false;
@@ -3355,6 +4057,7 @@
     const deviceSelect = event.target.closest('[data-editor-button-device-select]');
     const pathInput = event.target.closest('[data-editor-button-path-field]');
     const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
+    const indicatorThresholdRange = event.target.closest('[data-editor-side-button-indicator-threshold]');
 
     if (actionGroupSelect) {
       const nextActionType = getDefaultActionTypeForGroup(actionGroupSelect.value);
@@ -3417,6 +4120,28 @@
       return true;
     }
 
+    if (indicatorThresholdRange) {
+      updateSidePanelChannelButton({
+        indicatorThreshold: clampButtonIndicatorThreshold(indicatorThresholdRange.value)
+      }, {
+        type: 'standalone-buttons/update'
+      });
+
+      const meterRoot = indicatorThresholdRange
+        .closest('.entity-edit-button-side-subsection, .entity-edit-button-main-subsection')
+        ?.querySelector('[data-editor-button-live-meter]');
+
+      if (meterRoot) {
+        meterRoot.dataset.editorButtonThreshold = String(
+          clampButtonIndicatorThreshold(indicatorThresholdRange.value)
+        );
+      }
+
+      scheduleEntityEditorLivePeakMeterUpdate();
+
+      return true;
+    }
+
     return false;
   }
 
@@ -3459,6 +4184,37 @@
 
   function handleMainClick(event) {
     if (handleStandaloneButtonMainClick(event)) {
+      return;
+    }
+
+    const closedChannelIconPicker = (
+      editorState.channelIconPickerOpen
+      && !event.target.closest('[data-editor-channel-icon-picker]')
+    );
+
+    if (closedChannelIconPicker) {
+      editorState.channelIconPickerOpen = false;
+      renderEntityEditor();
+      return;
+    }
+
+    const toggleChannelIconPickerButton = event.target.closest('[data-editor-toggle-channel-icon-picker]');
+
+    if (toggleChannelIconPickerButton && editorState.entityType === 'fader') {
+      editorState.channelIconPickerOpen = !editorState.channelIconPickerOpen;
+      renderEntityEditor();
+      return;
+    }
+
+    const channelIconOptionButton = event.target.closest('[data-editor-channel-icon-option]');
+
+    if (channelIconOptionButton && editorState.entityType === 'fader') {
+      editorState.channelIconPickerOpen = false;
+      window.channelActions?.setChannelIcon?.(
+        editorState.channelId,
+        String(channelIconOptionButton.dataset.editorChannelIconOption || '').trim(),
+        { source: 'entity-editor' }
+      );
       return;
     }
 
@@ -3579,12 +4335,52 @@
           );
           syncTargetSelectionUi(getEditorStandaloneButton(editorState.buttonId));
         } else {
-          removeChannelAppTargetState?.(editorState.channelId, removeTargetButton.dataset.editorRemoveTarget, {
+          window.channelActions?.removeChannelTarget?.(editorState.channelId, removeTargetButton.dataset.editorRemoveTarget, {
             source: 'entity-editor'
           });
-          saveProfileToLocal?.();
-          syncTargetSelectionUi(getEditorChannel());
         }
+      });
+      return;
+    }
+
+    const removeDeviceTargetButton = event.target.closest('[data-editor-remove-device-target]');
+
+    if (removeDeviceTargetButton && editorState.entityType === 'fader') {
+      const targetChip = removeDeviceTargetButton.closest('.entity-edit-target-chip');
+      const targetId = String(removeDeviceTargetButton.dataset.editorRemoveDeviceTarget || '').trim();
+      const targetFlow = String(removeDeviceTargetButton.dataset.editorRemoveDeviceTargetFlow || '').trim();
+
+      if (!targetId) {
+        return;
+      }
+
+      animateEditorListItemExit(targetChip, () => {
+        window.channelActions?.removeChannelDeviceTarget?.(
+          editorState.channelId,
+          targetId,
+          targetFlow,
+          { source: 'entity-editor' }
+        );
+      });
+      return;
+    }
+
+    const removeFocusExclusionButton = event.target.closest('[data-editor-remove-focus-exclusion]');
+
+    if (removeFocusExclusionButton && editorState.entityType === 'fader') {
+      const targetChip = removeFocusExclusionButton.closest('.entity-edit-target-chip');
+      const targetProcess = String(removeFocusExclusionButton.dataset.editorRemoveFocusExclusion || '').trim();
+
+      if (!targetProcess) {
+        return;
+      }
+
+      animateEditorListItemExit(targetChip, () => {
+        window.channelActions?.removeChannelFocusExclusion?.(
+          editorState.channelId,
+          targetProcess,
+          { source: 'entity-editor' }
+        );
       });
       return;
     }
@@ -3875,6 +4671,7 @@
     }
 
     const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
+    const indicatorThresholdRange = event.target.closest('[data-editor-side-button-indicator-threshold]');
 
     if (actionValueRange) {
       const nextValue = Math.max(0, Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0));
@@ -3884,6 +4681,26 @@
       if (valueLabel) {
         valueLabel.textContent = `${nextValue}%`;
       }
+    }
+
+    if (indicatorThresholdRange) {
+      const nextValue = clampButtonIndicatorThreshold(indicatorThresholdRange.value);
+      const valueLabel = indicatorThresholdRange.parentElement?.querySelector('[data-editor-side-button-indicator-threshold-label]');
+      updateSettingsRangeFill?.(indicatorThresholdRange);
+
+      if (valueLabel) {
+        valueLabel.textContent = formatButtonIndicatorThreshold(nextValue);
+      }
+
+      const meterRoot = indicatorThresholdRange
+        .closest('.entity-edit-button-side-subsection, .entity-edit-button-main-subsection')
+        ?.querySelector('[data-editor-button-live-meter]');
+
+      if (meterRoot) {
+        meterRoot.dataset.editorButtonThreshold = String(nextValue);
+      }
+
+      scheduleEntityEditorLivePeakMeterUpdate();
     }
   }
 
@@ -3898,6 +4715,7 @@
     const deviceSelect = event.target.closest('[data-editor-button-device-select]');
     const pathInput = event.target.closest('[data-editor-button-path-field]');
     const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
+    const indicatorThresholdRange = event.target.closest('[data-editor-side-button-indicator-threshold]');
 
     if (actionGroupSelect) {
       const nextActionType = getDefaultActionTypeForGroup(actionGroupSelect.value);
@@ -3955,6 +4773,27 @@
       }, {
         type: updateType
       });
+      return;
+    }
+
+    if (indicatorThresholdRange) {
+      updateSidePanelChannelButton({
+        indicatorThreshold: clampButtonIndicatorThreshold(indicatorThresholdRange.value)
+      }, {
+        type: updateType
+      });
+
+      const meterRoot = indicatorThresholdRange
+        .closest('.entity-edit-button-side-subsection, .entity-edit-button-main-subsection')
+        ?.querySelector('[data-editor-button-live-meter]');
+
+      if (meterRoot) {
+        meterRoot.dataset.editorButtonThreshold = String(
+          clampButtonIndicatorThreshold(indicatorThresholdRange.value)
+        );
+      }
+
+      scheduleEntityEditorLivePeakMeterUpdate();
       return;
     }
 
@@ -4193,64 +5032,178 @@
           });
           return;
         }
+
+        if (optionName === 'indicator-behavior') {
+          updateSidePanelChannelButton({
+            indicatorBehavior: optionValue
+          }, {
+            type: updateType,
+            motionChoices: ['indicator-behavior']
+          });
+          return;
+        }
       }
 
       return;
+    }
+
+    const optionButton = event.target.closest('[data-editor-button-option-name]');
+
+    if (optionButton && editorState.entityType === 'fader') {
+      const optionName = String(optionButton.dataset.editorButtonOptionName || '').trim();
+      const optionValue = String(optionButton.dataset.editorButtonOptionValue || '').trim();
+
+      if (optionName === 'target-mode') {
+        window.channelActions?.setChannelTargetMode?.(
+          editorState.channelId,
+          optionValue,
+          { source: 'entity-editor' }
+        );
+
+        if (optionValue === (window.CHANNEL_TARGET_MODES?.devices || 'devices')) {
+          void ensureEditorAudioDevicesLoaded(getChannelDeviceTargetFlow(getEditorChannel()));
+        } else if (optionValue === (window.CHANNEL_TARGET_MODES?.apps || 'apps')
+          || optionValue === (window.CHANNEL_TARGET_MODES?.focus || 'focus')) {
+          requestTargetsPanelApplicationsRefresh({ force: true });
+        }
+        return;
+      }
+
+      if (optionName === 'device-target-flow') {
+        window.channelActions?.setChannelDeviceTargetFlow?.(
+          editorState.channelId,
+          optionValue,
+          { source: 'entity-editor' }
+        );
+        void ensureEditorAudioDevicesLoaded(optionValue);
+        return;
+      }
     }
 
     const toggleTargetButton = event.target.closest('[data-editor-toggle-target]');
 
-    if (!toggleTargetButton) {
-      return;
-    }
+    if (toggleTargetButton) {
+      const channel = getEditorTargetEntity();
+      const targetProcess = String(toggleTargetButton.dataset.editorToggleTarget || '').trim();
 
-    const channel = getEditorTargetEntity();
-    const targetProcess = String(toggleTargetButton.dataset.editorToggleTarget || '').trim();
+      if (!channel || !targetProcess) {
+        return;
+      }
 
-    if (!channel || !targetProcess) {
-      return;
-    }
+      const selectedTargets = new Set(getChannelTargets(channel).map((target) => target.process));
+      const availableApp = (typeof getAvailableAudioApps === 'function'
+        ? getAvailableAudioApps()
+        : []).find((app) => app.process === targetProcess);
 
-    const selectedTargets = new Set(getChannelTargets(channel).map((target) => target.process));
-    const availableApp = (typeof getAvailableAudioApps === 'function'
-      ? getAvailableAudioApps()
-      : []).find((app) => app.process === targetProcess);
+      if (selectedTargets.has(targetProcess)) {
+        if (editorState.entityType === 'button') {
+          window.standaloneButtonActions?.removeTarget?.(
+            editorState.buttonId,
+            targetProcess,
+            { source: 'entity-editor' }
+          );
+          syncTargetSelectionUi(getEditorStandaloneButton(editorState.buttonId));
+        } else {
+          window.channelActions?.removeChannelTarget?.(
+            channel.id,
+            targetProcess,
+            { source: 'entity-editor' }
+          );
+        }
+        return;
+      }
 
-    if (selectedTargets.has(targetProcess)) {
       if (editorState.entityType === 'button') {
-        window.standaloneButtonActions?.removeTarget?.(
+        window.standaloneButtonActions?.addTarget?.(
           editorState.buttonId,
           targetProcess,
+          availableApp?.name || targetProcess,
           { source: 'entity-editor' }
         );
         syncTargetSelectionUi(getEditorStandaloneButton(editorState.buttonId));
       } else {
-        removeChannelAppTargetState?.(channel.id, targetProcess, {
-          source: 'entity-editor'
-        });
-        saveProfileToLocal?.();
-        syncTargetSelectionUi(getEditorChannel());
+        window.channelActions?.addChannelTarget?.(
+          channel.id,
+          targetProcess,
+          availableApp?.name || targetProcess,
+          { source: 'entity-editor' }
+        );
       }
+
+      animateEditorTargetChip(targetProcess);
       return;
     }
 
-    if (editorState.entityType === 'button') {
-      window.standaloneButtonActions?.addTarget?.(
-        editorState.buttonId,
+    const toggleDeviceTargetButton = event.target.closest('[data-editor-toggle-device-target]');
+
+    if (toggleDeviceTargetButton && editorState.entityType === 'fader') {
+      const channel = getEditorChannel();
+      const targetId = String(toggleDeviceTargetButton.dataset.editorToggleDeviceTarget || '').trim();
+      const targetFlow = String(toggleDeviceTargetButton.dataset.editorToggleDeviceTargetFlow || '').trim() || 'output';
+
+      if (!channel || !targetId) {
+        return;
+      }
+
+      const selectedTargetIds = new Set(
+        getChannelDeviceTargets(channel, targetFlow).map((target) => target.id)
+      );
+      const availableDevice = (Array.isArray(editorState.audioDeviceOptions[targetFlow])
+        ? editorState.audioDeviceOptions[targetFlow]
+        : []).find((device) => String(device?.id || '').trim() === targetId);
+
+      if (selectedTargetIds.has(targetId)) {
+        window.channelActions?.removeChannelDeviceTarget?.(
+          channel.id,
+          targetId,
+          targetFlow,
+          { source: 'entity-editor' }
+        );
+        return;
+      }
+
+      window.channelActions?.addChannelDeviceTarget?.(
+        channel.id,
+        targetId,
+        availableDevice?.name || targetId,
+        targetFlow,
+        { source: 'entity-editor' }
+      );
+      return;
+    }
+
+    const toggleFocusExclusionButton = event.target.closest('[data-editor-toggle-focus-exclusion]');
+
+    if (toggleFocusExclusionButton && editorState.entityType === 'fader') {
+      const channel = getEditorChannel();
+      const targetProcess = String(toggleFocusExclusionButton.dataset.editorToggleFocusExclusion || '').trim();
+
+      if (!channel || !targetProcess) {
+        return;
+      }
+
+      const selectedExclusions = new Set(getChannelFocusExclusions(channel).map((target) => target.process));
+      const availableApp = (typeof getAvailableAudioApps === 'function'
+        ? getAvailableAudioApps()
+        : []).find((app) => app.process === targetProcess);
+
+      if (selectedExclusions.has(targetProcess)) {
+        window.channelActions?.removeChannelFocusExclusion?.(
+          channel.id,
+          targetProcess,
+          { source: 'entity-editor' }
+        );
+        return;
+      }
+
+      window.channelActions?.addChannelFocusExclusion?.(
+        channel.id,
         targetProcess,
         availableApp?.name || targetProcess,
         { source: 'entity-editor' }
       );
-      syncTargetSelectionUi(getEditorStandaloneButton(editorState.buttonId));
-    } else {
-      addChannelAppTargetState?.(channel.id, targetProcess, availableApp?.name || targetProcess, {
-        source: 'entity-editor'
-      });
-      saveProfileToLocal?.();
-      syncTargetSelectionUi(getEditorChannel());
+      return;
     }
-
-    animateEditorTargetChip(targetProcess);
   }
 
   function handleEditorOpen(payload = {}) {
@@ -4465,11 +5418,28 @@
           || meta?.type === 'channels/remove-app-target'
           || meta?.type === 'channels/clear-app'
           || meta?.type === 'channels/set-app'
+          || meta?.type === 'channels/add-device-target'
+          || meta?.type === 'channels/remove-device-target'
+          || meta?.type === 'channels/add-focus-exclusion'
+          || meta?.type === 'channels/remove-focus-exclusion'
         ) {
           syncTargetSelectionUi(channel);
 
           if (isTargetsPanelVisible()) {
             syncSidePanelOptions(channel);
+          }
+
+          return;
+        }
+
+        if (
+          meta?.type === 'channels/set-target-mode'
+          || meta?.type === 'channels/set-device-target-flow'
+        ) {
+          syncTargetSelectionUi(channel);
+
+          if (isTargetsPanelVisible()) {
+            renderSidePanel(channel);
           }
 
           return;
@@ -4697,6 +5667,7 @@
     dom.previewMount.addEventListener('pointerdown', startPreviewDrag);
 
     initEntityEditorStateSync();
+    initEntityEditorRuntimeSync();
     editorState.initialized = true;
   }
 

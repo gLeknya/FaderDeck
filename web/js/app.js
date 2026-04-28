@@ -70,6 +70,7 @@ const DEFAULT_UI_MENU = sharedUiStateModel.DEFAULT_SESSION_UI_MENU || {
 
 let uiStateSyncInitialized = false;
 let audioRuntimeBridgeInitialized = false;
+let deferredMixerRenderPending = false;
 const FRONTEND_LOG_SCOPE_STYLE = 'color:#8fd16a;font-weight:700;';
 const FRONTEND_LOG_TEXT_STYLE = 'color:#d8d8d8;';
 const MEDIA_CONTROLLER_AUTO_TARGET_VALUE = '__auto__';
@@ -652,6 +653,37 @@ function mapFaderPositionToVolume(position, options = {}) {
   return normalizeVolumeValue(curvedValue * 100);
 }
 
+function mapVolumeToFaderPosition(volume, options = {}) {
+  const normalizedVolume = clampPercent(volume) / 100;
+
+  if (normalizedVolume <= 0) {
+    return 0;
+  }
+
+  if (normalizedVolume >= 1) {
+    return 100;
+  }
+
+  if (!getVolumeCurveEnabled(options) || getVolumeCurveAmount(options) <= 0) {
+    return normalizeVolumeValue(normalizedVolume * 100);
+  }
+
+  const exponent = getVolumeCurveExponent(options);
+  let normalizedPosition = normalizedVolume;
+
+  if (getVolumeCurveType(options) === 'ease-in') {
+    normalizedPosition = normalizedVolume ** (1 / exponent);
+  } else if (getVolumeCurveType(options) === 'ease-out') {
+    normalizedPosition = 1 - ((1 - normalizedVolume) ** (1 / exponent));
+  } else if (normalizedVolume < 0.5) {
+    normalizedPosition = 0.5 * ((normalizedVolume * 2) ** (1 / exponent));
+  } else {
+    normalizedPosition = 1 - (0.5 * (((1 - normalizedVolume) * 2) ** (1 / exponent)));
+  }
+
+  return normalizeVolumeValue(normalizedPosition * 100);
+}
+
 window.getDefaultChannelCustomSettings = getDefaultChannelCustomSettings;
 window.resolveChannelFaderSettings = resolveChannelFaderSettings;
 
@@ -960,9 +992,11 @@ function syncVolumeHudPreviewUi(settings = getVolumeHudPresentationSettings()) {
   const previewVolume = 42;
   const previewTitle = 'FaderDeck';
   const previewSubtitle = t('settings.volumeHudPreviewSubtitle');
+  const subtitlePromoted = !settings.showTitle && settings.showSubtitle;
 
   dom.volumeHudPreview.classList.toggle('settings-hud-preview--vertical', isVertical);
   dom.volumeHudPreview.classList.toggle('settings-hud-preview--horizontal', !isVertical);
+  dom.volumeHudPreview.classList.toggle('settings-hud-preview--subtitle-promoted', subtitlePromoted);
   dom.volumeHudPreviewAnchor?.classList.remove(
     'is-bottom-center',
     'is-bottom-left',
@@ -1529,14 +1563,36 @@ function scheduleContentMetricsUpdate() {
   // calling this safely without any JS-driven scrollbar sync work.
 }
 
-function notifyAudioRuntimeUi(audioApps = window.getAvailableAudioApps?.() || []) {
+function flushDeferredMixerRender() {
+  if (!deferredMixerRenderPending || window.isChannelFaderDragActiveRuntime?.()) {
+    return false;
+  }
+
+  deferredMixerRenderPending = false;
   renderMixer();
+  scheduleContentMetricsUpdate();
+  return true;
+}
+
+function requestDeferredMixerRender() {
+  if (window.isChannelFaderDragActiveRuntime?.()) {
+    deferredMixerRenderPending = true;
+    return false;
+  }
+
+  deferredMixerRenderPending = false;
+  renderMixer();
+  scheduleContentMetricsUpdate();
+  return true;
+}
+
+function notifyAudioRuntimeUi(audioApps = window.getAvailableAudioApps?.() || []) {
+  requestDeferredMixerRender();
   window.dispatchEvent(new CustomEvent('audio-apps-updated', {
     detail: {
       apps: audioApps
     }
   }));
-  scheduleContentMetricsUpdate();
 }
 
 function initAudioRuntimeBridge() {
@@ -1554,6 +1610,9 @@ function initAudioRuntimeBridge() {
 
   audioRuntimeBridgeInitialized = true;
 }
+
+window.requestDeferredMixerRenderRuntime = requestDeferredMixerRender;
+window.flushDeferredMixerRenderRuntime = flushDeferredMixerRender;
 
 function setupSettingsTooltips() {
   document.querySelectorAll('.settings-help').forEach((button) => {

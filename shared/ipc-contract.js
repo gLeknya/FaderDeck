@@ -31,8 +31,20 @@ const IPC_METHODS = Object.freeze({
     channel: 'api:list_audio_devices',
     transport: 'invoke'
   }),
+  set_audio_device_volume: Object.freeze({
+    channel: 'api:set_audio_device_volume',
+    transport: 'invoke'
+  }),
+  set_audio_device_mute: Object.freeze({
+    channel: 'api:set_audio_device_mute',
+    transport: 'invoke'
+  }),
   set_default_audio_device: Object.freeze({
     channel: 'api:set_default_audio_device',
+    transport: 'invoke'
+  }),
+  get_focused_application: Object.freeze({
+    channel: 'api:get_focused_application',
     transport: 'invoke'
   }),
   launch_app: Object.freeze({

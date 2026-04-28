@@ -27,6 +27,12 @@
     press: 'press'
   });
 
+  const CHANNEL_BUTTON_INDICATOR_BEHAVIORS = Object.freeze({
+    actionState: 'action-state',
+    peakMeter: 'peak-meter',
+    targetActivity: 'target-activity'
+  });
+
   const CHANNEL_BUTTON_CONTENT_MODES = Object.freeze({
     iconTitle: 'icon-title',
     iconOnly: 'icon-only',
@@ -45,6 +51,17 @@
     trigger: 'trigger'
   });
 
+  const CHANNEL_TARGET_MODES = Object.freeze({
+    apps: 'apps',
+    devices: 'devices',
+    focus: 'focus'
+  });
+
+  const CHANNEL_DEVICE_TARGET_FLOWS = Object.freeze({
+    output: 'output',
+    input: 'input'
+  });
+
   const CHANNEL_BUTTON_ICON_KEYS = Object.freeze([
     'square',
     'spark',
@@ -58,6 +75,11 @@
     'play-pause',
     'skip-previous',
     'skip-next',
+    'stop',
+    'rewind',
+    'fast-forward',
+    'shuffle',
+    'repeat',
     'circle',
     'diamond',
     'triangle',
@@ -67,6 +89,9 @@
   ]);
 
   const DEFAULT_CHANNEL_BUTTON_ACTION_VALUE = 50;
+  const MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD = -60;
+  const MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD = 0;
+  const DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD = -20;
 
   function normalizeChannelButtonKey(value = '') {
     const normalizedValue = String(value ?? '').trim();
@@ -81,6 +106,43 @@
   function normalizeChannelButtonDeviceId(value = '') {
     const normalizedValue = String(value ?? '').trim();
     return normalizedValue || '';
+  }
+
+  function convertLegacyIndicatorThresholdPercentToDb(value) {
+    const normalizedPercent = Math.max(0, Math.min(100, Number(value) || 0));
+
+    if (normalizedPercent <= 0) {
+      return MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD;
+    }
+
+    if (normalizedPercent >= 100) {
+      return MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD;
+    }
+
+    return Math.max(
+      MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD,
+      Math.min(
+        MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD,
+        20 * Math.log10(normalizedPercent / 100)
+      )
+    );
+  }
+
+  function normalizeChannelButtonIndicatorThreshold(value) {
+    const numericValue = Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+      return DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD;
+    }
+
+    if (numericValue > 0) {
+      return convertLegacyIndicatorThresholdPercentToDb(numericValue);
+    }
+
+    return Math.max(
+      MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD,
+      Math.min(MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD, numericValue)
+    );
   }
 
   function normalizeChannelButtonMode(
@@ -110,6 +172,15 @@
     return CHANNEL_BUTTON_INTERACTION_MODES.trigger;
   }
 
+  function normalizeChannelButtonIndicatorBehavior(
+    value,
+    fallback = CHANNEL_BUTTON_INDICATOR_BEHAVIORS.actionState
+  ) {
+    return Object.values(CHANNEL_BUTTON_INDICATOR_BEHAVIORS).includes(value)
+      ? value
+      : fallback;
+  }
+
   function createDefaultChannelCustomSettings() {
     return {
       faderInterpolationEnabled: false,
@@ -137,6 +208,12 @@
       : actionType !== CHANNEL_BUTTON_ACTION_TYPES.none;
     const actionMode = normalizeChannelButtonMode(button.actionMode);
     const indicatorMode = resolveLegacyIndicatorMode(button);
+    const indicatorBehavior = normalizeChannelButtonIndicatorBehavior(
+      button.indicatorBehavior,
+      button.indicatorType === CHANNEL_BUTTON_INDICATOR_TYPES.meter
+        ? CHANNEL_BUTTON_INDICATOR_BEHAVIORS.peakMeter
+        : CHANNEL_BUTTON_INDICATOR_BEHAVIORS.actionState
+    );
     const indicatorEnabled = typeof button.indicatorEnabled === 'boolean'
       ? button.indicatorEnabled
       : true;
@@ -145,9 +222,11 @@
       : false;
     const indicatorType = Object.values(CHANNEL_BUTTON_INDICATOR_TYPES).includes(button.indicatorType)
       ? button.indicatorType
-      : (indicatorMode === CHANNEL_BUTTON_INTERACTION_MODES.toggle
+      : (indicatorBehavior === CHANNEL_BUTTON_INDICATOR_BEHAVIORS.peakMeter
+        ? CHANNEL_BUTTON_INDICATOR_TYPES.meter
+        : (indicatorMode === CHANNEL_BUTTON_INTERACTION_MODES.toggle
         ? CHANNEL_BUTTON_INDICATOR_TYPES.toggle
-        : CHANNEL_BUTTON_INDICATOR_TYPES.press);
+        : CHANNEL_BUTTON_INDICATOR_TYPES.press));
     const contentDisplay = Object.values(CHANNEL_BUTTON_CONTENT_MODES).includes(button.contentDisplay)
       ? button.contentDisplay
       : CHANNEL_BUTTON_CONTENT_MODES.iconTitle;
@@ -196,6 +275,8 @@
       deviceId: normalizeChannelButtonDeviceId(button.deviceId),
       indicatorEnabled,
       indicatorMode,
+      indicatorBehavior,
+      indicatorThreshold: normalizeChannelButtonIndicatorThreshold(button.indicatorThreshold),
       indicatorModeLinkedToAction,
       indicatorType,
       contentDisplay,
@@ -220,8 +301,30 @@
     };
   }
 
+  function createChannelDeviceTarget(deviceId = '', name = '', flow = CHANNEL_DEVICE_TARGET_FLOWS.output) {
+    const normalizedDeviceId = String(deviceId || '').trim();
+
+    if (!normalizedDeviceId) {
+      return null;
+    }
+
+    const normalizedFlow = flow === CHANNEL_DEVICE_TARGET_FLOWS.input
+      ? CHANNEL_DEVICE_TARGET_FLOWS.input
+      : CHANNEL_DEVICE_TARGET_FLOWS.output;
+
+    return {
+      id: normalizedDeviceId,
+      name: String(name || normalizedDeviceId).trim() || normalizedDeviceId,
+      flow: normalizedFlow
+    };
+  }
+
   function cloneChannelTarget(target = {}) {
     return createChannelTarget(target.process, target.name);
+  }
+
+  function cloneChannelDeviceTarget(target = {}, fallbackFlow = CHANNEL_DEVICE_TARGET_FLOWS.output) {
+    return createChannelDeviceTarget(target.id || target.deviceId, target.name, target.flow || fallbackFlow);
   }
 
   function normalizeChannelTargets(channel = {}) {
@@ -237,6 +340,53 @@
 
     const fallbackTarget = createChannelTarget(channel.app, channel.appName);
     return fallbackTarget ? [fallbackTarget] : [];
+  }
+
+  function normalizeChannelTargetMode(channel = {}) {
+    return Object.values(CHANNEL_TARGET_MODES).includes(channel?.targetMode)
+      ? channel.targetMode
+      : CHANNEL_TARGET_MODES.apps;
+  }
+
+  function normalizeChannelDeviceTargetFlow(channel = {}) {
+    return channel?.deviceTargetFlow === CHANNEL_DEVICE_TARGET_FLOWS.input
+      ? CHANNEL_DEVICE_TARGET_FLOWS.input
+      : CHANNEL_DEVICE_TARGET_FLOWS.output;
+  }
+
+  function normalizeChannelDeviceTargets(channel = {}) {
+    const normalizedFlow = normalizeChannelDeviceTargetFlow(channel);
+    const rawTargets = channel?.deviceTargets;
+    const outputTargets = (
+      Array.isArray(rawTargets)
+        ? rawTargets
+        : Array.isArray(rawTargets?.output)
+          ? rawTargets.output
+          : []
+    )
+      .map((target) => cloneChannelDeviceTarget(target, CHANNEL_DEVICE_TARGET_FLOWS.output))
+      .filter(Boolean);
+    const inputTargets = (
+      Array.isArray(rawTargets?.input)
+        ? rawTargets.input
+        : []
+    )
+      .map((target) => cloneChannelDeviceTarget(target, CHANNEL_DEVICE_TARGET_FLOWS.input))
+      .filter(Boolean);
+
+    return {
+      deviceTargetFlow: normalizedFlow,
+      deviceTargets: {
+        output: outputTargets,
+        input: inputTargets
+      }
+    };
+  }
+
+  function normalizeChannelFocusExclusions(channel = {}) {
+    return (Array.isArray(channel?.focusExcludedTargets) ? channel.focusExcludedTargets : [])
+      .map(cloneChannelTarget)
+      .filter(Boolean);
   }
 
   function cloneChannelCustomSettings(customSettings = {}) {
@@ -255,6 +405,13 @@
   }
 
   function normalizeChannelTitleIconState(channel = {}, targets = normalizeChannelTargets(channel)) {
+    if (normalizeChannelTargetMode(channel) === CHANNEL_TARGET_MODES.focus) {
+      return {
+        showTargetIconInTitle: false,
+        titleIconTargetProcess: ''
+      };
+    }
+
     const enabled = Boolean(channel.showTargetIconInTitle);
     const requestedProcess = String(channel.titleIconTargetProcess || '').trim();
     const resolvedProcess = (
@@ -276,13 +433,21 @@
   function cloneChannelEntity(channel = {}) {
     const targets = normalizeChannelTargets(channel);
     const primaryTarget = targets[0] || null;
+    const targetMode = normalizeChannelTargetMode(channel);
+    const deviceTargetState = normalizeChannelDeviceTargets(channel);
+    const focusExcludedTargets = normalizeChannelFocusExclusions(channel);
     const titleIconState = normalizeChannelTitleIconState(channel, targets);
 
     return {
       ...channel,
+      icon: CHANNEL_BUTTON_ICON_KEYS.includes(channel?.icon) ? channel.icon : '',
+      targetMode,
       app: primaryTarget?.process || '',
       appName: primaryTarget?.name || '',
       targets,
+      deviceTargetFlow: deviceTargetState.deviceTargetFlow,
+      deviceTargets: deviceTargetState.deviceTargets,
+      focusExcludedTargets,
       hasBeenConfigured: normalizeChannelConfiguredFlag(channel),
       showTargetIconInTitle: titleIconState.showTargetIconInTitle,
       titleIconTargetProcess: titleIconState.titleIconTargetProcess,
@@ -298,21 +463,35 @@
   window.channelModel = Object.freeze({
     CHANNEL_BUTTON_ACTION_TYPES,
     CHANNEL_BUTTON_INDICATOR_TYPES,
+    CHANNEL_BUTTON_INDICATOR_BEHAVIORS,
     CHANNEL_BUTTON_CONTENT_MODES,
     CHANNEL_BUTTON_META_MODES,
     CHANNEL_BUTTON_INTERACTION_MODES,
+    CHANNEL_TARGET_MODES,
+    CHANNEL_DEVICE_TARGET_FLOWS,
     CHANNEL_BUTTON_ICON_KEYS,
     DEFAULT_CHANNEL_BUTTON_ACTION_VALUE,
+    MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD,
+    MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD,
+    DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD,
     normalizeChannelButtonKey,
     normalizeChannelButtonPath,
     normalizeChannelButtonDeviceId,
+    normalizeChannelButtonIndicatorThreshold,
     normalizeChannelButtonMode,
+    normalizeChannelButtonIndicatorBehavior,
     resolveLegacyIndicatorMode,
     createDefaultChannelCustomSettings,
     cloneButtonEntity,
     createChannelTarget,
+    createChannelDeviceTarget,
     cloneChannelTarget,
+    cloneChannelDeviceTarget,
     normalizeChannelTargets,
+    normalizeChannelTargetMode,
+    normalizeChannelDeviceTargetFlow,
+    normalizeChannelDeviceTargets,
+    normalizeChannelFocusExclusions,
     cloneChannelCustomSettings,
     normalizeChannelConfiguredFlag,
     normalizeChannelTitleIconState,

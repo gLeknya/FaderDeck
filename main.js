@@ -1,5 +1,8 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, dialog, shell, screen } = require('electron');
+const fs = require('fs/promises');
+const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 
 const { FaderDeckAPI } = require('./backend/api');
 const {
@@ -19,12 +22,12 @@ const VOLUME_HUD_HIDE_ANIMATION_MS = 180;
 const VOLUME_HUD_WINDOW_MARGIN = 32;
 const VOLUME_HUD_WINDOW_SIZES = Object.freeze({
   horizontal: Object.freeze({
-    width: 340,
-    height: 132
+    width: 328,
+    height: 126
   }),
   vertical: Object.freeze({
-    width: 210,
-    height: 258
+    width: 194,
+    height: 242
   })
 });
 const VOLUME_HUD_POSITIONS = new Set([
@@ -84,9 +87,14 @@ const IPC_QUERY_METHODS = new Set([
 ]);
 const SUPPRESSED_IPC_LOG_METHODS = new Set([
   'get_audio_states',
+  'list_audio_devices',
   'get_media_session_state',
   'list_media_sessions'
 ]);
+const APPLICATION_ICON_CACHE_VERSION = 'v1';
+const STORAGE_ROOT_DIR_NAME = '.faderdeck';
+const applicationIconDataUrlCache = new Map();
+let applicationIconCacheDirectory = '';
 
 function trimLogString(value, maxLength = 140) {
   const normalized = String(value ?? '');
@@ -176,6 +184,123 @@ function logIpcMessage(methodName, phase, payload, level = getIpcLoggerMethod(me
 
   const loggerMethod = typeof logger[level] === 'function' ? logger[level] : logger.info;
   loggerMethod(`[ipc:${phase}] ${methodName}`, payload);
+}
+
+function getApplicationIconCacheDirectory() {
+  if (!applicationIconCacheDirectory) {
+    // Keep extracted app icons in a writable assets cache that survives restarts.
+    applicationIconCacheDirectory = path.join(
+      os.homedir(),
+      STORAGE_ROOT_DIR_NAME,
+      'assets',
+      'application-icons'
+    );
+  }
+
+  return applicationIconCacheDirectory;
+}
+
+async function ensureApplicationIconCacheDirectory() {
+  const iconCacheDirectory = getApplicationIconCacheDirectory();
+  await fs.mkdir(iconCacheDirectory, { recursive: true });
+  return iconCacheDirectory;
+}
+
+function getNormalizedApplicationIconCacheKey(applicationPath = '') {
+  const normalizedInputPath = String(applicationPath || '').trim();
+
+  if (!normalizedInputPath) {
+    return '';
+  }
+
+  return path.normalize(normalizedInputPath).toLowerCase();
+}
+
+async function getApplicationIconCacheFilePath(applicationPath = '') {
+  const normalizedApplicationPath = getNormalizedApplicationIconCacheKey(applicationPath);
+
+  if (!normalizedApplicationPath) {
+    return '';
+  }
+
+  let cacheSignature = '';
+
+  try {
+    const stats = await fs.stat(applicationPath);
+    cacheSignature = `${Math.round(stats.mtimeMs)}:${stats.size}`;
+  } catch {
+    // Keep the path-only cache key when file metadata cannot be read.
+  }
+
+  const cacheHash = crypto
+    .createHash('sha1')
+    .update(`${APPLICATION_ICON_CACHE_VERSION}:${normalizedApplicationPath}:${cacheSignature}`)
+    .digest('hex');
+  const iconCacheDirectory = await ensureApplicationIconCacheDirectory();
+
+  return path.join(iconCacheDirectory, `${cacheHash}.png`);
+}
+
+function convertPngBufferToDataUrl(pngBuffer) {
+  if (!Buffer.isBuffer(pngBuffer) || !pngBuffer.length) {
+    return '';
+  }
+
+  return `data:image/png;base64,${pngBuffer.toString('base64')}`;
+}
+
+async function readCachedApplicationIconDataUrl(applicationPath = '') {
+  try {
+    const cacheFilePath = await getApplicationIconCacheFilePath(applicationPath);
+
+    if (!cacheFilePath) {
+      return '';
+    }
+
+    if (applicationIconDataUrlCache.has(cacheFilePath)) {
+      return applicationIconDataUrlCache.get(cacheFilePath) || '';
+    }
+
+    const pngBuffer = await fs.readFile(cacheFilePath);
+    const cachedDataUrl = convertPngBufferToDataUrl(pngBuffer);
+
+    if (cachedDataUrl) {
+      applicationIconDataUrlCache.set(cacheFilePath, cachedDataUrl);
+    }
+
+    return cachedDataUrl;
+  } catch {
+    return '';
+  }
+}
+
+async function writeCachedApplicationIconDataUrl(applicationPath = '', icon = null) {
+  if (!icon || typeof icon.isEmpty !== 'function' || icon.isEmpty()) {
+    return '';
+  }
+
+  const pngBuffer = icon.toPNG();
+  const iconDataUrl = convertPngBufferToDataUrl(pngBuffer);
+
+  if (!iconDataUrl) {
+    return '';
+  }
+
+  try {
+    const cacheFilePath = await getApplicationIconCacheFilePath(applicationPath);
+
+    if (!cacheFilePath) {
+      return iconDataUrl;
+    }
+
+    await fs.writeFile(cacheFilePath, pngBuffer);
+    applicationIconDataUrlCache.set(cacheFilePath, iconDataUrl);
+  } catch {
+    // Falling back to the in-memory data URL keeps icon rendering working
+    // even if the persistent cache cannot be written for some reason.
+  }
+
+  return iconDataUrl;
 }
 
 function createLoggedInvokeHandler(methodName, handler) {
@@ -419,6 +544,7 @@ function normalizeVolumeHudPayload(payload = {}) {
     iconDataUrl: typeof payload?.iconDataUrl === 'string' ? payload.iconDataUrl : '',
     source: String(payload?.source || '').trim(),
     volume: Math.max(0, Math.min(100, Number(payload?.volume) || 0)),
+    muted: Boolean(payload?.muted),
     presentation
   };
 }
@@ -703,7 +829,10 @@ function registerIpcHandlers() {
     set_app_mute: (_event, processName, muted) => ensureApi().setAppMute(processName, muted),
     send_key: (_event, key, targetHint) => ensureApi().sendKey(key, targetHint),
     list_audio_devices: (_event, flow) => ensureApi().listAudioDevices(flow),
+    set_audio_device_volume: (_event, deviceId, volume, flow) => ensureApi().setAudioDeviceVolume(deviceId, volume, flow),
+    set_audio_device_mute: (_event, deviceId, muted, flow) => ensureApi().setAudioDeviceMute(deviceId, muted, flow),
     set_default_audio_device: (_event, deviceId, flow) => ensureApi().setDefaultAudioDevice(deviceId, flow),
+    get_focused_application: () => ensureApi().getFocusedApplication(),
     launch_app: (_event, filePath) => ensureApi().launchApp(filePath),
     run_user_script: (_event, filePath) => ensureApi().runUserScript(filePath),
     set_process_window_visibility: (_event, processName, visible, executablePath) => (
@@ -730,10 +859,18 @@ function registerIpcHandlers() {
 
       await Promise.all(uniquePaths.map(async (applicationPath) => {
         try {
-          const icon = await app.getFileIcon(applicationPath, { size: 'normal' });
+          const cachedIconDataUrl = await readCachedApplicationIconDataUrl(applicationPath);
 
-          if (icon && !icon.isEmpty()) {
-            icons[applicationPath] = icon.toDataURL();
+          if (cachedIconDataUrl) {
+            icons[applicationPath] = cachedIconDataUrl;
+            return;
+          }
+
+          const icon = await app.getFileIcon(applicationPath, { size: 'normal' });
+          const iconDataUrl = await writeCachedApplicationIconDataUrl(applicationPath, icon);
+
+          if (iconDataUrl) {
+            icons[applicationPath] = iconDataUrl;
           }
         } catch {
           // Some processes do not expose a retrievable shell icon; skip them silently.

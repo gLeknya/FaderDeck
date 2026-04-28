@@ -1,3 +1,4 @@
+const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
@@ -6,10 +7,28 @@ const { AudioDeviceManager } = require('./audio-devices');
 const { MediaControlManager } = require('./media-control');
 const { sendKey } = require('./keyboard');
 const { createLogger } = require('./logger');
+const { ProcessCatalog } = require('./processes');
 const { ProfileManager } = require('./profiles');
 const { SystemActionManager } = require('./system-actions');
 
-const DEFAULT_PROFILES_PATH = path.join(os.homedir(), '.midi_mixer', 'profiles');
+const STORAGE_ROOT_DIR_NAME = '.faderdeck';
+const LEGACY_STORAGE_ROOT_DIR_NAME = '.midi_mixer';
+const DEFAULT_STORAGE_ROOT = path.join(os.homedir(), STORAGE_ROOT_DIR_NAME);
+const LEGACY_STORAGE_ROOT = path.join(os.homedir(), LEGACY_STORAGE_ROOT_DIR_NAME);
+const DEFAULT_PROFILES_PATH = path.join(DEFAULT_STORAGE_ROOT, 'profiles');
+
+function migrateLegacyStorageRoot(log = () => {}) {
+  if (!fs.existsSync(LEGACY_STORAGE_ROOT) || fs.existsSync(DEFAULT_STORAGE_ROOT)) {
+    return;
+  }
+
+  try {
+    fs.renameSync(LEGACY_STORAGE_ROOT, DEFAULT_STORAGE_ROOT);
+    log('migrate_storage_root', LEGACY_STORAGE_ROOT, '->', DEFAULT_STORAGE_ROOT);
+  } catch (error) {
+    log('migrate_storage_root error:', error);
+  }
+}
 
 class FaderDeckAPI {
   constructor({ debug = true, profilesPath = DEFAULT_PROFILES_PATH, logger } = {}) {
@@ -17,11 +36,17 @@ class FaderDeckAPI {
     this.logger = logger || createLogger('api');
     this.log = this.log.bind(this);
 
+    if (profilesPath === DEFAULT_PROFILES_PATH) {
+      migrateLegacyStorageRoot(this.log);
+    }
+
     this.profileManager = new ProfileManager(profilesPath, this.log);
     this.audioManager = new AudioManager(this.log);
     this.audioDeviceManager = new AudioDeviceManager(this.log);
+    this.processCatalog = new ProcessCatalog(this.log);
     this.systemActionManager = new SystemActionManager(this.log);
     this.mediaControlManager = new MediaControlManager(this.log);
+    void this.processCatalog.prewarm?.();
   }
 
   log(...args) {
@@ -64,6 +89,18 @@ class FaderDeckAPI {
 
   setDefaultAudioDevice(deviceId, flow = 'all') {
     return this.audioDeviceManager.setDefaultDevice(deviceId, flow);
+  }
+
+  setAudioDeviceVolume(deviceId, volume, flow = 'all') {
+    return this.audioDeviceManager.setVolume(deviceId, volume, flow);
+  }
+
+  setAudioDeviceMute(deviceId, muted, flow = 'all') {
+    return this.audioDeviceManager.setMute(deviceId, muted, flow);
+  }
+
+  getFocusedApplication() {
+    return this.processCatalog.getFocusedApplication();
   }
 
   launchApp(filePath) {
@@ -139,6 +176,7 @@ class FaderDeckAPI {
   shutdown() {
     this.logger.info('shutdown');
     this.audioManager.shutdown();
+    this.processCatalog.shutdown?.();
   }
 
   get_audio_applications() {
@@ -175,6 +213,18 @@ class FaderDeckAPI {
 
   set_default_audio_device(deviceId, flow = 'all') {
     return this.setDefaultAudioDevice(deviceId, flow);
+  }
+
+  set_audio_device_volume(deviceId, volume, flow = 'all') {
+    return this.setAudioDeviceVolume(deviceId, volume, flow);
+  }
+
+  set_audio_device_mute(deviceId, muted, flow = 'all') {
+    return this.setAudioDeviceMute(deviceId, muted, flow);
+  }
+
+  get_focused_application() {
+    return this.getFocusedApplication();
   }
 
   launch_app(filePath) {

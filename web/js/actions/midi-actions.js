@@ -32,6 +32,31 @@
     });
   }
 
+  async function confirmBindingConflict(message) {
+    if (typeof window.showChoiceToast === 'function') {
+      const result = await window.showChoiceToast('warn', message, {
+        updatePending: true,
+        closeable: true,
+        defaultValue: false,
+        actions: [
+          {
+            label: window.t?.('midi.bindAnyway') || 'Bind anyway',
+            value: true,
+            primary: true
+          },
+          {
+            label: window.t?.('common.cancel') || 'Cancel',
+            value: false
+          }
+        ]
+      });
+
+      return Boolean(result);
+    }
+
+    return Boolean(window.confirm?.(message));
+  }
+
   async function scanMidiInputs(meta = {}) {
     return getMidiService()?.scanInputs?.({
       source: 'midi-actions',
@@ -80,7 +105,7 @@
 
     if (conflict) {
       const conflictName = conflict.title || conflict.appName;
-      const confirmed = window.confirm?.(window.t?.('midi.conflict', { name: conflictName }));
+      const confirmed = await confirmBindingConflict(window.t?.('midi.conflict', { name: conflictName }));
 
       if (!confirmed) {
         window.showToast?.('warn', window.t?.('midi.bindCancelled'), { updatePending: true });
@@ -139,7 +164,7 @@
 
     if (conflict) {
       const conflictName = conflict.title || conflict.text || conflict.appName || conflict.process || 'Control';
-      const confirmed = window.confirm?.(window.t?.('midi.buttonConflict', { name: conflictName }));
+      const confirmed = await confirmBindingConflict(window.t?.('midi.buttonConflict', { name: conflictName }));
 
       if (!confirmed) {
         window.showToast?.('warn', window.t?.('midi.bindCancelled'), { updatePending: true });
@@ -198,7 +223,7 @@
 
     if (conflict) {
       const conflictName = conflict.title || conflict.text || conflict.appName || conflict.process || 'Control';
-      const confirmed = window.confirm?.(window.t?.('midi.buttonConflict', { name: conflictName }));
+      const confirmed = await confirmBindingConflict(window.t?.('midi.buttonConflict', { name: conflictName }));
 
       if (!confirmed) {
         window.showToast?.('warn', window.t?.('midi.bindCancelled'), { updatePending: true });

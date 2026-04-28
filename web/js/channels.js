@@ -3,9 +3,15 @@ const CHANNEL_VOLUME_PUSH_DELAY_MS = 18;
 const CHANNEL_INTERPOLATION_STEPS = 4;
 const CHANNEL_INTERPOLATION_STEP_DELAY_MS = 24;
 const CHANNEL_PICKUP_FLASH_DURATION_MS = 380;
+const CHANNEL_AUDIO_RUNTIME_CACHE_TTL_MS = 90;
+const CHANNEL_AUDIO_RUNTIME_LOCAL_OVERRIDE_MS = 220;
+const CHANNEL_AUDIO_RUNTIME_FADER_SYNC_EPSILON = 0.35;
 const channelVolumePushState = new Map();
+const channelMuteHoldState = new Map();
 const channelPickupFlashTimers = new Map();
 const channelEntranceAnimatedIds = new Set();
+const channelFaderDomCache = new Map();
+const channelAudioRuntimeState = new Map();
 let channelUiStateSyncInitialized = false;
 let channelPickupUiInitialized = false;
 
@@ -268,11 +274,19 @@ function getChannelRuntimeSettings(channel) {
 }
 
 function getChannelTargetProcess(channel) {
+  if (window.channelTargeting?.getChannelTargetMode?.(channel) === window.CHANNEL_TARGET_MODES?.focus) {
+    return null;
+  }
+
   const process = String(channel?.app || '').trim();
   return process || null;
 }
 
 function getChannelTargetProcesses(channel) {
+  if (window.channelTargeting?.getChannelTargetMode?.(channel) === window.CHANNEL_TARGET_MODES?.focus) {
+    return [];
+  }
+
   const explicitTargets = Array.isArray(channel?.targets)
     ? channel.targets
         .map((target) => String(target?.process || '').trim())
@@ -285,6 +299,22 @@ function getChannelTargetProcesses(channel) {
 
   const fallbackProcess = getChannelTargetProcess(channel);
   return fallbackProcess ? [fallbackProcess] : [];
+}
+
+function resolveChannelTargetBinding(channel, options = {}) {
+  if (window.channelTargeting?.resolveChannelTargetBinding) {
+    return window.channelTargeting.resolveChannelTargetBinding(channel, options);
+  }
+
+  return Promise.resolve({
+    mode: 'apps',
+    appTargets: [],
+    deviceTargets: [],
+    deviceFlow: 'output',
+    focusTarget: null,
+    focusExclusions: [],
+    hasTargets: false
+  });
 }
 
 function getHudAvailableAudioApps() {
@@ -305,7 +335,67 @@ function isVolumeHudSelfTarget(target = {}) {
   return matchesFaderDeck || matchesDevElectron;
 }
 
+function getMeaningfulVolumeHudTargetIconDataUrl(target = {}) {
+  const iconDataUrl = String(
+    target?.iconDataUrl
+    || window.getCachedAudioAppIconDataUrl?.(target)
+    || ''
+  ).trim();
+
+  if (!iconDataUrl) {
+    if (target?.path && typeof window.ensureAudioAppIconDataUrl === 'function') {
+      void window.ensureAudioAppIconDataUrl(target, {
+        reason: 'volume-hud-target'
+      });
+    }
+
+    return '';
+  }
+
+  if (String(target?.process || '').trim() && typeof window.isMeaningfulAudioAppIcon === 'function') {
+    return window.isMeaningfulAudioAppIcon(target, iconDataUrl) ? iconDataUrl : '';
+  }
+
+  return iconDataUrl;
+}
+
+function getChannelIconDataUrl(channel = {}) {
+  const iconKey = String(channel?.icon || '').trim();
+
+  if (!iconKey || typeof window.renderChannelButtonIconSvg !== 'function') {
+    return '';
+  }
+
+  const rawSvg = String(window.renderChannelButtonIconSvg(iconKey) || '').trim();
+
+  if (!rawSvg) {
+    return '';
+  }
+
+  const styledSvg = rawSvg
+    .replace(
+      '<svg',
+      '<svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="rgba(255,255,255,0.96)" stroke-width="2.05" stroke-linecap="round" stroke-linejoin="round"'
+    )
+    .replace(/\s{2,}/g, ' ')
+    .replace(/>\s+</g, '><')
+    .trim();
+
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(styledSvg)}`;
+}
+
 function getResolvedChannelHudTargets(channel) {
+  const targetMode = window.channelTargeting?.getChannelTargetMode?.(channel) || 'apps';
+
+  if (targetMode === window.CHANNEL_TARGET_MODES?.focus) {
+    return [{
+      process: '__focus__',
+      name: t('editor.targetModeFocusCurrent'),
+      path: '',
+      iconDataUrl: ''
+    }];
+  }
+
   const availableApps = getHudAvailableAudioApps();
   const explicitTargets = Array.isArray(channel?.targets)
     ? channel.targets
@@ -320,16 +410,32 @@ function getResolvedChannelHudTargets(channel) {
           return {
             process,
             name: String(target?.name || matchedApp?.name || process).trim() || process,
-            path: String(matchedApp?.path || '').trim(),
-            iconDataUrl: String(matchedApp?.iconDataUrl || '').trim()
+            path: String(target?.path || matchedApp?.path || '').trim(),
+            iconDataUrl: String(
+              target?.iconDataUrl
+              || matchedApp?.iconDataUrl
+              || window.getCachedAudioAppIconDataUrl?.({
+                process,
+                path: String(target?.path || matchedApp?.path || '').trim()
+              })
+              || ''
+            ).trim()
           };
         })
         .filter(Boolean)
         .filter((target) => !isVolumeHudSelfTarget(target))
     : [];
 
-  if (explicitTargets.length > 0) {
-    return explicitTargets;
+  const deviceTargets = (window.channelTargeting?.getChannelDeviceTargets?.(channel) || []).map((target) => ({
+    process: '',
+    name: target.name,
+    path: '',
+    iconDataUrl: '',
+    flow: target.flow
+  }));
+
+  if (explicitTargets.length > 0 || deviceTargets.length > 0) {
+    return [...explicitTargets, ...deviceTargets];
   }
 
   const fallbackProcess = String(channel?.app || '').trim();
@@ -343,7 +449,14 @@ function getResolvedChannelHudTargets(channel) {
     process: fallbackProcess,
     name: String(channel?.appName || matchedApp?.name || fallbackProcess).trim() || fallbackProcess,
     path: String(matchedApp?.path || '').trim(),
-    iconDataUrl: String(matchedApp?.iconDataUrl || '').trim()
+    iconDataUrl: String(
+      matchedApp?.iconDataUrl
+      || window.getCachedAudioAppIconDataUrl?.({
+        process: fallbackProcess,
+        path: String(matchedApp?.path || '').trim()
+      })
+      || ''
+    ).trim()
   }];
 
   return fallbackTargets.filter((target) => !isVolumeHudSelfTarget(target));
@@ -382,7 +495,76 @@ function getVolumeHudPresentationConfig() {
   };
 }
 
-function buildChannelVolumeHudPayload(channel, meta = {}) {
+async function resolveChannelVolumeHudContext(channel, meta = {}, binding = null) {
+  const targetMode = binding?.mode || window.channelTargeting?.getChannelTargetMode?.(channel) || 'apps';
+  let focusTarget = null;
+
+  if (targetMode === window.CHANNEL_TARGET_MODES?.focus) {
+    focusTarget = binding?.focusTarget || null;
+
+    if (!focusTarget) {
+      try {
+        focusTarget = await window.channelTargeting?.getFocusedApplication?.({
+          force: Boolean(meta?.forceFocusRefresh)
+        });
+      } catch (error) {
+        console.error('resolveChannelVolumeHudContext focus error', error);
+        focusTarget = null;
+      }
+    }
+
+    if (focusTarget && isVolumeHudSelfTarget(focusTarget)) {
+      focusTarget = null;
+    }
+  }
+
+  return {
+    targetMode,
+    focusTarget,
+    targets: focusTarget
+      ? [focusTarget]
+      : (
+        targetMode === window.CHANNEL_TARGET_MODES?.focus
+          ? []
+          : ((Array.isArray(binding?.appTargets) && binding.appTargets.length)
+            ? binding.appTargets
+            : getResolvedChannelHudTargets(channel))
+      )
+  };
+}
+
+function resolveChannelVolumeHudIcon(channel, context = {}) {
+  if (context.targetMode === window.CHANNEL_TARGET_MODES?.focus) {
+    return getMeaningfulVolumeHudTargetIconDataUrl(context.focusTarget);
+  }
+
+  const channelIconDataUrl = getChannelIconDataUrl(channel);
+
+  if (channelIconDataUrl) {
+    return channelIconDataUrl;
+  }
+
+  if (context.targets?.length === 1) {
+    return getMeaningfulVolumeHudTargetIconDataUrl(context.targets[0]);
+  }
+
+  return '';
+}
+
+function isFaderDeckWindowForeground() {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+
+  const isVisible = document.visibilityState === 'visible';
+  const hasFocus = typeof document.hasFocus === 'function'
+    ? document.hasFocus()
+    : true;
+
+  return isVisible && hasFocus;
+}
+
+async function buildChannelVolumeHudPayload(channel, meta = {}) {
   if (!channel) {
     return null;
   }
@@ -402,38 +584,58 @@ function buildChannelVolumeHudPayload(channel, meta = {}) {
     return null;
   }
 
-  const targets = getResolvedChannelHudTargets(channel);
+  const audioRuntimeSnapshot = await readChannelAudioRuntime(channel, {
+    forceFocusRefresh: Boolean(meta?.forceFocusRefresh),
+    forceStateRefresh: Boolean(meta?.forceStateRefresh)
+  });
+  const context = await resolveChannelVolumeHudContext(channel, meta, audioRuntimeSnapshot?.binding || null);
+  const targets = context.targets;
+
+  if (context.targetMode === window.CHANNEL_TARGET_MODES?.focus && !context.focusTarget) {
+    return null;
+  }
+
   if (!targets.length && isVolumeHudSelfTarget({
     process: channel?.app,
     name: channel?.appName
   })) {
     return null;
   }
-  const primaryLabel = getChannelHudPrimaryLabel(channel, targets);
+  const primaryLabel = context.focusTarget?.name || getChannelHudPrimaryLabel(channel, targets);
   const channelTitle = String(channel?.title || '').trim();
-  const outputVolume = getChannelOutputVolume(channel);
+  const muted = Boolean(audioRuntimeSnapshot?.muted);
+  const outputVolume = audioRuntimeSnapshot?.displayVolume ?? getChannelOutputVolume(channel);
 
   return {
     channelId: channel.id,
     source: String(meta?.source || 'ui'),
     title: primaryLabel,
     subtitle: channelTitle && channelTitle !== primaryLabel ? channelTitle : '',
-    iconDataUrl: targets.length === 1 ? targets[0].iconDataUrl : '',
+    iconDataUrl: resolveChannelVolumeHudIcon(channel, context),
     volume: outputVolume,
     valueText: formatChannelVolume(outputVolume, channel),
+    muted,
     presentation
   };
 }
 
-function emitChannelVolumeHud(channel, meta = {}) {
-  const payload = buildChannelVolumeHudPayload(channel, meta);
+async function emitChannelVolumeHud(channel, meta = {}) {
+  if (isFaderDeckWindowForeground()) {
+    return;
+  }
+
+  const payload = await buildChannelVolumeHudPayload(channel, meta);
   const api = typeof getApi === 'function' ? getApi() : window.getNativeApi?.() ?? null;
 
   if (!payload || !api?.show_volume_hud) {
     return;
   }
 
-  api.show_volume_hud(payload);
+  try {
+    await api.show_volume_hud(payload);
+  } catch (error) {
+    console.error('emitChannelVolumeHud error', error);
+  }
 }
 
 function getChannelOutputVolume(channel) {
@@ -448,6 +650,452 @@ function getChannelOutputVolume(channel) {
   }
 
   return clampVolume(channel.volume);
+}
+
+function createEmptyChannelBindingState(hasTargets = false) {
+  return {
+    hasTargets: Boolean(hasTargets),
+    volume: 0,
+    muted: false,
+    peakLevel: 0,
+    appStateMap: new Map(),
+    deviceStateMap: new Map()
+  };
+}
+
+function getChannelAudioRuntimeEntry(channelId) {
+  if (!channelAudioRuntimeState.has(channelId)) {
+    channelAudioRuntimeState.set(channelId, {
+      binding: null,
+      bindingKey: '',
+      bindingFetchedAt: 0,
+      state: null,
+      stateFetchedAt: 0,
+      lastLocalVolumeAt: 0
+    });
+  }
+
+  return channelAudioRuntimeState.get(channelId);
+}
+
+function getChannelAudioRuntimeBindingKey(binding = {}) {
+  const appKey = (Array.isArray(binding?.appTargets) ? binding.appTargets : [])
+    .map((target) => String(target?.process || '').trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join(',');
+  const deviceKey = (Array.isArray(binding?.deviceTargets) ? binding.deviceTargets : [])
+    .map((target) => {
+      const flow = String(target?.flow || binding?.deviceFlow || '').trim().toLowerCase();
+      return `${String(target?.id || '').trim().toLowerCase()}:${flow}`;
+    })
+    .filter(Boolean)
+    .sort()
+    .join(',');
+  const focusKey = String(binding?.focusTarget?.process || '').trim().toLowerCase();
+  const modeKey = String(binding?.mode || '').trim().toLowerCase();
+  const exclusionsKey = (Array.isArray(binding?.focusExclusions) ? binding.focusExclusions : [])
+    .map((target) => String(target?.process || '').trim().toLowerCase())
+    .filter(Boolean)
+    .sort()
+    .join(',');
+
+  return [modeKey, appKey, deviceKey, focusKey, exclusionsKey].join('|');
+}
+
+function normalizeChannelAudioRuntimeState(binding = {}, state = {}) {
+  const hasTargets = Boolean(binding?.hasTargets || state?.hasTargets);
+  return {
+    hasTargets,
+    volume: clampVolume(state?.volume),
+    muted: Boolean(state?.muted),
+    peakLevel: Math.max(0, Math.min(1, Number(state?.peakLevel) || 0)),
+    appStateMap: state?.appStateMap instanceof Map ? state.appStateMap : new Map(),
+    deviceStateMap: state?.deviceStateMap instanceof Map ? state.deviceStateMap : new Map()
+  };
+}
+
+function isChannelAudioRuntimeLocalOverrideActive(channelId, entry = null) {
+  const runtimeEntry = entry || channelAudioRuntimeState.get(channelId);
+
+  if (!runtimeEntry?.lastLocalVolumeAt) {
+    return false;
+  }
+
+  return (Date.now() - runtimeEntry.lastLocalVolumeAt) < CHANNEL_AUDIO_RUNTIME_LOCAL_OVERRIDE_MS;
+}
+
+function getChannelAudioRuntimeSnapshot(channel) {
+  if (!channel) {
+    return null;
+  }
+
+  const entry = channelAudioRuntimeState.get(channel.id);
+  const desiredVolume = getChannelOutputVolume(channel);
+  const committedVolume = entry?.state?.hasTargets
+    ? clampVolume(entry.state.volume)
+    : desiredVolume;
+  const muteHoldActive = isChannelMuteHoldActive(channel.id);
+  const localOverrideActive = isChannelAudioRuntimeLocalOverrideActive(channel.id, entry);
+
+  return {
+    binding: entry?.binding || null,
+    state: entry?.state || createEmptyChannelBindingState(false),
+    hasTargets: Boolean(entry?.binding?.hasTargets || entry?.state?.hasTargets),
+    desiredVolume,
+    committedVolume,
+    displayVolume: (muteHoldActive || localOverrideActive) ? desiredVolume : committedVolume,
+    muted: muteHoldActive || Boolean(entry?.state?.muted)
+  };
+}
+
+function syncChannelVolumePushStateFromRuntime(channelId, volume, options = {}) {
+  const state = getChannelVolumePushState(channelId);
+  state.lastSentVolume = clampVolume(volume);
+
+  if (options.clearPending === false) {
+    return state;
+  }
+
+  state.pendingVolume = null;
+
+  if (state.timerId) {
+    clearTimeout(state.timerId);
+    state.timerId = null;
+  }
+
+  return state;
+}
+
+function syncChannelFaderWithAudioRuntime(channel, snapshot, meta = {}) {
+  const entry = channel ? channelAudioRuntimeState.get(channel.id) : null;
+
+  if (
+    !channel
+    || !snapshot?.hasTargets
+    || isChannelVolumeSyncSuppressed(channel.id)
+    || isChannelAudioRuntimeLocalOverrideActive(channel.id, entry)
+  ) {
+    return snapshot;
+  }
+
+  const nextFaderPosition = getChannelFaderPositionForOutputVolume(channel, snapshot.committedVolume);
+
+  if (Math.abs(nextFaderPosition - clampVolume(channel.volume)) < CHANNEL_AUDIO_RUNTIME_FADER_SYNC_EPSILON) {
+    return snapshot;
+  }
+
+  window.setChannelVolumeState?.(channel.id, nextFaderPosition, {
+    source: 'channel-audio-runtime',
+    reason: meta?.reason || 'binding-state-sync'
+  });
+
+  return snapshot;
+}
+
+function commitChannelAudioRuntimeState(channel, binding = null, state = null, meta = {}) {
+  if (!channel) {
+    return null;
+  }
+
+  const entry = getChannelAudioRuntimeEntry(channel.id);
+  const resolvedBinding = binding || entry.binding || {
+    mode: 'apps',
+    appTargets: [],
+    deviceTargets: [],
+    deviceFlow: 'output',
+    focusTarget: null,
+    focusExclusions: [],
+    hasTargets: false
+  };
+
+  entry.binding = resolvedBinding;
+  entry.bindingKey = getChannelAudioRuntimeBindingKey(resolvedBinding);
+  entry.bindingFetchedAt = Date.now();
+
+  if (meta?.localVolumeChange) {
+    entry.lastLocalVolumeAt = Date.now();
+  }
+
+  if (state) {
+    entry.state = normalizeChannelAudioRuntimeState(resolvedBinding, state);
+    entry.stateFetchedAt = Date.now();
+  } else if (!entry.state) {
+    entry.state = createEmptyChannelBindingState(Boolean(resolvedBinding?.hasTargets));
+    entry.stateFetchedAt = Date.now();
+  }
+
+  const snapshot = getChannelAudioRuntimeSnapshot(channel);
+
+  if (meta?.updatePushState) {
+    syncChannelVolumePushStateFromRuntime(channel.id, snapshot?.committedVolume ?? 0, {
+      clearPending: meta?.clearPending !== false
+    });
+  }
+
+  if (meta?.syncFader !== false) {
+    syncChannelFaderWithAudioRuntime(channel, snapshot, meta);
+  }
+
+  if (meta?.refreshUi !== false) {
+    updateChannelFaderUi(channel);
+  }
+
+  return snapshot;
+}
+
+function commitChannelAudioRuntimeVolume(channel, binding = null, volume = 0, meta = {}) {
+  const entry = channel ? getChannelAudioRuntimeEntry(channel.id) : null;
+  const resolvedBinding = binding || entry?.binding || null;
+  const previousState = entry?.state || createEmptyChannelBindingState(Boolean(resolvedBinding?.hasTargets));
+
+  return commitChannelAudioRuntimeState(channel, resolvedBinding, {
+    ...previousState,
+    hasTargets: Boolean(resolvedBinding?.hasTargets || previousState?.hasTargets),
+    volume: clampVolume(volume),
+    muted: meta?.muted ?? Boolean(previousState?.muted)
+  }, meta);
+}
+
+function getChannelDisplayedOutputVolume(channel) {
+  return getChannelAudioRuntimeSnapshot(channel)?.displayVolume ?? getChannelOutputVolume(channel);
+}
+
+async function readChannelAudioRuntime(channel, options = {}) {
+  if (!channel) {
+    return null;
+  }
+
+  const entry = getChannelAudioRuntimeEntry(channel.id);
+  const now = Date.now();
+  const currentBinding = entry.binding;
+  const shouldRefreshFocusBinding = currentBinding?.mode === window.CHANNEL_TARGET_MODES?.focus
+    && ((now - entry.bindingFetchedAt) >= CHANNEL_AUDIO_RUNTIME_CACHE_TTL_MS);
+  const shouldRefreshBinding = Boolean(options?.forceFocusRefresh) || !currentBinding || shouldRefreshFocusBinding;
+  const previousBindingKey = entry.bindingKey;
+  const binding = shouldRefreshBinding
+    ? await resolveChannelTargetBinding(channel, {
+      force: Boolean(options?.forceFocusRefresh)
+    }).catch((error) => {
+      console.error('readChannelAudioRuntime binding error', error);
+      return currentBinding || {
+        mode: 'apps',
+        appTargets: [],
+        deviceTargets: [],
+        deviceFlow: 'output',
+        focusTarget: null,
+        focusExclusions: [],
+        hasTargets: false
+      };
+    })
+    : currentBinding;
+  const bindingKey = getChannelAudioRuntimeBindingKey(binding);
+  const bindingChanged = bindingKey !== previousBindingKey;
+
+  entry.binding = binding;
+  entry.bindingKey = bindingKey;
+  entry.bindingFetchedAt = now;
+
+  if (!binding?.hasTargets) {
+    return commitChannelAudioRuntimeState(channel, binding, createEmptyChannelBindingState(false), {
+      syncFader: false
+    });
+  }
+
+  const pushState = channelVolumePushState.get(channel.id);
+  const hasPendingOutputSync = Boolean(
+    activeFaderDrag?.channelId === channel.id
+    || pushState?.inFlight
+    || pushState?.timerId
+    || (pushState && pushState.pendingVolume !== null)
+  );
+
+  if (hasPendingOutputSync && entry.state) {
+    return commitChannelAudioRuntimeState(channel, binding, {
+      ...entry.state,
+      hasTargets: true
+    }, {
+      syncFader: false,
+      refreshUi: false
+    });
+  }
+
+  const stateIsFresh = entry.state
+    && !bindingChanged
+    && !options?.forceStateRefresh
+    && (now - entry.stateFetchedAt) < CHANNEL_AUDIO_RUNTIME_CACHE_TTL_MS;
+
+  if (stateIsFresh) {
+    return getChannelAudioRuntimeSnapshot(channel);
+  }
+
+  if (!window.channelTargeting?.readBindingState) {
+    return getChannelAudioRuntimeSnapshot(channel);
+  }
+
+  const bindingState = await window.channelTargeting.readBindingState(binding, {
+    force: Boolean(options?.forceStateRefresh || bindingChanged)
+  }).catch((error) => {
+    console.error('readChannelAudioRuntime state error', error);
+    return null;
+  });
+
+  if (!bindingState) {
+    return getChannelAudioRuntimeSnapshot(channel);
+  }
+
+  return commitChannelAudioRuntimeState(channel, binding, bindingState, {
+    reason: 'binding-state-read',
+    updatePushState: true,
+    clearPending: false
+  });
+}
+
+function getChannelFaderPositionForOutputVolume(channel, volume) {
+  if (!channel) {
+    return 0;
+  }
+
+  const channelSettings = getChannelRuntimeSettings(channel);
+
+  if (typeof mapVolumeToFaderPosition === 'function') {
+    return clampVolume(mapVolumeToFaderPosition(volume, channelSettings));
+  }
+
+  return clampVolume(volume);
+}
+
+function isChannelMuteHoldActive(channelId) {
+  return Boolean(channelMuteHoldState.get(channelId)?.active);
+}
+
+function setChannelMuteHoldState(channelId, active) {
+  const normalizedChannelId = Number.parseInt(channelId, 10);
+
+  if (!Number.isFinite(normalizedChannelId)) {
+    return false;
+  }
+
+  if (active) {
+    channelMuteHoldState.set(normalizedChannelId, { active: true });
+  } else {
+    channelMuteHoldState.delete(normalizedChannelId);
+  }
+
+  const pushState = channelVolumePushState.get(normalizedChannelId);
+
+  if (pushState?.timerId) {
+    clearTimeout(pushState.timerId);
+    pushState.timerId = null;
+  }
+
+  if (pushState) {
+    pushState.pendingVolume = null;
+  }
+
+  return Boolean(active);
+}
+
+function setChannelCommittedOutputVolume(channelId, volume) {
+  const normalizedChannelId = Number.parseInt(channelId, 10);
+
+  if (!Number.isFinite(normalizedChannelId)) {
+    return null;
+  }
+
+  const pushState = getChannelVolumePushState(normalizedChannelId);
+
+  if (pushState?.timerId) {
+    clearTimeout(pushState.timerId);
+    pushState.timerId = null;
+  }
+
+  pushState.pendingVolume = null;
+  pushState.lastSentVolume = clampVolume(volume);
+  const channel = getChannelById(normalizedChannelId);
+
+  if (channel) {
+    commitChannelAudioRuntimeVolume(channel, null, volume, {
+      syncFader: false,
+      refreshUi: true
+    });
+  }
+
+  return pushState.lastSentVolume;
+}
+
+function isChannelVolumeSyncSuppressed(channelId) {
+  if (activeFaderDrag?.channelId === channelId || isChannelMuteHoldActive(channelId)) {
+    return true;
+  }
+
+  const pushState = channelVolumePushState.get(channelId);
+
+  return Boolean(
+    pushState?.inFlight
+    || pushState?.timerId
+    || (pushState && pushState.pendingVolume !== null)
+  );
+}
+
+function shouldSyncLinkedAppChannel(channel, targetProcess = '', sourceChannelId = null) {
+  if (!channel || channel.id === sourceChannelId || isChannelVolumeSyncSuppressed(channel.id)) {
+    return false;
+  }
+
+  const targeting = window.channelTargeting;
+  const targetMode = targeting?.getChannelTargetMode?.(channel);
+
+  if (targetMode !== window.CHANNEL_TARGET_MODES?.apps) {
+    return false;
+  }
+
+  const appTargets = targeting?.getChannelAppTargets?.(channel) || [];
+  const deviceTargets = targeting?.getChannelDeviceTargets?.(channel) || [];
+  const channelProcess = String(appTargets[0]?.process || '').trim().toLowerCase();
+
+  return (
+    appTargets.length === 1
+    && deviceTargets.length === 0
+    && channelProcess
+    && channelProcess === String(targetProcess || '').trim().toLowerCase()
+  );
+}
+
+function syncLinkedAppChannelsFromBindingVolume(sourceChannel, binding = {}, volume = 0) {
+  const appTargets = Array.isArray(binding?.appTargets) ? binding.appTargets : [];
+  const deviceTargets = Array.isArray(binding?.deviceTargets) ? binding.deviceTargets : [];
+  const targetProcess = String(appTargets[0]?.process || '').trim().toLowerCase();
+
+  if (
+    appTargets.length !== 1
+    || deviceTargets.length > 0
+    || !targetProcess
+    || targetProcess === 'master'
+    || isVolumeHudSelfTarget(appTargets[0])
+  ) {
+    return;
+  }
+
+  getChannels().forEach((channel) => {
+    if (!shouldSyncLinkedAppChannel(channel, targetProcess, sourceChannel?.id)) {
+      return;
+    }
+
+    commitChannelAudioRuntimeVolume(channel, {
+      mode: window.CHANNEL_TARGET_MODES?.apps || 'apps',
+      appTargets: appTargets.slice(),
+      deviceTargets: [],
+      deviceFlow: 'output',
+      focusTarget: null,
+      focusExclusions: [],
+      hasTargets: true
+    }, volume, {
+      reason: 'linked-app-volume-sync',
+      linkedSourceChannelId: sourceChannel?.id ?? null,
+      updatePushState: true
+    });
+  });
 }
 
 function getChannelVolumePushState(channelId) {
@@ -473,14 +1121,12 @@ function resetChannelVolumePushState(channelId) {
   channelVolumePushState.delete(channelId);
 }
 
-function pushVolumeToTargets(api, targetProcesses, volume) {
-  if (!api?.set_app_volume || !Array.isArray(targetProcesses) || !targetProcesses.length) {
+function pushVolumeToBinding(binding, volume) {
+  if (!window.channelTargeting?.setBindingVolume) {
     return Promise.resolve();
   }
 
-  return Promise.all(
-    targetProcesses.map((targetProcess) => api.set_app_volume(targetProcess, volume))
-  );
+  return window.channelTargeting.setBindingVolume(binding, volume);
 }
 
 async function flushChannelVolumePush(channelId) {
@@ -505,15 +1151,19 @@ async function flushChannelVolumePush(channelId) {
     return;
   }
 
+  if (isChannelMuteHoldActive(channelId)) {
+    state.pendingVolume = null;
+    return;
+  }
+
   state.pendingVolume = null;
   state.inFlight = true;
 
   try {
-    const api = typeof getApi === 'function' ? getApi() : window.getNativeApi?.() ?? null;
     const channelSettings = getChannelRuntimeSettings(channel);
-    const targetProcesses = getChannelTargetProcesses(channel);
+    const targetBinding = await resolveChannelTargetBinding(channel);
 
-    if (!targetProcesses.length || !api?.set_app_volume) {
+    if (!targetBinding?.hasTargets) {
       return;
     }
 
@@ -527,23 +1177,43 @@ async function flushChannelVolumePush(channelId) {
       const startVolume = state.lastSentVolume;
 
       for (let step = 1; step <= CHANNEL_INTERPOLATION_STEPS; step += 1) {
+        if (isChannelMuteHoldActive(channelId)) {
+          break;
+        }
+
         const interpolatedVolume = clampVolume(
           startVolume + ((volumeToSend - startVolume) * (step / CHANNEL_INTERPOLATION_STEPS))
         );
 
-        await pushVolumeToTargets(api, targetProcesses, interpolatedVolume);
-        state.lastSentVolume = interpolatedVolume;
+        await pushVolumeToBinding(targetBinding, interpolatedVolume);
+        commitChannelAudioRuntimeVolume(channel, targetBinding, interpolatedVolume, {
+          reason: 'channel-volume-interpolation',
+          syncFader: false,
+          updatePushState: true,
+          clearPending: false
+        });
+        syncLinkedAppChannelsFromBindingVolume(channel, targetBinding, interpolatedVolume);
 
         if (step < CHANNEL_INTERPOLATION_STEPS) {
           await new Promise((resolve) => setTimeout(resolve, CHANNEL_INTERPOLATION_STEP_DELAY_MS));
         }
       }
     } else {
-      await pushVolumeToTargets(api, targetProcesses, volumeToSend);
-      state.lastSentVolume = volumeToSend;
+      if (isChannelMuteHoldActive(channelId)) {
+        return;
+      }
+
+      await pushVolumeToBinding(targetBinding, volumeToSend);
+      commitChannelAudioRuntimeVolume(channel, targetBinding, volumeToSend, {
+        reason: 'channel-volume-push',
+        syncFader: false,
+        updatePushState: true,
+        clearPending: false
+      });
+      syncLinkedAppChannelsFromBindingVolume(channel, targetBinding, volumeToSend);
     }
   } catch (error) {
-    console.error('set_app_volume error', error);
+    console.error('set_channel_target_volume error', error);
   } finally {
     state.inFlight = false;
 
@@ -557,6 +1227,17 @@ async function flushChannelVolumePush(channelId) {
 
 function queueChannelVolumePush(channel) {
   const state = getChannelVolumePushState(channel.id);
+
+  if (isChannelMuteHoldActive(channel.id)) {
+    if (state.timerId) {
+      clearTimeout(state.timerId);
+      state.timerId = null;
+    }
+
+    state.pendingVolume = null;
+    return;
+  }
+
   const nextVolume = getChannelOutputVolume(channel);
 
   if (state.pendingVolume === nextVolume) {
@@ -582,6 +1263,65 @@ function applyVolumeToChannel(channelId, volume, meta = {}) {
   return window.channelActions?.setChannelVolume(channelId, volume, { source: 'ui', ...meta }) || null;
 }
 
+function cacheChannelFaderDom(track) {
+  const channelId = Number.parseInt(track?.dataset?.channel, 10);
+
+  if (!Number.isFinite(channelId) || !track?.isConnected) {
+    return null;
+  }
+
+  const strip = track.closest('.channel-strip');
+  const domRefs = {
+    track,
+    thumb: track.querySelector('.fader-thumb'),
+    fill: track.querySelector('.fader-fill'),
+    value: strip?.querySelector('.volume-value')
+  };
+
+  if (!domRefs.thumb || !domRefs.fill || !domRefs.value) {
+    channelFaderDomCache.delete(channelId);
+    return null;
+  }
+
+  channelFaderDomCache.set(channelId, domRefs);
+  return domRefs;
+}
+
+function getChannelFaderDom(channelId) {
+  const normalizedChannelId = Number.parseInt(channelId, 10);
+
+  if (!Number.isFinite(normalizedChannelId)) {
+    return null;
+  }
+
+  const cachedDom = channelFaderDomCache.get(normalizedChannelId);
+
+  if (
+    cachedDom?.track?.isConnected
+    && cachedDom.thumb?.isConnected
+    && cachedDom.fill?.isConnected
+    && cachedDom.value?.isConnected
+  ) {
+    return cachedDom;
+  }
+
+  const track = document.querySelector(`.fader-track[data-channel="${normalizedChannelId}"]`);
+
+  if (!track) {
+    channelFaderDomCache.delete(normalizedChannelId);
+    return null;
+  }
+
+  return cacheChannelFaderDom(track);
+}
+
+function primeChannelFaderDomCache(container) {
+  channelFaderDomCache.clear();
+  container?.querySelectorAll?.('.fader-track[data-channel]')?.forEach((track) => {
+    cacheChannelFaderDom(track);
+  });
+}
+
 function getVolumeFromPointer(track, clientY) {
   const rect = track.getBoundingClientRect();
   const offsetY = clientY - rect.top;
@@ -604,8 +1344,9 @@ function startFaderDrag(event) {
     track
   };
   activeFaderDrag.track.classList.add('is-dragging');
-
-  applyVolumeToChannel(activeFaderDrag.channelId, getVolumeFromPointer(track, event.clientY));
+  applyVolumeToChannel(activeFaderDrag.channelId, getVolumeFromPointer(track, event.clientY), {
+    interaction: 'drag'
+  });
 }
 
 function handleFaderDrag(event) {
@@ -615,7 +1356,10 @@ function handleFaderDrag(event) {
 
   applyVolumeToChannel(
     activeFaderDrag.channelId,
-    getVolumeFromPointer(activeFaderDrag.track, event.clientY)
+    getVolumeFromPointer(activeFaderDrag.track, event.clientY),
+    {
+      interaction: 'drag'
+    }
   );
 }
 
@@ -624,8 +1368,15 @@ function stopFaderDrag() {
     return;
   }
 
+  const completedChannelId = activeFaderDrag.channelId;
   activeFaderDrag.track?.classList.remove('is-dragging');
   activeFaderDrag = null;
+  window.flushDeferredMixerRenderRuntime?.();
+  window.dispatchEvent(new CustomEvent('channel-fader-drag-end', {
+    detail: {
+      channelId: completedChannelId
+    }
+  }));
   window.profileActions?.saveRendererProfileToLocal?.();
 }
 
@@ -648,26 +1399,29 @@ function setupFaderDrag() {
 }
 
 function updateChannelFaderUi(channel) {
-  const track = document.querySelector(`.fader-track[data-channel="${channel.id}"]`);
+  const domRefs = getChannelFaderDom(channel.id);
 
-  if (!track) {
+  if (!domRefs) {
     return;
   }
 
-  const thumb = track.querySelector('.fader-thumb');
-  const fill = track.querySelector('.fader-fill');
-  const strip = track.closest('.channel-strip');
-  const value = strip?.querySelector('.volume-value');
-
-  if (!thumb || !fill || !value) {
-    return;
-  }
-
-  const outputVolume = getChannelOutputVolume(channel);
+  const outputVolume = getChannelDisplayedOutputVolume(channel);
   const channelSettings = getChannelRuntimeSettings(channel);
-  thumb.style.bottom = `calc(${channel.volume}% - 25px)`;
-  fill.style.height = `${channel.volume}%`;
-  value.textContent = formatVolumeValue(outputVolume, channelSettings);
+  const thumbBottom = `calc(${channel.volume}% - 25px)`;
+  const fillHeight = `${channel.volume}%`;
+  const valueText = formatVolumeValue(outputVolume, channelSettings);
+
+  if (domRefs.thumb.style.bottom !== thumbBottom) {
+    domRefs.thumb.style.bottom = thumbBottom;
+  }
+
+  if (domRefs.fill.style.height !== fillHeight) {
+    domRefs.fill.style.height = fillHeight;
+  }
+
+  if (domRefs.value.textContent !== valueText) {
+    domRefs.value.textContent = valueText;
+  }
 }
 
 function updateFadersFromState() {
@@ -811,6 +1565,10 @@ function escapeChannelMarkup(value) {
 }
 
 function resolveChannelTitleIconTarget(channel) {
+  if (window.channelTargeting?.getChannelTargetMode?.(channel) === window.CHANNEL_TARGET_MODES?.focus) {
+    return null;
+  }
+
   if (!channel?.showTargetIconInTitle) {
     return null;
   }
@@ -830,7 +1588,16 @@ function resolveChannelTitleIconTarget(channel) {
           return {
             process,
             name: String(target?.name || matchedApp?.name || process).trim() || process,
-            iconDataUrl: String(matchedApp?.iconDataUrl || '').trim()
+            path: String(target?.path || matchedApp?.path || '').trim(),
+            iconDataUrl: String(
+              target?.iconDataUrl
+              || matchedApp?.iconDataUrl
+              || window.getCachedAudioAppIconDataUrl?.({
+                process,
+                path: String(target?.path || matchedApp?.path || '').trim()
+              })
+              || ''
+            ).trim()
           };
         })
         .filter(Boolean)
@@ -842,25 +1609,53 @@ function resolveChannelTitleIconTarget(channel) {
     return null;
   }
 
-  return explicitTargets.find((target) => target.process === fallbackProcess)
+  const resolvedTarget = explicitTargets.find((target) => target.process === fallbackProcess)
     || getResolvedChannelHudTargets(channel).find((target) => target.process === fallbackProcess)
     || null;
+
+  if (
+    resolvedTarget
+    && !resolvedTarget.iconDataUrl
+    && resolvedTarget.path
+    && typeof window.ensureAudioAppIconDataUrl === 'function'
+  ) {
+    void window.ensureAudioAppIconDataUrl(resolvedTarget, {
+      reason: 'channel-title-icon'
+    }).then((iconDataUrl) => {
+      if (iconDataUrl) {
+        window.requestDeferredMixerRenderRuntime?.();
+      }
+    }).catch((error) => {
+      console.error('resolveChannelTitleIconTarget icon warmup error', error);
+    });
+  }
+
+  return resolvedTarget;
 }
 
 function renderChannelTitleMarkup(channel, title) {
+  if (channel?.icon && typeof window.renderChannelButtonIconMarkup === 'function') {
+    return `
+      <span class="channel-title-inner has-icon">
+        ${window.renderChannelButtonIconMarkup({ icon: channel.icon }, 'channel-title-icon')}
+        <span class="channel-title-text">${title}</span>
+      </span>
+    `;
+  }
+
   const titleIconTarget = resolveChannelTitleIconTarget(channel);
 
   if (!titleIconTarget) {
     return `<span class="channel-title-text">${title}</span>`;
   }
 
-  const iconLabel = String(titleIconTarget.name || titleIconTarget.process || '')
-    .trim()
-    .charAt(0)
-    .toUpperCase() || 'A';
   const iconMarkup = titleIconTarget.iconDataUrl
     ? `<span class="channel-title-icon has-image"><img class="channel-title-icon-image" src="${escapeChannelMarkup(titleIconTarget.iconDataUrl)}" alt="${escapeChannelMarkup(titleIconTarget.name || titleIconTarget.process || 'App')}"></span>`
-    : `<span class="channel-title-icon">${iconLabel}</span>`;
+    : '';
+
+  if (!iconMarkup) {
+    return `<span class="channel-title-text">${title}</span>`;
+  }
 
   return `
     <span class="channel-title-inner has-icon">
@@ -954,7 +1749,7 @@ function renderChannel(channel, layoutItem = null) {
   const mappingLabel = getAdvancedModeEnabled?.()
     ? getFaderMappingLabel(channel.faderMapping)
     : '';
-  const outputVolume = getChannelOutputVolume(channel);
+  const outputVolume = getChannelDisplayedOutputVolume(channel);
   const resolvedLayoutItem = layoutItem || {
     id: `layout-channel-${channel.id}`,
     type: window.LAYOUT_ITEM_TYPES?.channel || 'channel',
@@ -1072,6 +1867,8 @@ function renderMixer() {
   }
 
   if (channels.length === 0 && layoutItems.length === 0) {
+    channelAudioRuntimeState.clear();
+    channelFaderDomCache.clear();
     container.innerHTML = `
       ${renderMixerLayoutInsertControl()}
       ${renderAddChannelStrip({ emptyState: true })}
@@ -1093,6 +1890,7 @@ function renderMixer() {
     ${renderAddChannelStrip()}
   `;
 
+  primeChannelFaderDomCache(container);
   setupFaderDrag();
   setupChannelPickupUi();
   enhanceCustomSelects?.(container);
@@ -1130,6 +1928,10 @@ function initChannelUiStateSync() {
       return;
     }
 
+    if (channelsChanged) {
+      channelAudioRuntimeState.clear();
+    }
+
     renderMixer();
   });
 
@@ -1139,7 +1941,16 @@ function initChannelUiStateSync() {
 window.applyChannelVolumeRuntime = function applyChannelVolumeRuntime(channelId, volume, meta = {}) {
   return applyVolumeToChannel(channelId, volume, { source: 'midi-runtime', ...meta });
 };
+window.isChannelFaderDragActiveRuntime = function isChannelFaderDragActiveRuntime() {
+  return Boolean(activeFaderDrag);
+};
 window.createChannel = createChannel;
+window.getChannelOutputVolumeRuntime = getChannelOutputVolume;
+window.commitChannelAudioRuntimeVolumeRuntime = commitChannelAudioRuntimeVolume;
+window.isChannelMuteHoldActiveRuntime = isChannelMuteHoldActive;
+window.setChannelMuteHoldRuntime = setChannelMuteHoldState;
+window.setChannelCommittedOutputVolumeRuntime = setChannelCommittedOutputVolume;
+window.syncLinkedAppChannelsFromBindingVolumeRuntime = syncLinkedAppChannelsFromBindingVolume;
 window.queueChannelVolumePushRuntime = queueChannelVolumePush;
 window.resetChannelVolumePushRuntime = resetChannelVolumePushState;
 window.emitChannelVolumeHudRuntime = emitChannelVolumeHud;

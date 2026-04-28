@@ -13,10 +13,24 @@
       : null;
   }
 
+  function normalizeChannelVolumeValue(value) {
+    const normalizedValue = Math.max(0, Math.min(100, Number(value) || 0));
+
+    if (typeof window.normalizeVolumeValue === 'function') {
+      return window.normalizeVolumeValue(normalizedValue);
+    }
+
+    return Math.round(normalizedValue * 1000) / 1000;
+  }
+
   function getAvailableApps() {
     return typeof window.getAvailableAudioApps === 'function'
       ? window.getAvailableAudioApps()
       : [];
+  }
+
+  function getTargeting() {
+    return window.channelTargeting || null;
   }
 
   function getApi() {
@@ -171,6 +185,10 @@
   }
 
   function getChannelTargetProcesses(channel) {
+    if (getTargeting()?.getChannelTargetMode?.(channel) === window.CHANNEL_TARGET_MODES?.focus) {
+      return [];
+    }
+
     if (!channel) {
       return [];
     }
@@ -203,12 +221,47 @@
     return getChannelById(linkedChannelId) || channel || null;
   }
 
+  async function resolveActionTargetBinding(channel, button = {}, options = {}) {
+    const actionTargetChannel = getActionTargetChannel(channel, button);
+    const targeting = getTargeting();
+
+    if (!actionTargetChannel || !targeting?.resolveChannelTargetBinding) {
+      return {
+        mode: 'apps',
+        appTargets: [],
+        deviceTargets: [],
+        deviceFlow: 'output',
+        focusTarget: null,
+        focusExclusions: [],
+        hasTargets: false
+      };
+    }
+
+    return targeting.resolveChannelTargetBinding(actionTargetChannel, options);
+  }
+
   function getButtonTargetProcesses(channel, button = {}) {
     return getChannelTargetProcesses(getActionTargetChannel(channel, button));
   }
 
   function getPrimaryButtonTargetName(channel, button = {}) {
-    return getPrimaryChannelTargetName(getActionTargetChannel(channel, button));
+    const targeting = getTargeting();
+    const actionTargetChannel = getActionTargetChannel(channel, button);
+
+    if (targeting?.getBindingPrimaryLabel) {
+      const binding = {
+        appTargets: targeting.getChannelAppTargets?.(actionTargetChannel) || [],
+        deviceTargets: targeting.getChannelDeviceTargets(actionTargetChannel),
+        deviceFlow: targeting.getChannelDeviceTargetFlow(actionTargetChannel)
+      };
+      const label = targeting.getBindingPrimaryLabel(binding) || '';
+
+      if (label) {
+        return label;
+      }
+    }
+
+    return getPrimaryChannelTargetName(actionTargetChannel);
   }
 
   function getButtonExecutablePath(channel, button = {}) {
@@ -284,6 +337,66 @@
         ...standaloneProcesses
       ]
     )];
+  }
+
+  async function getAudioDeviceStateMap(deviceTargets = [], flow = 'output', options = {}) {
+    const targeting = getTargeting();
+    return targeting?.getAudioDeviceStateMap
+      ? targeting.getAudioDeviceStateMap(deviceTargets, flow, options)
+      : new Map();
+  }
+
+  async function readBindingState(binding = {}, options = {}) {
+    const targeting = getTargeting();
+    return targeting?.readBindingState
+      ? targeting.readBindingState(binding, options)
+      : {
+        hasTargets: false,
+        volume: 0,
+        muted: false,
+        appStateMap: new Map(),
+        deviceStateMap: new Map()
+      };
+  }
+
+  function createBindingSnapshot(binding = {}, state = {}) {
+    const targeting = getTargeting();
+    return targeting?.createBindingSnapshot
+      ? targeting.createBindingSnapshot(binding, state)
+      : [];
+  }
+
+  function restoreBindingSnapshot(snapshot = []) {
+    const targeting = getTargeting();
+    return targeting?.restoreBindingSnapshot
+      ? targeting.restoreBindingSnapshot(snapshot)
+      : Promise.resolve([]);
+  }
+
+  function setBindingVolume(binding = {}, volume = 0) {
+    const targeting = getTargeting();
+    return targeting?.setBindingVolume
+      ? targeting.setBindingVolume(binding, volume)
+      : Promise.resolve([]);
+  }
+
+  function setBindingMuted(binding = {}, muted = false) {
+    const targeting = getTargeting();
+    return targeting?.setBindingMuted
+      ? targeting.setBindingMuted(binding, muted)
+      : Promise.resolve([]);
+  }
+
+  function getBindingExecutablePath(binding = {}) {
+    const targeting = getTargeting();
+    return targeting?.getBindingExecutablePath
+      ? targeting.getBindingExecutablePath(binding)
+      : '';
+  }
+
+  async function getAllResolvedProfileBindings(options = {}) {
+    const channels = typeof window.getChannelsState === 'function' ? window.getChannelsState() : [];
+    return Promise.all(channels.map((channel) => resolveActionTargetBinding(channel, {}, options)));
   }
 
   function getPrimaryChannelTargetName(channel) {
@@ -624,8 +737,8 @@
     return updatedChannel;
   }
 
-  function setChannelVolume(channelId, volume, meta = {}) {
-    const updatedChannel = window.setChannelVolumeState?.(channelId, volume, {
+  function setChannelTargetMode(channelId, targetMode, meta = {}) {
+    const updatedChannel = window.setChannelTargetModeState?.(channelId, targetMode, {
       source: 'channel-actions',
       ...meta
     }) || getChannelById(channelId);
@@ -634,6 +747,120 @@
       return null;
     }
 
+    window.resetChannelVolumePushRuntime?.(channelId);
+    persistProfile();
+    window.requestChannelButtonRuntimeRefresh?.({ reason: 'channel-target-mode-changed', force: true });
+    return updatedChannel;
+  }
+
+  function setChannelDeviceTargetFlow(channelId, flow, meta = {}) {
+    const updatedChannel = window.setChannelDeviceTargetFlowState?.(channelId, flow, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    window.resetChannelVolumePushRuntime?.(channelId);
+    persistProfile();
+    window.requestChannelButtonRuntimeRefresh?.({ reason: 'channel-device-flow-changed', force: true });
+    return updatedChannel;
+  }
+
+  function addChannelDeviceTarget(channelId, deviceId, deviceName = '', flow = 'output', meta = {}) {
+    const updatedChannel = window.addChannelDeviceTargetState?.(channelId, deviceId, deviceName, flow, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    window.resetChannelVolumePushRuntime?.(channelId);
+    persistProfile();
+    window.requestChannelButtonRuntimeRefresh?.({ reason: 'channel-device-target-added', force: true });
+    return updatedChannel;
+  }
+
+  function removeChannelDeviceTarget(channelId, deviceId, flow = 'output', meta = {}) {
+    const updatedChannel = window.removeChannelDeviceTargetState?.(channelId, deviceId, flow, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    window.resetChannelVolumePushRuntime?.(channelId);
+    persistProfile();
+    window.requestChannelButtonRuntimeRefresh?.({ reason: 'channel-device-target-removed', force: true });
+    return updatedChannel;
+  }
+
+  function addChannelFocusExclusion(channelId, appProcess, appName = '', meta = {}) {
+    const updatedChannel = window.addChannelFocusExclusionState?.(channelId, appProcess, appName, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    persistProfile();
+    window.requestChannelButtonRuntimeRefresh?.({ reason: 'channel-focus-exclusion-added', force: true });
+    return updatedChannel;
+  }
+
+  function removeChannelFocusExclusion(channelId, appProcess, meta = {}) {
+    const updatedChannel = window.removeChannelFocusExclusionState?.(channelId, appProcess, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    persistProfile();
+    window.requestChannelButtonRuntimeRefresh?.({ reason: 'channel-focus-exclusion-removed', force: true });
+    return updatedChannel;
+  }
+
+  function setChannelVolume(channelId, volume, meta = {}) {
+    const currentChannel = getChannelById(channelId);
+    const normalizedVolume = normalizeChannelVolumeValue(volume);
+
+    if (
+      currentChannel
+      && Math.abs((Number(currentChannel.volume) || 0) - normalizedVolume) < 0.001
+    ) {
+      return currentChannel;
+    }
+
+    const updatedChannel = window.setChannelVolumeState?.(channelId, normalizedVolume, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    window.commitChannelAudioRuntimeVolumeRuntime?.(
+      updatedChannel,
+      null,
+      window.getChannelOutputVolumeRuntime?.(updatedChannel) ?? normalizedVolume,
+      {
+        reason: meta?.interaction === 'drag' ? 'channel-volume-drag' : 'channel-volume-change',
+        syncFader: false,
+        localVolumeChange: true
+      }
+    );
     window.queueChannelVolumePushRuntime?.(updatedChannel);
     window.emitChannelVolumeHudRuntime?.(updatedChannel, meta);
     return updatedChannel;
@@ -710,6 +937,20 @@
     return updatedChannel;
   }
 
+  function setChannelIcon(channelId, iconKey = '', meta = {}) {
+    const updatedChannel = window.setChannelIconState?.(channelId, iconKey, {
+      source: 'channel-actions',
+      ...meta
+    }) || getChannelById(channelId);
+
+    if (!updatedChannel) {
+      return null;
+    }
+
+    persistProfile();
+    return updatedChannel;
+  }
+
   function addChannelButton(channelId, button, meta = {}) {
     const addedButton = window.addChannelButtonState?.(channelId, button, {
       source: 'channel-actions',
@@ -764,20 +1005,51 @@
   }
 
   async function executeMuteChannelButton(channel, button) {
-    const targetProcesses = getButtonTargetProcesses(channel, button);
-    const targetStateMap = await getProcessAudioStates(targetProcesses);
-    const allMuted = targetProcesses.length > 0
-      && targetProcesses.every((processName) => Boolean(targetStateMap.get(processName.toLowerCase())?.muted));
+    const actionTargetChannel = getActionTargetChannel(channel, button) || channel;
+    const binding = await resolveActionTargetBinding(channel, button, { force: true });
+    const bindingState = await readBindingState(binding, { force: true });
+    const allMuted = Boolean(binding.hasTargets) && Boolean(bindingState.muted);
+    const muteHoldActive = Boolean(
+      actionTargetChannel
+      && window.isChannelMuteHoldActiveRuntime?.(actionTargetChannel.id)
+    );
 
-    await setProcessesMuted(targetProcesses, !allMuted);
+    if (allMuted) {
+      if (muteHoldActive && binding.hasTargets) {
+        const nextVolume = window.getChannelOutputVolumeRuntime?.(actionTargetChannel) ?? 0;
+
+        await setBindingVolume(binding, nextVolume);
+        window.setChannelCommittedOutputVolumeRuntime?.(actionTargetChannel.id, nextVolume);
+        window.syncLinkedAppChannelsFromBindingVolumeRuntime?.(actionTargetChannel, binding, nextVolume);
+      }
+
+      await setBindingMuted(binding, false);
+      if (actionTargetChannel) {
+        window.setChannelMuteHoldRuntime?.(actionTargetChannel.id, false);
+      }
+    } else {
+      await setBindingMuted(binding, true);
+      if (actionTargetChannel && binding.hasTargets) {
+        window.setChannelMuteHoldRuntime?.(actionTargetChannel.id, true);
+      }
+    }
+
+    await window.emitChannelVolumeHudRuntime?.(
+      actionTargetChannel,
+      {
+        source: 'channel-button',
+        reason: 'channel-button-mute',
+        forceFocusRefresh: true,
+        forceStateRefresh: true
+      }
+    );
     return !allMuted;
   }
 
   async function executeSoloChannelButton(channel, button) {
     const buttonKey = `${channel.id}:${button.id}`;
-    const targetProcesses = getButtonTargetProcesses(channel, button);
-    const allProfileProcesses = getAllChannelTargetProcesses();
-    const otherProcesses = allProfileProcesses.filter((processName) => !targetProcesses.includes(processName));
+    const targetBinding = await resolveActionTargetBinding(channel, button, { force: true });
+    const resolvedProfileBindings = await getAllResolvedProfileBindings({ force: true });
     const activeSoloKey = window.getActiveSoloChannelButtonKeyRuntime?.() || null;
     const activeStandaloneSoloKey = window.getActiveStandaloneSoloButtonRuntimeKey?.() || null;
 
@@ -786,28 +1058,50 @@
       return false;
     }
 
-    const processStateMap = await getProcessAudioStates(allProfileProcesses);
-    const snapshot = Array.from(processStateMap.values()).map((application) => ({
-      process: application.process,
-      muted: Boolean(application.muted)
-    }));
+    const snapshot = (
+      await Promise.all(
+        resolvedProfileBindings.map(async (binding) => {
+          const bindingState = await readBindingState(binding, { force: true });
+          return createBindingSnapshot(binding, bindingState);
+        })
+      )
+    ).flat();
+    const otherAppProcesses = [...new Set(
+      resolvedProfileBindings
+        .flatMap((binding) => Array.isArray(binding?.appTargets) ? binding.appTargets : [])
+        .map((target) => String(target?.process || '').trim())
+        .filter((processName) => processName && !targetBinding.appTargets.some((target) => target.process === processName))
+    )];
+    const otherDeviceTargets = resolvedProfileBindings
+      .flatMap((binding) => Array.isArray(binding?.deviceTargets) ? binding.deviceTargets.map((target) => ({
+        ...target,
+        flow: binding.deviceFlow
+      })) : [])
+      .filter((deviceTarget) => (
+        deviceTarget?.id
+        && !targetBinding.deviceTargets.some((target) => target.id === deviceTarget.id && targetBinding.deviceFlow === deviceTarget.flow)
+      ));
 
     if (activeStandaloneSoloKey) {
       await window.restoreStandaloneSoloRuntime?.();
     }
 
     await window.restoreSoloChannelButtonRuntime?.();
-    await setProcessesMuted(otherProcesses, true);
-    await setProcessesMuted(targetProcesses, false);
+    await setBindingMuted({
+      appTargets: otherAppProcesses.map((processName) => ({ process: processName })),
+      deviceTargets: otherDeviceTargets,
+      deviceFlow: targetBinding.deviceFlow
+    }, true);
+    await setBindingMuted(targetBinding, false);
     window.activateSoloChannelButtonRuntime?.(buttonKey, snapshot);
     return true;
   }
 
   async function executeSetVolumeChannelButton(channel, button) {
-    const targetProcesses = getButtonTargetProcesses(channel, button);
+    const binding = await resolveActionTargetBinding(channel, button, { force: true });
     const nextVolume = Math.max(0, Math.min(100, Number(button?.actionValue) || 0));
 
-    await setProcessesVolume(targetProcesses, nextVolume);
+    await setBindingVolume(binding, nextVolume);
     return true;
   }
 
@@ -830,8 +1124,9 @@
 
   async function executeToggleAppVisibilityChannelButton(channel, button) {
     const api = getApi();
-    const primaryProcess = getButtonTargetProcesses(channel, button)[0] || '';
-    const executablePath = getButtonExecutablePath(channel, button);
+    const binding = await resolveActionTargetBinding(channel, button, { force: true });
+    const primaryProcess = binding.appTargets?.[0]?.process || '';
+    const executablePath = getBindingExecutablePath(binding) || getButtonExecutablePath(channel, button);
 
     if (!primaryProcess && !executablePath) {
       window.showToast?.('warn', window.t?.('editor.noTargetAssigned') || 'No target assigned.');
@@ -937,7 +1232,8 @@
   }
 
   async function activatePushChannelButton(channel, button) {
-    const targetProcesses = getButtonTargetProcesses(channel, button);
+    const targetBinding = await resolveActionTargetBinding(channel, button, { force: true });
+    const actionTargetChannel = getActionTargetChannel(channel, button) || channel;
     const actionTypes = getChannelButtonActionTypes();
 
     if (button.actionType === actionTypes.solo) {
@@ -980,22 +1276,25 @@
       return executeSetDefaultAudioDeviceChannelButton(button);
     }
 
-    const processStateMap = await getProcessAudioStates(targetProcesses);
+    const bindingState = await readBindingState(targetBinding, { force: true });
 
     if (button.actionType === actionTypes.setVolume) {
       setPushActionRuntime(channel.id, button.id, {
-        kind: 'process-state',
-        entries: createProcessStateSnapshot(processStateMap)
+        kind: 'binding-state',
+        entries: createBindingSnapshot(targetBinding, bindingState)
       });
-      await setProcessesVolume(targetProcesses, Math.max(0, Math.min(100, Number(button?.actionValue) || 0)));
+      await setBindingVolume(targetBinding, Math.max(0, Math.min(100, Number(button?.actionValue) || 0)));
       return true;
     }
 
     setPushActionRuntime(channel.id, button.id, {
-      kind: 'mute-state',
-      entries: createMuteStateSnapshot(processStateMap)
+      kind: 'binding-state',
+      entries: createBindingSnapshot(targetBinding, bindingState)
     });
-    await setProcessesMuted(targetProcesses, true);
+    await setBindingMuted(targetBinding, true);
+    if (actionTargetChannel && targetBinding.hasTargets) {
+      window.setChannelMuteHoldRuntime?.(actionTargetChannel.id, true);
+    }
     return true;
   }
 
@@ -1038,23 +1337,37 @@
     const snapshot = getPushActionRuntime(channel.id, button.id);
     clearPushActionRuntime(channel.id, button.id);
 
+    if (button.actionType === actionTypes.mute) {
+      const actionTargetChannel = getActionTargetChannel(channel, button) || channel;
+      const targetBinding = await resolveActionTargetBinding(channel, button, { force: true });
+      const muteHoldActive = Boolean(
+        actionTargetChannel
+        && window.isChannelMuteHoldActiveRuntime?.(actionTargetChannel.id)
+      );
+
+      if (muteHoldActive && targetBinding.hasTargets) {
+        const nextVolume = window.getChannelOutputVolumeRuntime?.(actionTargetChannel) ?? 0;
+
+        await setBindingVolume(targetBinding, nextVolume);
+        await setBindingMuted(targetBinding, false);
+        window.setChannelCommittedOutputVolumeRuntime?.(actionTargetChannel.id, nextVolume);
+        window.syncLinkedAppChannelsFromBindingVolumeRuntime?.(actionTargetChannel, targetBinding, nextVolume);
+        window.setChannelMuteHoldRuntime?.(actionTargetChannel.id, false);
+        return false;
+      }
+    }
+
     if (!snapshot?.entries?.length) {
       return false;
     }
 
-    if (snapshot.kind === 'mute-state') {
-      await restoreMuteStateSnapshot(snapshot.entries);
-      return false;
-    }
-
-    await restoreProcessStateSnapshot(snapshot.entries);
+    await restoreBindingSnapshot(snapshot.entries);
     return false;
   }
 
   async function executeChannelButton(channelId, buttonId, meta = {}) {
     const channel = getChannelById(channelId);
     const button = channel?.buttons?.find((item) => item.id === buttonId) || null;
-    const targetProcesses = getButtonTargetProcesses(channel, button);
     const actionTypes = getChannelButtonActionTypes();
     const interactionModes = getChannelButtonInteractionModes();
     const actionMode = Object.values(interactionModes).includes(button?.actionMode)
@@ -1071,6 +1384,10 @@
       return null;
     }
 
+    const actionTargetBinding = actionEnabled
+      ? await resolveActionTargetBinding(channel, button, { force: true })
+      : null;
+
     if (phase === 'release') {
       clearUiPushReleaseTimer(channelId, buttonId);
     }
@@ -1078,7 +1395,7 @@
     if (
       actionEnabled
       && isFaderTargetChannelButtonAction(button.actionType)
-      && !targetProcesses.length
+      && !actionTargetBinding?.hasTargets
     ) {
       window.showToast?.('warn', window.t?.('editor.noTargetAssigned'));
       return button;
@@ -1175,11 +1492,18 @@
     setChannelApp,
     addChannelTarget,
     removeChannelTarget,
+    setChannelTargetMode,
+    setChannelDeviceTargetFlow,
+    addChannelDeviceTarget,
+    removeChannelDeviceTarget,
+    addChannelFocusExclusion,
+    removeChannelFocusExclusion,
     setChannelVolume,
     dismissChannelBindHint,
     renameChannel,
     markChannelConfigured,
     setChannelTitleIconVisible,
+    setChannelIcon,
     setChannelButtonPlacement,
     addChannelButton,
     updateChannelButton,
@@ -1187,6 +1511,7 @@
     toggleChannelButton,
     executeChannelButton,
     getActionTargetChannel,
-    getButtonTargetProcesses
+    getButtonTargetProcesses,
+    resolveActionTargetBinding
   };
 })(window);

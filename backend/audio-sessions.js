@@ -6,6 +6,8 @@ const execFileAsync = promisify(execFile);
 const SCRIPT_PATH = path.join(__dirname, 'scripts', 'audio-session.ps1');
 const WORKER_SCRIPT_PATH = path.join(__dirname, 'scripts', 'audio-session-worker.ps1');
 const WORKER_REQUEST_TIMEOUT_MS = 8000;
+const SESSION_SNAPSHOT_CACHE_MS = 90;
+const SESSION_SNAPSHOT_BACKGROUND_REFRESH_MS = 45;
 
 function parseJsonOutput(stdout) {
   if (!stdout || !stdout.trim()) {
@@ -22,6 +24,11 @@ class AudioSessionBridge {
     this._workerBuffer = '';
     this._requestId = 0;
     this._pendingRequests = new Map();
+    this._sessionSnapshot = {
+      applications: [],
+      fetchedAt: 0,
+      refreshPromise: null
+    };
   }
 
   createWorkerError(reason = 'Audio worker unavailable') {
@@ -224,10 +231,87 @@ class AudioSessionBridge {
     }
   }
 
+  filterSessionApplications(applications = [], processNames = []) {
+    const normalizedFilters = [...new Set(
+      (Array.isArray(processNames) ? processNames : [])
+        .map((processName) => String(processName || '').trim().toLowerCase())
+        .filter(Boolean)
+    )];
+
+    if (!normalizedFilters.length) {
+      return Array.isArray(applications) ? applications.slice() : [];
+    }
+
+    const filterSet = new Set(normalizedFilters);
+    return (Array.isArray(applications) ? applications : []).filter((application) => (
+      filterSet.has(String(application?.process || '').trim().toLowerCase())
+    ));
+  }
+
+  patchCachedSessionApplications(processName, patch = {}) {
+    const normalizedProcessName = String(processName || '').trim().toLowerCase();
+
+    if (!normalizedProcessName || !Array.isArray(this._sessionSnapshot.applications)) {
+      return;
+    }
+
+    this._sessionSnapshot.applications = this._sessionSnapshot.applications.map((application) => {
+      if (String(application?.process || '').trim().toLowerCase() !== normalizedProcessName) {
+        return application;
+      }
+
+      return {
+        ...application,
+        ...patch
+      };
+    });
+  }
+
+  async refreshSessionSnapshot(options = {}) {
+    if (!options?.force && this._sessionSnapshot.refreshPromise) {
+      return this._sessionSnapshot.refreshPromise;
+    }
+
+    this._sessionSnapshot.refreshPromise = this.run('GetSessions', { processNames: [] })
+      .then((result) => {
+        this._sessionSnapshot.applications = Array.isArray(result?.applications)
+          ? result.applications
+          : [];
+        this._sessionSnapshot.fetchedAt = Date.now();
+        return this._sessionSnapshot.applications.slice();
+      })
+      .finally(() => {
+        this._sessionSnapshot.refreshPromise = null;
+      });
+
+    return this._sessionSnapshot.refreshPromise;
+  }
+
   async listSessions(processNames = []) {
     try {
-      const result = await this.run('GetSessions', { processNames });
-      return Array.isArray(result?.applications) ? result.applications : [];
+      const now = Date.now();
+      const hasSnapshot = Array.isArray(this._sessionSnapshot.applications)
+        && this._sessionSnapshot.applications.length > 0;
+      const snapshotAge = hasSnapshot
+        ? (now - this._sessionSnapshot.fetchedAt)
+        : Number.POSITIVE_INFINITY;
+
+      if (hasSnapshot && snapshotAge < SESSION_SNAPSHOT_CACHE_MS) {
+        if (snapshotAge >= SESSION_SNAPSHOT_BACKGROUND_REFRESH_MS) {
+          void this.refreshSessionSnapshot().catch((error) => {
+            this._log('audio_session_background_refresh error:', error);
+          });
+        }
+
+        return this.filterSessionApplications(this._sessionSnapshot.applications, processNames);
+      }
+
+      if (this._sessionSnapshot.refreshPromise && hasSnapshot) {
+        return this.filterSessionApplications(this._sessionSnapshot.applications, processNames);
+      }
+
+      const applications = await this.refreshSessionSnapshot({ force: true });
+      return this.filterSessionApplications(applications, processNames);
     } catch (error) {
       this._log('audio_session_list error:', error);
       return [];
@@ -236,7 +320,12 @@ class AudioSessionBridge {
 
   async setVolume(processName, volume) {
     try {
-      return await this.run('SetVolume', { processName, volume });
+      const result = await this.run('SetVolume', { processName, volume });
+      this.patchCachedSessionApplications(processName, {
+        volume: Number.isFinite(Number(volume)) ? Number(volume) : undefined,
+        muted: Number(volume) <= 0
+      });
+      return result;
     } catch (error) {
       this._log('audio_session_set_volume error:', error);
       return null;
@@ -245,10 +334,22 @@ class AudioSessionBridge {
 
   async setMute(processName, mute) {
     try {
-      return await this.run('SetMute', { processName, mute });
+      const result = await this.run('SetMute', { processName, mute });
+      this.patchCachedSessionApplications(processName, {
+        muted: Boolean(mute)
+      });
+      return result;
     } catch (error) {
       this._log('audio_session_set_mute error:', error);
       return null;
+    }
+  }
+
+  async prewarm() {
+    try {
+      await this.refreshSessionSnapshot({ force: true });
+    } catch (error) {
+      this._log('audio_session_prewarm error:', error);
     }
   }
 

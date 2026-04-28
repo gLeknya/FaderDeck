@@ -38,6 +38,18 @@ function getChannelButtonIndicatorTypes() {
   };
 }
 
+function getChannelButtonIndicatorBehaviors() {
+  return window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
+    actionState: 'action-state',
+    peakMeter: 'peak-meter',
+    targetActivity: 'target-activity'
+  };
+}
+
+function getDefaultChannelButtonIndicatorThreshold() {
+  return Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20) || -20;
+}
+
 function getChannelButtonContentModes() {
   return window.CHANNEL_BUTTON_CONTENT_MODES || {
     iconTitle: 'icon-title',
@@ -417,6 +429,7 @@ function buildChannelButtonPresentation(channel, button) {
       flashActive: false,
       pressed: false,
       hasTargets: false,
+      indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
       buttonIndicatorType: getChannelButtonIndicatorTypes().press
     };
   const showIcon = normalizedButton.contentDisplay !== contentModes.titleOnly;
@@ -450,6 +463,9 @@ function renderChannelButtonBodyMarkup(channel, button) {
 function getChannelButtonClassName(channel, button) {
   const presentation = buildChannelButtonPresentation(channel, button);
   const classNames = ['channel-side-button'];
+  const indicatorSuffix = presentation.button.indicatorBehavior === getChannelButtonIndicatorBehaviors().peakMeter
+    ? 'meter'
+    : presentation.button.indicatorMode;
 
   if (presentation.isActive) {
     classNames.push('active');
@@ -463,8 +479,8 @@ function getChannelButtonClassName(channel, button) {
     classNames.push(`channel-side-button--${presentation.button.contentDisplay}`);
   }
 
-  if (presentation.button.indicatorMode) {
-    classNames.push(`channel-side-button--indicator-${presentation.button.indicatorMode}`);
+  if (indicatorSuffix) {
+    classNames.push(`channel-side-button--indicator-${indicatorSuffix}`);
   }
 
   return classNames.join(' ');
@@ -486,6 +502,7 @@ function buildStandaloneButtonPresentation(button) {
       flashActive: false,
       pressed: false,
       hasTargets: false,
+      indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
       buttonIndicatorType: getChannelButtonIndicatorTypes().press
     };
   const showIcon = true;
@@ -526,6 +543,9 @@ function renderStandaloneButtonBodyMarkup(button, options = {}) {
 function getStandaloneButtonClassName(button) {
   const presentation = buildStandaloneButtonPresentation(button);
   const classNames = ['standalone-button', 'channel-side-button--icon-only'];
+  const indicatorSuffix = presentation.button.indicatorBehavior === getChannelButtonIndicatorBehaviors().peakMeter
+    ? 'meter'
+    : presentation.button.indicatorMode;
 
   if (presentation.isActive) {
     classNames.push('active');
@@ -539,8 +559,8 @@ function getStandaloneButtonClassName(button) {
     classNames.push(`channel-side-button--${presentation.button.contentDisplay}`);
   }
 
-  if (presentation.button.indicatorMode) {
-    classNames.push(`channel-side-button--indicator-${presentation.button.indicatorMode}`);
+  if (indicatorSuffix) {
+    classNames.push(`channel-side-button--indicator-${indicatorSuffix}`);
   }
 
   return classNames.join(' ');
@@ -730,13 +750,15 @@ function createDefaultButton() {
     id: Date.now() + Math.floor(Math.random() * 1000),
     text: '',
     icon: 'square',
-    actionEnabled: true,
+    actionEnabled: false,
     actionType: getChannelButtonActionTypes().none,
     actionMode: window.CHANNEL_BUTTON_INTERACTION_MODES?.trigger || 'trigger',
     actionValue: window.DEFAULT_CHANNEL_BUTTON_ACTION_VALUE ?? 50,
     indicatorEnabled: true,
     indicatorMode: window.CHANNEL_BUTTON_INTERACTION_MODES?.trigger || 'trigger',
     indicatorModeLinkedToAction: false,
+    indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
+    indicatorThreshold: getDefaultChannelButtonIndicatorThreshold(),
     indicatorType: getChannelButtonIndicatorTypes().press,
     contentDisplay: getChannelButtonContentModes().iconTitle,
     metaDisplay: getChannelButtonMetaModes().actionIndicator,
@@ -1040,6 +1062,7 @@ function initStandaloneButtonsStateSync() {
 window.getChannelButtonClassName = getChannelButtonClassName;
 window.renderChannelButtonBodyMarkup = renderChannelButtonBodyMarkup;
 window.renderChannelButtonIconMarkup = renderChannelButtonIconMarkup;
+window.renderChannelButtonIconSvg = renderChannelButtonIconSvg;
 window.getChannelButtonPresentation = buildChannelButtonPresentation;
 window.getStandaloneButtonClassName = getStandaloneButtonClassName;
 window.renderStandaloneButtonBodyMarkup = renderStandaloneButtonBodyMarkup;
@@ -1156,6 +1179,7 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     availableSessions: [],
     refreshPromise: null,
     sessionsPromise: null,
+    scheduledRefreshTimerId: null,
     lastUpdatedAt: 0,
     sessionsLastUpdatedAt: 0
   };
@@ -1177,7 +1201,7 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     const slot = String(definition?.slot || '').trim();
 
     if (slot === 'play-pause') {
-      return getCurrentControllerLanguage() === 'en' ? 'Play / stop' : 'Плей / стоп';
+      return getCurrentControllerLanguage() === 'en' ? 'Play / pause' : 'Плей / пауза';
     }
 
     return definition?.label?.[getCurrentControllerLanguage()] || definition?.label?.ru || definition?.slot || 'Button';
@@ -1277,6 +1301,14 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     return normalizeMediaSessionSnapshot(mediaSessionState.snapshot);
   }
 
+  function canRefreshMediaSessionState(options = {}) {
+    if (options?.allowHidden === true) {
+      return true;
+    }
+
+    return document.visibilityState === 'visible';
+  }
+
   function areMediaSessionSnapshotsEqual(nextSnapshot = {}, previousSnapshot = {}) {
     return (
       Boolean(nextSnapshot.success) === Boolean(previousSnapshot.success)
@@ -1333,6 +1365,10 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
 
     if (mediaSessionState.refreshPromise) {
       return mediaSessionState.refreshPromise;
+    }
+
+    if (!canRefreshMediaSessionState(options)) {
+      return Promise.resolve(getMediaSessionSnapshot());
     }
 
     if (!force && mediaSessionState.lastUpdatedAt && now - mediaSessionState.lastUpdatedAt < MEDIA_SESSION_REFRESH_MIN_MS) {
@@ -1405,8 +1441,14 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function scheduleMediaSessionRefresh(meta = {}) {
-    window.setTimeout(() => {
-      refreshMediaSessionState({ force: true }).finally(() => {
+    if (mediaSessionState.scheduledRefreshTimerId) {
+      window.clearTimeout(mediaSessionState.scheduledRefreshTimerId);
+      mediaSessionState.scheduledRefreshTimerId = null;
+    }
+
+    mediaSessionState.scheduledRefreshTimerId = window.setTimeout(() => {
+      mediaSessionState.scheduledRefreshTimerId = null;
+      refreshMediaSessionState({ force: true, allowHidden: true }).finally(() => {
         window.requestStandaloneButtonRuntimeRefresh?.({
           reason: 'media-controller/session-refresh',
           force: true,
@@ -1419,7 +1461,7 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
 
   function getResolvedMediaControllerIcon(slot = '', snapshot = getMediaSessionSnapshot()) {
     if (String(slot || '').trim() === 'play-pause') {
-      return isMediaSessionPlaying(snapshot) ? 'stop' : 'play';
+      return isMediaSessionPlaying(snapshot) ? 'pause' : 'play';
     }
 
     return String(findMediaControllerDefinitionBySlot(slot)?.icon || 'square');
@@ -1533,6 +1575,7 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       hasTargets: true,
       indicatorEnabled,
       indicatorMode,
+      indicatorBehavior: button?.indicatorBehavior || getChannelButtonIndicatorBehaviors().actionState,
       buttonIndicatorType: button?.indicatorType
     };
   }
@@ -1550,6 +1593,8 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       indicatorEnabled: true,
       indicatorMode: slot === 'play-pause' ? 'toggle' : definition.indicatorMode,
       indicatorModeLinkedToAction: true,
+      indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
+      indicatorThreshold: getDefaultChannelButtonIndicatorThreshold(),
       indicatorType: getIndicatorTypes().press,
       contentDisplay: getContentModes().iconOnly,
       metaDisplay: getChannelButtonMetaModes().indicatorOnly,
@@ -1758,14 +1803,14 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
         }
       } else if (slot === 'play-pause') {
         const nextPlayingState = !isMediaSessionPlaying(snapshot);
-        const response = await api.send_media_transport?.(nextPlayingState ? 'play' : 'stop', targetAppId);
+        const response = await api.send_media_transport?.(nextPlayingState ? 'play' : 'pause', targetAppId);
 
         if (response?.success) {
           setMediaSessionSnapshot({
             ...snapshot,
             success: true,
             hasSession: true,
-            playbackStatus: nextPlayingState ? 'Playing' : 'Stopped'
+            playbackStatus: nextPlayingState ? 'Playing' : 'Paused'
           });
         }
       } else if (slot === 'previous') {
@@ -2312,6 +2357,16 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
         source: 'media-controller'
       });
     });
+    window.addEventListener('focus', () => {
+      refreshMediaSessionState({ force: true });
+      refreshAvailableMediaSessions({ force: true });
+    });
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        refreshMediaSessionState({ force: true });
+        refreshAvailableMediaSessions({ force: true });
+      }
+    });
     mediaControllerUiInitialized = true;
     return mediaControllerUiInitialized;
   }
@@ -2331,6 +2386,7 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     getButtons: getOrderedMediaControllerButtonsState,
     getAvailableSessions: getAvailableMediaSessions,
     refreshAvailableSessions: refreshAvailableMediaSessions,
+    getCachedRuntimeSnapshot: getMediaSessionSnapshot,
     getRuntimeSnapshot: refreshMediaSessionState,
     getRuntimeStateForButton: getMediaControllerButtonRuntimeState
   };

@@ -2,14 +2,21 @@
   const {
     CHANNEL_BUTTON_ACTION_TYPES,
     CHANNEL_BUTTON_INDICATOR_TYPES,
+    CHANNEL_BUTTON_INDICATOR_BEHAVIORS,
     CHANNEL_BUTTON_CONTENT_MODES,
     CHANNEL_BUTTON_META_MODES,
     CHANNEL_BUTTON_INTERACTION_MODES,
+    CHANNEL_TARGET_MODES,
+    CHANNEL_DEVICE_TARGET_FLOWS,
     CHANNEL_BUTTON_ICON_KEYS,
+    MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD,
+    MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD,
     DEFAULT_CHANNEL_BUTTON_ACTION_VALUE,
+    DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD,
     createDefaultChannelCustomSettings,
     cloneButtonEntity,
     createChannelTarget,
+    createChannelDeviceTarget,
     cloneChannelCustomSettings,
     normalizeChannelTitleIconState,
     cloneChannelEntity
@@ -38,6 +45,14 @@
       app: '',
       appName: '',
       targets: [],
+      targetMode: CHANNEL_TARGET_MODES.apps,
+      deviceTargetFlow: CHANNEL_DEVICE_TARGET_FLOWS.output,
+      deviceTargets: {
+        output: [],
+        input: []
+      },
+      focusExcludedTargets: [],
+      icon: '',
       title: window.t('channels.defaultTitle', { index }),
       faderCC: null,
       faderMapping: null,
@@ -155,6 +170,7 @@
     return updateChannelState(channelId, (channel) => {
       const nextTarget = createChannelTarget(appProcess, appName);
       channel.targets = nextTarget ? [nextTarget] : [];
+      channel.targetMode = CHANNEL_TARGET_MODES.apps;
       syncLegacyChannelTargetFields(channel);
 
       if (!channel.title) {
@@ -172,6 +188,7 @@
   function clearChannelAppTargetState(channelId, meta = {}) {
     return updateChannelState(channelId, (channel) => {
       channel.targets = [];
+      channel.targetMode = CHANNEL_TARGET_MODES.apps;
       syncLegacyChannelTargetFields(channel);
       return channel;
     }, {
@@ -194,6 +211,7 @@
         channel.targets = [...channel.targets, nextTarget];
       }
 
+      channel.targetMode = CHANNEL_TARGET_MODES.apps;
       syncLegacyChannelTargetFields(channel);
       return channel;
     }, {
@@ -215,14 +233,167 @@
     });
   }
 
-  function setChannelVolumeState(channelId, volume, meta = {}) {
+  function setChannelTargetModeState(channelId, targetMode, meta = {}) {
     return updateChannelState(channelId, (channel) => {
-      channel.volume = clampChannelVolume(volume);
+      channel.targetMode = Object.values(CHANNEL_TARGET_MODES).includes(targetMode)
+        ? targetMode
+        : CHANNEL_TARGET_MODES.apps;
+
+      if (channel.targetMode === CHANNEL_TARGET_MODES.focus) {
+        channel.showTargetIconInTitle = false;
+        channel.titleIconTargetProcess = '';
+      }
+
       return channel;
+    }, {
+      type: 'channels/set-target-mode',
+      targetMode,
+      ...meta
+    });
+  }
+
+  function setChannelDeviceTargetFlowState(channelId, flow, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      channel.deviceTargetFlow = flow === CHANNEL_DEVICE_TARGET_FLOWS.input
+        ? CHANNEL_DEVICE_TARGET_FLOWS.input
+        : CHANNEL_DEVICE_TARGET_FLOWS.output;
+      return channel;
+    }, {
+      type: 'channels/set-device-target-flow',
+      flow,
+      ...meta
+    });
+  }
+
+  function addChannelDeviceTargetState(channelId, deviceId, deviceName = '', flow = CHANNEL_DEVICE_TARGET_FLOWS.output, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      const normalizedFlow = flow === CHANNEL_DEVICE_TARGET_FLOWS.input
+        ? CHANNEL_DEVICE_TARGET_FLOWS.input
+        : CHANNEL_DEVICE_TARGET_FLOWS.output;
+      const nextTarget = createChannelDeviceTarget(deviceId, deviceName, normalizedFlow);
+
+      if (!nextTarget) {
+        return channel;
+      }
+
+      const deviceTargets = {
+        output: Array.isArray(channel.deviceTargets?.output) ? channel.deviceTargets.output.slice() : [],
+        input: Array.isArray(channel.deviceTargets?.input) ? channel.deviceTargets.input.slice() : []
+      };
+
+      if (!deviceTargets[normalizedFlow].some((target) => target.id === nextTarget.id)) {
+        deviceTargets[normalizedFlow].push(nextTarget);
+      }
+
+      channel.deviceTargets = deviceTargets;
+      channel.deviceTargetFlow = normalizedFlow;
+      return channel;
+    }, {
+      type: 'channels/add-device-target',
+      deviceId,
+      flow,
+      ...meta
+    });
+  }
+
+  function removeChannelDeviceTargetState(channelId, deviceId, flow = CHANNEL_DEVICE_TARGET_FLOWS.output, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      const normalizedFlow = flow === CHANNEL_DEVICE_TARGET_FLOWS.input
+        ? CHANNEL_DEVICE_TARGET_FLOWS.input
+        : CHANNEL_DEVICE_TARGET_FLOWS.output;
+      const deviceTargets = {
+        output: Array.isArray(channel.deviceTargets?.output) ? channel.deviceTargets.output.slice() : [],
+        input: Array.isArray(channel.deviceTargets?.input) ? channel.deviceTargets.input.slice() : []
+      };
+
+      deviceTargets[normalizedFlow] = deviceTargets[normalizedFlow]
+        .filter((target) => String(target?.id || '').trim() !== String(deviceId || '').trim());
+      channel.deviceTargets = deviceTargets;
+      return channel;
+    }, {
+      type: 'channels/remove-device-target',
+      deviceId,
+      flow,
+      ...meta
+    });
+  }
+
+  function addChannelFocusExclusionState(channelId, appProcess, appName = '', meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      const nextTarget = createChannelTarget(appProcess, appName);
+
+      if (!nextTarget) {
+        return channel;
+      }
+
+      const exclusions = Array.isArray(channel.focusExcludedTargets)
+        ? channel.focusExcludedTargets.slice()
+        : [];
+
+      if (!exclusions.some((target) => target.process === nextTarget.process)) {
+        exclusions.push(nextTarget);
+      }
+
+      channel.focusExcludedTargets = exclusions;
+      channel.targetMode = CHANNEL_TARGET_MODES.focus;
+      channel.showTargetIconInTitle = false;
+      channel.titleIconTargetProcess = '';
+      return channel;
+    }, {
+      type: 'channels/add-focus-exclusion',
+      appProcess,
+      ...meta
+    });
+  }
+
+  function removeChannelFocusExclusionState(channelId, appProcess, meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      channel.focusExcludedTargets = Array.isArray(channel.focusExcludedTargets)
+        ? channel.focusExcludedTargets.filter((target) => String(target?.process || '').trim() !== String(appProcess || '').trim())
+        : [];
+      return channel;
+    }, {
+      type: 'channels/remove-focus-exclusion',
+      appProcess,
+      ...meta
+    });
+  }
+
+  function setChannelVolumeState(channelId, volume, meta = {}) {
+    const nextVolume = clampChannelVolume(volume);
+    let updatedChannel = null;
+
+    window.setAppState((previousState) => {
+      const channelIndex = previousState.channels.findIndex((channel) => channel.id === channelId);
+
+      if (channelIndex === -1) {
+        return previousState;
+      }
+
+      const currentChannel = previousState.channels[channelIndex];
+
+      if (currentChannel.volume === nextVolume) {
+        updatedChannel = currentChannel;
+        return previousState;
+      }
+
+      const draftChannel = cloneChannelEntity(currentChannel);
+      draftChannel.volume = nextVolume;
+      updatedChannel = cloneChannelEntity(draftChannel);
+
+      const nextChannels = previousState.channels.slice();
+      nextChannels[channelIndex] = updatedChannel;
+
+      return {
+        ...previousState,
+        channels: nextChannels
+      };
     }, {
       type: 'channels/set-volume',
       ...meta
     });
+
+    return updatedChannel;
   }
 
   function dismissChannelBindHintState(channelId, meta = {}) {
@@ -281,6 +452,19 @@
     }, {
       type: 'channels/set-title-icon',
       targetProcess,
+      ...meta
+    });
+  }
+
+  function setChannelIconState(channelId, iconKey = '', meta = {}) {
+    return updateChannelState(channelId, (channel) => {
+      channel.icon = CHANNEL_BUTTON_ICON_KEYS.includes(iconKey)
+        ? iconKey
+        : '';
+      return channel;
+    }, {
+      type: 'channels/set-icon',
+      iconKey,
       ...meta
     });
   }
@@ -414,11 +598,18 @@
   window.clearChannelAppTargetState = clearChannelAppTargetState;
   window.addChannelAppTargetState = addChannelAppTargetState;
   window.removeChannelAppTargetState = removeChannelAppTargetState;
+  window.setChannelTargetModeState = setChannelTargetModeState;
+  window.setChannelDeviceTargetFlowState = setChannelDeviceTargetFlowState;
+  window.addChannelDeviceTargetState = addChannelDeviceTargetState;
+  window.removeChannelDeviceTargetState = removeChannelDeviceTargetState;
+  window.addChannelFocusExclusionState = addChannelFocusExclusionState;
+  window.removeChannelFocusExclusionState = removeChannelFocusExclusionState;
   window.setChannelVolumeState = setChannelVolumeState;
   window.dismissChannelBindHintState = dismissChannelBindHintState;
   window.setChannelFaderMappingState = setChannelFaderMappingState;
   window.setChannelConfiguredState = setChannelConfiguredState;
   window.setChannelTitleIconState = setChannelTitleIconState;
+  window.setChannelIconState = setChannelIconState;
   window.setChannelButtonPlacementState = setChannelButtonPlacementState;
   window.setChannelCustomSettingsEnabledState = setChannelCustomSettingsEnabledState;
   window.updateChannelCustomSettingsState = updateChannelCustomSettingsState;
@@ -430,9 +621,15 @@
   window.cloneChannelButtonEntity = cloneButtonEntity;
   window.CHANNEL_BUTTON_ACTION_TYPES = CHANNEL_BUTTON_ACTION_TYPES;
   window.CHANNEL_BUTTON_INDICATOR_TYPES = CHANNEL_BUTTON_INDICATOR_TYPES;
+  window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS = CHANNEL_BUTTON_INDICATOR_BEHAVIORS;
   window.CHANNEL_BUTTON_CONTENT_MODES = CHANNEL_BUTTON_CONTENT_MODES;
   window.CHANNEL_BUTTON_META_MODES = CHANNEL_BUTTON_META_MODES;
   window.CHANNEL_BUTTON_INTERACTION_MODES = CHANNEL_BUTTON_INTERACTION_MODES;
+  window.CHANNEL_TARGET_MODES = CHANNEL_TARGET_MODES;
+  window.CHANNEL_DEVICE_TARGET_FLOWS = CHANNEL_DEVICE_TARGET_FLOWS;
   window.CHANNEL_BUTTON_ICON_KEYS = CHANNEL_BUTTON_ICON_KEYS;
+  window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD = MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD;
+  window.MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD = MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD;
   window.DEFAULT_CHANNEL_BUTTON_ACTION_VALUE = DEFAULT_CHANNEL_BUTTON_ACTION_VALUE;
+  window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD = DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD;
 })(window);

@@ -59,6 +59,7 @@
     const title = String(payload?.title || '').trim() || 'Volume';
     const subtitle = String(payload?.subtitle || '').trim();
     const iconDataUrl = String(payload?.iconDataUrl || '').trim();
+    const muted = Boolean(payload?.muted);
     const volume = clampHudVolume(payload?.volume);
     const presentation = payload?.presentation || {};
     const showTitle = presentation.showTitle !== false;
@@ -66,8 +67,12 @@
     const showIcon = presentation.showIcon !== false;
     const showPercent = presentation.showPercent !== false;
     const showMeter = presentation.showMeter !== false;
+    const subtitleVisible = showSubtitle && Boolean(subtitle);
+    const promoteSubtitle = !showTitle && subtitleVisible;
 
     applyPresentationSettings(presentation);
+    dom.root?.classList.toggle('volume-hud--subtitle-promoted', promoteSubtitle);
+    dom.root?.classList.toggle('is-muted', muted);
 
     if (dom.title) {
       dom.title.textContent = title;
@@ -119,7 +124,9 @@
       }
     }
 
+    toggleHidden(dom.muteOverlay, !muted);
     toggleHidden(dom.titles, !showTitle && (!showSubtitle || !subtitle));
+    toggleHidden(dom.meta, !showPercent);
     toggleHidden(dom.header, (!showTitle && (!showSubtitle || !subtitle)) && !showPercent);
     toggleHidden(dom.meter, !showMeter);
     toggleHidden(dom.content, ((!showTitle && (!showSubtitle || !subtitle)) && !showPercent) && !showMeter);
@@ -134,7 +141,9 @@
     dom.titles = $('volumeHudTitles');
     dom.title = $('volumeHudTitle');
     dom.subtitle = $('volumeHudSubtitle');
+    dom.meta = $('volumeHudMeta');
     dom.value = $('volumeHudValue');
+    dom.muteOverlay = $('volumeHudMuteOverlay');
     dom.meter = $('volumeHudMeter');
     dom.fill = $('volumeHudMeterFill');
     dom.thumb = $('volumeHudMeterThumb');

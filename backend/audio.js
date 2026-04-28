@@ -23,11 +23,12 @@ class AudioManager {
     this._applicationStates = new Map();
     this._audioSessions = new AudioSessionBridge(this._log);
     this._processCatalog = new ProcessCatalog(this._log);
+    void this._audioSessions.prewarm?.();
   }
 
   getApplicationState(processName) {
     if (!this._applicationStates.has(processName)) {
-      this._applicationStates.set(processName, { volume: 100, muted: false });
+      this._applicationStates.set(processName, { volume: 100, muted: false, peak: 0 });
     }
 
     return this._applicationStates.get(processName);
@@ -37,6 +38,7 @@ class AudioManager {
     const rememberedState = this.getApplicationState(processName);
     rememberedState.volume = clampVolume(state.volume);
     rememberedState.muted = Boolean(state.muted);
+    rememberedState.peak = Math.max(0, Math.min(1, Number(state?.peak ?? state?.peakLevel) || 0));
     return rememberedState;
   }
 
@@ -50,7 +52,9 @@ class AudioManager {
       hasWindow: false,
       instanceCount: 1,
       volume: this._muted ? 0 : this._masterVolume,
-      muted: this._muted
+      muted: this._muted,
+      peak: 0,
+      peakLevel: 0
     };
   }
 
@@ -62,6 +66,8 @@ class AudioManager {
         ...application,
         volume: detectedState.muted ? 0 : detectedState.volume,
         muted: detectedState.muted,
+        peak: Math.max(0, Math.min(1, Number(detectedState?.peak ?? detectedState?.peakLevel) || 0)),
+        peakLevel: Math.max(0, Math.min(1, Number(detectedState?.peak ?? detectedState?.peakLevel) || 0)),
         hasAudioSession: true,
         sessionCount: detectedState.sessionCount ?? 1
       };
@@ -73,6 +79,8 @@ class AudioManager {
       ...application,
       volume: rememberedState.muted ? 0 : rememberedState.volume,
       muted: rememberedState.muted,
+      peak: Math.max(0, Math.min(1, Number(rememberedState?.peak) || 0)),
+      peakLevel: Math.max(0, Math.min(1, Number(rememberedState?.peak) || 0)),
       hasAudioSession: false,
       sessionCount: 0
     };
@@ -84,7 +92,9 @@ class AudioManager {
     return {
       ...application,
       volume: state.muted ? 0 : state.volume,
-      muted: state.muted
+      muted: state.muted,
+      peak: Math.max(0, Math.min(1, Number(state?.peak) || 0)),
+      peakLevel: Math.max(0, Math.min(1, Number(state?.peak) || 0))
     };
   }
 
@@ -263,6 +273,8 @@ class AudioManager {
           process: processName,
           volume: detectedState.muted ? 0 : detectedState.volume,
           muted: detectedState.muted,
+          peak: Math.max(0, Math.min(1, Number(detectedState?.peak ?? detectedState?.peakLevel) || 0)),
+          peakLevel: Math.max(0, Math.min(1, Number(detectedState?.peak ?? detectedState?.peakLevel) || 0)),
           hasAudioSession: true,
           sessionCount: detectedState.sessionCount ?? 1
         };
@@ -274,6 +286,8 @@ class AudioManager {
         process: processName,
         volume: rememberedState.muted ? 0 : rememberedState.volume,
         muted: rememberedState.muted,
+        peak: Math.max(0, Math.min(1, Number(rememberedState?.peak) || 0)),
+        peakLevel: Math.max(0, Math.min(1, Number(rememberedState?.peak) || 0)),
         hasAudioSession: false,
         sessionCount: 0
       };

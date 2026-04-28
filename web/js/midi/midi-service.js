@@ -30,6 +30,10 @@
   let midiHealthRefreshTimerId = null;
   let midiButtonIndicatorSyncFrameId = null;
   let midiIndicatorTestState = null;
+  const midiIndicatorOutputCache = {
+    outputId: '',
+    values: new Map()
+  };
 
   // Runtime-only parser/soft-takeover state. This never belongs in renderer
   // profile serialization and lives entirely inside the MIDI service layer.
@@ -287,6 +291,73 @@
     }
   }
 
+  function getMidiIndicatorCacheKey(button = {}) {
+    const mapping = button?.midiMapping;
+
+    if (!mapping) {
+      return '';
+    }
+
+    const channelNumber = Math.max(0, Math.min(15, Number(mapping.channel) || 0));
+
+    if (mapping.type === 'control_change' && Number.isInteger(Number(mapping.control))) {
+      return `cc:${channelNumber}:${Number(mapping.control)}`;
+    }
+
+    if (mapping.type === 'note' && Number.isInteger(Number(mapping.note))) {
+      return `note:${channelNumber}:${Number(mapping.note)}`;
+    }
+
+    return '';
+  }
+
+  function syncMidiIndicatorOutputCache(output = null) {
+    const resolvedOutput = output || getSelectedMidiOutputPort();
+    const nextOutputId = resolvedOutput?.id || '';
+
+    if (midiIndicatorOutputCache.outputId !== nextOutputId) {
+      midiIndicatorOutputCache.outputId = nextOutputId;
+      midiIndicatorOutputCache.values.clear();
+    }
+
+    return resolvedOutput;
+  }
+
+  function sendMidiIndicatorValueByCacheKey(cacheKey = '', value = 0, output = null) {
+    const resolvedOutput = syncMidiIndicatorOutputCache(output);
+
+    if (!resolvedOutput) {
+      return false;
+    }
+
+    const [mappingType, channelRaw, targetRaw] = String(cacheKey || '').split(':');
+    const channelNumber = Math.max(0, Math.min(15, Number(channelRaw) || 0));
+    const targetNumber = Number(targetRaw);
+    const midiValue = clampMidiOutputValue(value);
+
+    if (!Number.isInteger(targetNumber)) {
+      return false;
+    }
+
+    if (mappingType === 'cc') {
+      return sendMidiOutputMessageToPort(resolvedOutput, [
+        MIDI_STATUS.controlChange | channelNumber,
+        targetNumber,
+        midiValue
+      ]);
+    }
+
+    if (mappingType === 'note') {
+      return sendMidiOutputMessageToPort(resolvedOutput, [
+        MIDI_STATUS.noteOn | channelNumber,
+        targetNumber,
+        midiValue
+      ]);
+    }
+
+    return false;
+  }
+
   function buildIndicatorTestMessages(value = 127) {
     const normalizedValue = clampMidiOutputValue(value);
     const messages = [];
@@ -419,33 +490,45 @@
     };
   }
 
-  function sendChannelButtonOutputValue(button = {}, value = 0) {
+  function sendChannelButtonOutputValue(button = {}, value = 0, options = {}) {
     const mapping = button?.midiMapping;
 
     if (!mapping) {
       return false;
     }
 
+    const output = syncMidiIndicatorOutputCache(options?.output);
+
+    if (!output) {
+      return false;
+    }
+
     const channelNumber = Math.max(0, Math.min(15, Number(mapping.channel) || 0));
     const midiValue = clampMidiOutputValue(value);
+    const cacheKey = getMidiIndicatorCacheKey(button);
+    let sent = false;
 
     if (mapping.type === 'control_change' && Number.isInteger(Number(mapping.control))) {
-      return sendMidiOutputMessage([
+      sent = sendMidiOutputMessageToPort(output, [
         MIDI_STATUS.controlChange | channelNumber,
         Number(mapping.control),
         midiValue
       ]);
     }
 
-    if (mapping.type === 'note' && Number.isInteger(Number(mapping.note))) {
-      return sendMidiOutputMessage([
+    if (!sent && mapping.type === 'note' && Number.isInteger(Number(mapping.note))) {
+      sent = sendMidiOutputMessageToPort(output, [
         MIDI_STATUS.noteOn | channelNumber,
         Number(mapping.note),
         midiValue
       ]);
     }
 
-    return false;
+    if (sent && options?.trackCache !== false && cacheKey) {
+      midiIndicatorOutputCache.values.set(cacheKey, midiValue);
+    }
+
+    return sent;
   }
 
   function getChannelButtonEntries() {
@@ -468,9 +551,37 @@
     };
   }
 
+  function getChannelButtonIndicatorBehaviors() {
+    return window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
+      actionState: 'action-state',
+      peakMeter: 'peak-meter',
+      targetActivity: 'target-activity'
+    };
+  }
+
   function getChannelButtonIndicatorMidiValue(button = {}, state = {}) {
     if (button?.indicatorEnabled === false) {
       return 0;
+    }
+
+    const indicatorBehaviors = getChannelButtonIndicatorBehaviors();
+    const indicatorBehavior = Object.values(indicatorBehaviors).includes(button?.indicatorBehavior)
+      ? button.indicatorBehavior
+      : (
+        Object.values(indicatorBehaviors).includes(state?.indicatorBehavior)
+          ? state.indicatorBehavior
+          : indicatorBehaviors.actionState
+      );
+
+    if (indicatorBehavior === indicatorBehaviors.peakMeter) {
+      return Math.max(0, Math.min(127, Math.round((Number(state?.meterLevel) || 0) * 127)));
+    }
+
+    if (
+      indicatorBehavior === indicatorBehaviors.actionState
+      || indicatorBehavior === indicatorBehaviors.targetActivity
+    ) {
+      return (Boolean(state?.indicatorActive) || Boolean(state?.visualActive)) ? 127 : 0;
     }
 
     const interactionModes = getChannelButtonInteractionModes();
@@ -497,6 +608,10 @@
     }
 
     openMidiPort(output);
+    syncMidiIndicatorOutputCache(output);
+
+    const seenKeys = new Set();
+    let hasSent = false;
 
     getChannelButtonEntries().forEach(({ channel, button }) => {
       const mapping = button?.midiMapping;
@@ -507,7 +622,19 @@
 
       const state = window.getChannelButtonState(channel.id, button.id);
       const value = getChannelButtonIndicatorMidiValue(button, state);
-      sendChannelButtonOutputValue(button, value);
+      const cacheKey = getMidiIndicatorCacheKey(button);
+
+      if (!cacheKey) {
+        return;
+      }
+
+      seenKeys.add(cacheKey);
+
+      if (midiIndicatorOutputCache.values.get(cacheKey) === clampMidiOutputValue(value)) {
+        return;
+      }
+
+      hasSent = sendChannelButtonOutputValue(button, value, { output }) || hasSent;
     });
 
     getStandaloneButtonEntries().forEach(({ button }) => {
@@ -519,10 +646,34 @@
 
       const state = window.getStandaloneButtonState(button.id);
       const value = getChannelButtonIndicatorMidiValue(button, state);
-      sendChannelButtonOutputValue(button, value);
+      const cacheKey = getMidiIndicatorCacheKey(button);
+
+      if (!cacheKey) {
+        return;
+      }
+
+      seenKeys.add(cacheKey);
+
+      if (midiIndicatorOutputCache.values.get(cacheKey) === clampMidiOutputValue(value)) {
+        return;
+      }
+
+      hasSent = sendChannelButtonOutputValue(button, value, { output }) || hasSent;
     });
 
-    return true;
+    [...midiIndicatorOutputCache.values.keys()].forEach((cacheKey) => {
+      if (seenKeys.has(cacheKey)) {
+        return;
+      }
+
+      if (sendMidiIndicatorValueByCacheKey(cacheKey, 0, output)) {
+        hasSent = true;
+      }
+
+      midiIndicatorOutputCache.values.delete(cacheKey);
+    });
+
+    return hasSent;
   }
 
   function flashChannelButtonBindingFeedback(channelId, buttonId, meta = {}) {
