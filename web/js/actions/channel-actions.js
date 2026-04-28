@@ -858,7 +858,8 @@
       {
         reason: meta?.interaction === 'drag' ? 'channel-volume-drag' : 'channel-volume-change',
         syncFader: false,
-        localVolumeChange: true
+        localVolumeChange: true,
+        refreshUi: false
       }
     );
     window.queueChannelVolumePushRuntime?.(updatedChannel);

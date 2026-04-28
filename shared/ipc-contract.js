@@ -1,3 +1,5 @@
+// IPC method names intentionally stay snake_case to preserve the long-lived
+// preload/global contract used across the app and older compatibility bridges.
 const IPC_METHODS = Object.freeze({
   get_audio_applications: Object.freeze({
     channel: 'api:get_audio_applications',
@@ -155,7 +157,10 @@ const IPC_METHODS = Object.freeze({
 
 const IPC_CHANNELS = Object.freeze(
   Object.fromEntries(
-    Object.entries(IPC_METHODS).map(([methodName, descriptor]) => [methodName, descriptor.channel])
+    Object.entries(IPC_METHODS).map(([methodName, descriptor]) => [
+      methodName,
+      descriptor.channel
+    ])
   )
 );
 
@@ -163,14 +168,10 @@ function buildPreloadApi(transport) {
   return Object.freeze(
     Object.fromEntries(
       Object.entries(IPC_METHODS).map(([methodName, descriptor]) => {
-        const runner = descriptor.transport === 'send'
-          ? transport.send
-          : transport.invoke;
+        const runner =
+          descriptor.transport === 'send' ? transport.send : transport.invoke;
 
-        return [
-          methodName,
-          (...args) => runner(descriptor.channel, ...args)
-        ];
+        return [methodName, (...args) => runner(descriptor.channel, ...args)];
       })
     )
   );

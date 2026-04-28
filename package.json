@@ -5,12 +5,14 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
+    "dev": "electron .",
     "build": "electron-builder",
     "build:dir": "electron-builder --dir",
     "dist:win": "electron-builder --win nsis",
     "lint": "eslint main.js preload.js overlay-preload.js \"backend/**/*.js\" \"shared/**/*.js\" \"tests/**/*.mjs\"",
     "format": "prettier --write \"*.{js,json,mjs,cjs}\" \"backend/**/*.js\" \"shared/**/*.js\" \"tests/**/*.mjs\" \"web/**/*.{js,css,html}\"",
     "format:check": "prettier --check \"*.{js,json,mjs,cjs}\" \"backend/**/*.js\" \"shared/**/*.js\" \"tests/**/*.mjs\" \"web/**/*.{js,css,html}\"",
+    "check": "npm run lint && npm run typecheck && npm test",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -42,8 +44,7 @@
   "bugs": {
     "url": "https://github.com/gLeknya/FaderDeck/issues"
   },
-  "homepage": "https://github.com/gLeknya/FaderDeck#readme"
-  ,
+  "homepage": "https://github.com/gLeknya/FaderDeck#readme",
   "build": {
     "appId": "com.gleknya.faderdeck",
     "productName": "FaderDeck",

@@ -1,21 +1,67 @@
-<pre>
-  _____         _           ____            _
- |  ___|_ _  __| | ___ _ __|  _ \  ___  ___| | __
- | |_ / _` |/ _` |/ _ \ '__| | | |/ _ \/ __| |/ /
- |  _| (_| | (_| |  __/ |  | |_| |  __/ (__|   <
- |_|  \__,_|\__,_|\___|_|  |____/ \___|\___|_|\_\
-</pre>
+# FaderDeck
 
+FaderDeck is an Electron desktop app for Windows that controls application volume, audio devices, media transport, and custom actions from a mixer-style UI with MIDI integration.
 
-## How it works
+The current codebase is focused on beta readiness, maintainability, and safe iteration on the existing feature set. Some layout-editor groundwork exists in the renderer and state model, but that UI is intentionally parked and hidden for now.
 
-FaderDeck is split into several layers so UI, application logic, and live device/runtime behavior do not collapse into one place. Electron entry points (`main.js`, `preload.js`, `overlay-preload.js`) handle the desktop shell and bridge, while most product logic lives inside the renderer under `web/`. The renderer is then divided into `state`, `actions`, `runtime`, `midi`, and UI modules such as `app.js`, `channels.js`, and `buttons.js`.
+## Quick Start
 
-The **state layer** stores low-level renderer data and serialization logic. `app-state.js` keeps a clear boundary between persisted data, session-only UI state, and runtime-only data: profile payloads contain the saved channel/button/layout side, while transient UI state stays under session branches and is intentionally excluded from serialization. `ui-store.js` persists UI settings separately from temporary menu/session state.
+```bash
+npm install
+npm start
+```
 
-The **actions layer** sits above state and acts as the application controller layer. Modules under `web/js/actions/` coordinate use-cases such as channel changes, MIDI binding flows, UI shell actions, and profile persistence, so renderer views do not have to orchestrate several subsystems directly. This keeps event handlers thinner and makes state changes more predictable.
+`npm start` and `npm run dev` both launch the app locally.
 
-The **runtime layer** owns live, external, or continuously changing state. `audio-runtime.js` manages discovered audio apps and exposes a small runtime API, while `midi-service.js` owns WebMIDI access, live device discovery, parser state, trigger/pickup runtime, and message/output handling. In other words, runtime modules deal with “what is happening right now”, while persisted renderer state only stores what should survive reloads and profile saves.
-The **UI layer** is still plain JavaScript and HTML, but it is organized around specialized renderer files. `app.js` acts as the shell/bridge for the main interface, `channels.js` renders mixer channels, and `buttons.js` renders button-related UI. Layout support also exists in the renderer architecture, although parts of the editor work are currently parked and guarded rather than exposed as an active product feature.
+## Checks
 
-Overall, the project is built around one core idea: **state is persisted deliberately, actions coordinate use-cases, runtime modules own live behavior, and UI modules focus on rendering and interaction**. That separation makes it easier to extend the app without turning the renderer into one large coupled script.
+```bash
+npm run format:check
+npm run lint
+npm run typecheck
+npm test
+npm run check
+```
+
+`npm run check` runs lint, typecheck, and tests. Run `npm run format:check`
+separately before release.
+
+Current script coverage is intentionally uneven:
+
+- `format` and `format:check` cover the main process, backend, shared code, renderer source, overlay files, and root configs.
+- `lint` and `typecheck` currently cover `main.js`, preload files, `backend/`, `shared/`, and tests.
+- Renderer `web/js` runtime code still depends on manual smoke testing plus targeted syntax checks before release.
+
+## Build
+
+```bash
+npm run build:dir
+npm run build
+npm run dist:win
+```
+
+- `build:dir` creates an unpacked build.
+- `build` runs the default `electron-builder` packaging flow.
+- `dist:win` builds the Windows NSIS installer.
+
+Build output is written to `release/`.
+
+## Architecture Overview
+
+- `main.js`, `preload.js`, `overlay-preload.js`: Electron shell, window/tray/HUD wiring, and preload bridge exposure.
+- `backend/`: Node-side managers for audio sessions, devices, media transport, focused app lookup, profiles, keyboard/system actions, and PowerShell workers.
+- `shared/ipc-contract.js`: single source of truth for preload and main-process IPC method names.
+- `web/js/state/`: persisted renderer data plus session-only UI slices.
+- `web/js/actions/`: renderer use-case coordination and mutation entry points.
+- `web/js/runtime/`: live runtime state such as audio app discovery and button runtime polling.
+- `web/js/midi/`: WebMIDI discovery, learn/bind runtime, pickup logic, and MIDI indicator output.
+- `web/js/ui/`, `web/js/app.js`, `web/js/channels.js`, `web/js/buttons.js`: renderer orchestration and UI rendering.
+- `web/overlay/`: overlay windows such as the volume HUD.
+
+More detail lives in [ARCHITECTURE.md](./ARCHITECTURE.md).
+
+## Beta Release Notes
+
+- Use [RELEASE_CHECKLIST.md](./RELEASE_CHECKLIST.md) before cutting a beta build.
+- Track shipped work in [CHANGELOG.md](./CHANGELOG.md).
+- If you change `main.js`, preload files, backend managers, or PowerShell scripts, do a full app restart before smoke testing.

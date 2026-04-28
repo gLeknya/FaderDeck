@@ -12,26 +12,42 @@ const { ProfileManager } = require('./profiles');
 const { SystemActionManager } = require('./system-actions');
 
 const STORAGE_ROOT_DIR_NAME = '.faderdeck';
+// Keep the old storage root for profile migration from pre-FaderDeck builds.
 const LEGACY_STORAGE_ROOT_DIR_NAME = '.midi_mixer';
 const DEFAULT_STORAGE_ROOT = path.join(os.homedir(), STORAGE_ROOT_DIR_NAME);
-const LEGACY_STORAGE_ROOT = path.join(os.homedir(), LEGACY_STORAGE_ROOT_DIR_NAME);
+const LEGACY_STORAGE_ROOT = path.join(
+  os.homedir(),
+  LEGACY_STORAGE_ROOT_DIR_NAME
+);
 const DEFAULT_PROFILES_PATH = path.join(DEFAULT_STORAGE_ROOT, 'profiles');
 
 function migrateLegacyStorageRoot(log = () => {}) {
-  if (!fs.existsSync(LEGACY_STORAGE_ROOT) || fs.existsSync(DEFAULT_STORAGE_ROOT)) {
+  if (
+    !fs.existsSync(LEGACY_STORAGE_ROOT) ||
+    fs.existsSync(DEFAULT_STORAGE_ROOT)
+  ) {
     return;
   }
 
   try {
     fs.renameSync(LEGACY_STORAGE_ROOT, DEFAULT_STORAGE_ROOT);
-    log('migrate_storage_root', LEGACY_STORAGE_ROOT, '->', DEFAULT_STORAGE_ROOT);
+    log(
+      'migrate_storage_root',
+      LEGACY_STORAGE_ROOT,
+      '->',
+      DEFAULT_STORAGE_ROOT
+    );
   } catch (error) {
     log('migrate_storage_root error:', error);
   }
 }
 
 class FaderDeckAPI {
-  constructor({ debug = true, profilesPath = DEFAULT_PROFILES_PATH, logger } = {}) {
+  constructor({
+    debug = true,
+    profilesPath = DEFAULT_PROFILES_PATH,
+    logger
+  } = {}) {
     this.debugEnabled = debug;
     this.logger = logger || createLogger('api');
     this.log = this.log.bind(this);
@@ -112,15 +128,26 @@ class FaderDeckAPI {
   }
 
   setProcessWindowVisibility(processName, visible = null, executablePath = '') {
-    return this.systemActionManager.setProcessWindowVisibility(processName, visible, executablePath);
+    return this.systemActionManager.setProcessWindowVisibility(
+      processName,
+      visible,
+      executablePath
+    );
   }
 
   setMediaOption(command, enabled = true, targetAppId = '') {
-    return this.mediaControlManager.setMediaOption(command, enabled, targetAppId);
+    return this.mediaControlManager.setMediaOption(
+      command,
+      enabled,
+      targetAppId
+    );
   }
 
   sendMediaTransport(command, targetAppId = '') {
-    return this.mediaControlManager.sendMediaTransportCommand(command, targetAppId);
+    return this.mediaControlManager.sendMediaTransportCommand(
+      command,
+      targetAppId
+    );
   }
 
   getMediaSessionState(targetAppId = '') {
@@ -179,6 +206,8 @@ class FaderDeckAPI {
     this.processCatalog.shutdown?.();
   }
 
+  // Public snake_case methods stay here because the shared IPC/preload contract
+  // and older bridge callers still depend on these stable names.
   get_audio_applications() {
     return this.getAudioApplications();
   }
@@ -235,16 +264,31 @@ class FaderDeckAPI {
     return this.runUserScript(filePath);
   }
 
-  set_process_window_visibility(processName, visible = null, executablePath = '') {
-    return this.setProcessWindowVisibility(processName, visible, executablePath);
+  set_process_window_visibility(
+    processName,
+    visible = null,
+    executablePath = ''
+  ) {
+    return this.setProcessWindowVisibility(
+      processName,
+      visible,
+      executablePath
+    );
   }
 
   set_media_option(command, enabled = true, targetAppId = '') {
-    return this.mediaControlManager.setMediaOption(command, enabled, targetAppId);
+    return this.mediaControlManager.setMediaOption(
+      command,
+      enabled,
+      targetAppId
+    );
   }
 
   send_media_transport(command, targetAppId = '') {
-    return this.mediaControlManager.sendMediaTransportCommand(command, targetAppId);
+    return this.mediaControlManager.sendMediaTransportCommand(
+      command,
+      targetAppId
+    );
   }
 
   get_media_session_state(targetAppId = '') {
@@ -294,5 +338,6 @@ class FaderDeckAPI {
 
 module.exports = {
   FaderDeckAPI,
+  // Legacy export name kept for older startup code that still imports MidiMixerAPI.
   MidiMixerAPI: FaderDeckAPI
 };

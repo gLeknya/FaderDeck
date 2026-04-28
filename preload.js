@@ -11,6 +11,8 @@ function emit(channel, ...args) {
 
 const api = buildPreloadApi({ invoke, send: emit });
 
+// Legacy bridge name is kept so older renderer/bootstrap code can keep working
+// while the current preload API lives under window.faderDeck.
 const legacyPywebviewBridge = Object.freeze({ api });
 
 contextBridge.exposeInMainWorld('faderDeck', api);

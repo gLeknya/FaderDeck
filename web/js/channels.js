@@ -1322,8 +1322,8 @@ function primeChannelFaderDomCache(container) {
   });
 }
 
-function getVolumeFromPointer(track, clientY) {
-  const rect = track.getBoundingClientRect();
+function getVolumeFromPointer(track, clientY, rectOverride = null) {
+  const rect = rectOverride || track.getBoundingClientRect();
   const offsetY = clientY - rect.top;
   const volume = ((rect.height - offsetY) / rect.height) * 100;
   return clampVolume(volume);
@@ -1341,10 +1341,15 @@ function startFaderDrag(event) {
 
   activeFaderDrag = {
     channelId: Number.parseInt(track.dataset.channel, 10),
-    track
+    track,
+    trackRect: track.getBoundingClientRect()
   };
   activeFaderDrag.track.classList.add('is-dragging');
-  applyVolumeToChannel(activeFaderDrag.channelId, getVolumeFromPointer(track, event.clientY), {
+  applyVolumeToChannel(activeFaderDrag.channelId, getVolumeFromPointer(
+    track,
+    event.clientY,
+    activeFaderDrag.trackRect
+  ), {
     interaction: 'drag'
   });
 }
@@ -1356,7 +1361,7 @@ function handleFaderDrag(event) {
 
   applyVolumeToChannel(
     activeFaderDrag.channelId,
-    getVolumeFromPointer(activeFaderDrag.track, event.clientY),
+    getVolumeFromPointer(activeFaderDrag.track, event.clientY, activeFaderDrag.trackRect),
     {
       interaction: 'drag'
     }
