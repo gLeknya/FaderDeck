@@ -60,14 +60,17 @@ const TRANSLATIONS = Object.freeze({
         vertical: 'Вертикально'
       },
       faderInterpolation: 'Интерполяция фейдеров',
-      faderInterpolationHelp: 'Между начальной и конечной точкой громкости пытается сгладить громкость, чтобы не было резких скачков. Может появиться небольшая задержка.',
+      faderInterpolationHelp:
+        'Между начальной и конечной точкой громкости пытается сгладить громкость, чтобы не было резких скачков. Может появиться небольшая задержка.',
       softTakeover: 'Soft takeover',
-      softTakeoverHelp: 'Пока физический фейдер не подойдёт к текущему значению канала, входящие MIDI-движения игнорируются. Это помогает избежать резких скачков громкости при переключении профилей и раскладок.',
+      softTakeoverHelp:
+        'Пока физический фейдер не подойдёт к текущему значению канала, входящие MIDI-движения игнорируются. Это помогает избежать резких скачков громкости при переключении профилей и раскладок.',
       softTakeoverThreshold: 'Порог pickup',
       showFractionalNumbers: 'Показывать дробные числа',
       showFractionalOnlyLow: 'Только при малых числах',
       volumeCurve: 'Кривая громкости',
-      volumeCurveHelp: 'Громкость изменяется не линейно, а по кривой, из-за чего можно более детально настраивать громкость.',
+      volumeCurveHelp:
+        'Громкость изменяется не линейно, а по кривой, из-за чего можно более детально настраивать громкость.',
       curveEaseIn: 'Ease in',
       curveEaseOut: 'Ease out',
       curveEaseInOut: 'Ease in out',
@@ -82,7 +85,8 @@ const TRANSLATIONS = Object.freeze({
       en: 'English'
     },
     empty: {
-      message: 'Нажмите "+" справа, чтобы добавить канал,<br>или создайте отдельную кнопку ниже'
+      message:
+        'Нажмите "+" справа, чтобы добавить канал,<br>или создайте отдельную кнопку ниже'
     },
     buttonModal: {
       title: 'Настройки кнопки',
@@ -150,7 +154,8 @@ const TRANSLATIONS = Object.freeze({
       buttonFaderActionsGroup: 'Управление фейдерами',
       buttonOtherActionsGroup: 'Другие кнопки',
       buttonLinkedFader: 'Фейдер',
-      buttonLinkedFaderEmpty: 'Сначала добавьте фейдер, чтобы использовать это действие.',
+      buttonLinkedFaderEmpty:
+        'Сначала добавьте фейдер, чтобы использовать это действие.',
       buttonChannelRequired: 'Сначала выберите фейдер для этой кнопки.',
       buttonIndicatorToggle: 'Переключаемая',
       buttonIndicatorMeter: 'Пикометр',
@@ -173,7 +178,8 @@ const TRANSLATIONS = Object.freeze({
       refresh: 'Обновить',
       loading: 'Загрузка',
       buttonPanelStubTitle: 'Будущая панель настройки',
-      buttonPanelStubText: 'Здесь позже появятся действия, режимы и дополнительные параметры кнопки.',
+      buttonPanelStubText:
+        'Здесь позже появятся действия, режимы и дополнительные параметры кнопки.',
       titlePlaceholder: 'Название фейдера',
       remap: 'Bind',
       targets: 'Цели / приложения / устройства',
@@ -184,10 +190,12 @@ const TRANSLATIONS = Object.freeze({
       targetTitleIcon: 'Иконка у названия',
       useTargetName: 'Взять название',
       customSettings: 'Локальные настройки',
-      globalSettingsHint: 'Этот фейдер использует глобальные настройки из Settings.',
+      globalSettingsHint:
+        'Этот фейдер использует глобальные настройки из Settings.',
       localFractionalNumbers: 'Показывать дробные числа',
       sidePanelTitle: 'Выбор цели',
-      sidePanelSubtitle: 'Подготовленная встроенная панель для будущего выбора targets/apps/devices.',
+      sidePanelSubtitle:
+        'Подготовленная встроенная панель для будущего выбора targets/apps/devices.',
       sidePanelEmpty: 'Доступные цели появятся здесь.',
       targetModeApps: 'Apps',
       targetModeDevices: 'Devices',
@@ -203,12 +211,14 @@ const TRANSLATIONS = Object.freeze({
       focusExcludedApp: 'Исключение',
       openTargetPanel: 'Открыть панель выбора',
       buttonStubTitle: 'Общий editor для кнопок',
-      buttonStubText: 'Основа для preview, modal flow и side panel уже готова. Детальная настройка кнопок пока остаётся в legacy modal.'
+      buttonStubText:
+        'Основа для preview, modal flow и side panel уже готова. Детальная настройка кнопок пока остаётся в legacy modal.'
     },
     buttons: {
       defaultLabel: 'Button',
       buttonLearnMissing: 'MIDI learn для кнопки пока не реализован.',
-      standaloneLearnMissing: 'MIDI learn для отдельной кнопки пока не реализован.',
+      standaloneLearnMissing:
+        'MIDI learn для отдельной кнопки пока не реализован.',
       standaloneLimit: 'Можно добавить максимум 24 отдельные кнопки.',
       channelLimit: 'В одном канале доступно только 4 кнопки.',
       standaloneEditorParked: 'Настройка standalone-кнопок пока припаркована.'
@@ -242,7 +252,8 @@ const TRANSLATIONS = Object.freeze({
       unnamed: 'Без названия',
       configure: 'Настроить',
       bindToMixer: 'Bind',
-      unboundWarning: 'Этот фейдер не привязан к MIDI-контроллеру. Он будет работать только через интерфейс.',
+      unboundWarning:
+        'Этот фейдер не привязан к MIDI-контроллеру. Он будет работать только через интерфейс.',
       channelNamePrompt: 'Название канала:',
       advancedControlChange: 'control_change (CC {control})',
       advancedControlChange14Bit: 'control_change_14bit (CC {control})',
@@ -264,8 +275,10 @@ const TRANSLATIONS = Object.freeze({
       bindSuccess: 'Фейдер забинжен',
       buttonBindSuccess: 'Кнопка забинжена',
       selectDeviceFirst: 'Сначала выберите MIDI-устройство.',
-      conflict: 'Этот контроллер уже используется каналом "{name}". Всё равно Bind?',
-      buttonConflict: 'Этот контроллер уже используется другим элементом "{name}". Всё равно Bind?'
+      conflict:
+        'Этот контроллер уже используется каналом "{name}". Всё равно Bind?',
+      buttonConflict:
+        'Этот контроллер уже используется другим элементом "{name}". Всё равно Bind?'
     },
     context: {
       edit: 'Изменить',
@@ -284,7 +297,8 @@ const TRANSLATIONS = Object.freeze({
       saveCurrent: 'Сохранить свой профиль',
       newProfile: 'Мой профиль',
       emptyTitle: 'Пока нет профилей',
-      emptyText: 'Сохраните текущую раскладку или импортируйте профиль из файла.',
+      emptyText:
+        'Сохраните текущую раскладку или импортируйте профиль из файла.',
       showInToolbarTitle: 'Показывать в toolbar',
       itemActions: 'Действия с профилем',
       revealInFolder: 'Показать в папке',
@@ -376,14 +390,17 @@ const TRANSLATIONS = Object.freeze({
         vertical: 'Vertical'
       },
       faderInterpolation: 'Fader interpolation',
-      faderInterpolationHelp: 'Smooths the change between the starting and ending volume to reduce abrupt jumps, but may add a little latency.',
+      faderInterpolationHelp:
+        'Smooths the change between the starting and ending volume to reduce abrupt jumps, but may add a little latency.',
       softTakeover: 'Soft takeover',
-      softTakeoverHelp: 'Incoming MIDI fader movement is ignored until the physical control reaches the current channel value. This helps prevent abrupt jumps after profile changes or layout switches.',
+      softTakeoverHelp:
+        'Incoming MIDI fader movement is ignored until the physical control reaches the current channel value. This helps prevent abrupt jumps after profile changes or layout switches.',
       softTakeoverThreshold: 'Pickup threshold',
       showFractionalNumbers: 'Show fractional values',
       showFractionalOnlyLow: 'Only for low values',
       volumeCurve: 'Volume curve',
-      volumeCurveHelp: 'Volume changes along a curve instead of linearly, which gives finer control over perceived loudness.',
+      volumeCurveHelp:
+        'Volume changes along a curve instead of linearly, which gives finer control over perceived loudness.',
       curveEaseIn: 'Ease in',
       curveEaseOut: 'Ease out',
       curveEaseInOut: 'Ease in out',
@@ -398,7 +415,8 @@ const TRANSLATIONS = Object.freeze({
       en: 'English'
     },
     empty: {
-      message: 'Click "+" on the right to add a channel,<br>or create a standalone button below'
+      message:
+        'Click "+" on the right to add a channel,<br>or create a standalone button below'
     },
     buttonModal: {
       title: 'Button settings',
@@ -489,7 +507,8 @@ const TRANSLATIONS = Object.freeze({
       refresh: 'Refresh',
       loading: 'Loading',
       buttonPanelStubTitle: 'Future settings panel',
-      buttonPanelStubText: 'Actions, modes, and extra button settings will appear here later.',
+      buttonPanelStubText:
+        'Actions, modes, and extra button settings will appear here later.',
       titlePlaceholder: 'Fader name',
       remap: 'Bind',
       targets: 'Targets / apps / devices',
@@ -500,10 +519,12 @@ const TRANSLATIONS = Object.freeze({
       targetTitleIcon: 'Icon in title',
       useTargetName: 'Use target name',
       customSettings: 'Custom settings',
-      globalSettingsHint: 'This fader uses the global settings from the Settings menu.',
+      globalSettingsHint:
+        'This fader uses the global settings from the Settings menu.',
       localFractionalNumbers: 'Show fractional values',
       sidePanelTitle: 'Select target',
-      sidePanelSubtitle: 'Prepared built-in panel for future targets/apps/devices selection.',
+      sidePanelSubtitle:
+        'Prepared built-in panel for future targets/apps/devices selection.',
       sidePanelEmpty: 'Available targets will appear here.',
       targetModeApps: 'Apps',
       targetModeDevices: 'Devices',
@@ -519,12 +540,14 @@ const TRANSLATIONS = Object.freeze({
       focusExcludedApp: 'Excluded',
       openTargetPanel: 'Open selector panel',
       buttonStubTitle: 'Shared button editor foundation',
-      buttonStubText: 'Preview, modal flow, and side panel hooks are already prepared. Detailed button editing stays on the legacy modal for now.'
+      buttonStubText:
+        'Preview, modal flow, and side panel hooks are already prepared. Detailed button editing stays on the legacy modal for now.'
     },
     buttons: {
       defaultLabel: 'Button',
       buttonLearnMissing: 'Button MIDI learn is not implemented yet.',
-      standaloneLearnMissing: 'Standalone button MIDI learn is not implemented yet.',
+      standaloneLearnMissing:
+        'Standalone button MIDI learn is not implemented yet.',
       standaloneLimit: 'You can add up to 24 standalone buttons.',
       channelLimit: 'Only 4 buttons are available per channel.',
       standaloneEditorParked: 'Standalone button editing is parked for now.'
@@ -558,7 +581,8 @@ const TRANSLATIONS = Object.freeze({
       unnamed: 'Untitled',
       configure: 'Configure',
       bindToMixer: 'Bind',
-      unboundWarning: 'This fader is not bound to a MIDI control. It will only respond through the interface.',
+      unboundWarning:
+        'This fader is not bound to a MIDI control. It will only respond through the interface.',
       channelNamePrompt: 'Channel name:',
       advancedControlChange: 'control_change (CC {control})',
       advancedControlChange14Bit: 'control_change_14bit (CC {control})',
@@ -580,8 +604,10 @@ const TRANSLATIONS = Object.freeze({
       bindSuccess: 'Fader bound',
       buttonBindSuccess: 'Button bound',
       selectDeviceFirst: 'Select a MIDI device first.',
-      conflict: 'This controller is already used by channel "{name}". Bind anyway?',
-      buttonConflict: 'This controller is already used by "{name}". Bind anyway?'
+      conflict:
+        'This controller is already used by channel "{name}". Bind anyway?',
+      buttonConflict:
+        'This controller is already used by "{name}". Bind anyway?'
     },
     context: {
       edit: 'Edit',
@@ -625,7 +651,8 @@ const TRANSLATIONS = Object.freeze({
       emptyName: 'Profile name cannot be empty.',
       nameExists: 'A profile with this name already exists.',
       uploadSoon: 'Uploading profiles to the site is not implemented yet.',
-      importFromSiteSoon: 'Importing profiles from the site is not implemented yet.'
+      importFromSiteSoon:
+        'Importing profiles from the site is not implemented yet.'
     },
     audio: {
       systemVolume: 'System volume'
@@ -642,7 +669,10 @@ function getNestedValue(source, path) {
 }
 
 function interpolate(text, params = {}) {
-  return String(text).replace(/\{(\w+)\}/g, (_, key) => params[key] ?? `{${key}}`);
+  return String(text).replace(
+    /\{(\w+)\}/g,
+    (_, key) => params[key] ?? `{${key}}`
+  );
 }
 
 function getSupportedLanguage(language) {
@@ -652,7 +682,9 @@ function getSupportedLanguage(language) {
 function getInitialLanguage() {
   const savedLanguage = languageStorage?.readLanguage('') || '';
   const browserLanguage = navigator.language?.slice(0, 2);
-  return getSupportedLanguage(savedLanguage || browserLanguage || DEFAULT_LANGUAGE);
+  return getSupportedLanguage(
+    savedLanguage || browserLanguage || DEFAULT_LANGUAGE
+  );
 }
 
 function getCurrentLanguage() {
@@ -660,9 +692,13 @@ function getCurrentLanguage() {
 }
 
 function t(key, params = {}) {
-  const dictionary = TRANSLATIONS[currentLanguage] || TRANSLATIONS[DEFAULT_LANGUAGE];
+  const dictionary =
+    TRANSLATIONS[currentLanguage] || TRANSLATIONS[DEFAULT_LANGUAGE];
   const fallbackDictionary = TRANSLATIONS[DEFAULT_LANGUAGE];
-  const value = getNestedValue(dictionary, key) ?? getNestedValue(fallbackDictionary, key) ?? key;
+  const value =
+    getNestedValue(dictionary, key) ??
+    getNestedValue(fallbackDictionary, key) ??
+    key;
   return interpolate(value, params);
 }
 
@@ -702,9 +738,11 @@ function setLanguage(language, options = {}) {
   }
 
   applyTranslations();
-  window.dispatchEvent(new CustomEvent('app:language-changed', {
-    detail: { language: nextLanguage }
-  }));
+  window.dispatchEvent(
+    new CustomEvent('app:language-changed', {
+      detail: { language: nextLanguage }
+    })
+  );
 }
 
 currentLanguage = getInitialLanguage();

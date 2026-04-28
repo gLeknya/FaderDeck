@@ -4,7 +4,11 @@ const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
 const SCRIPT_PATH = path.join(__dirname, 'scripts', 'audio-session.ps1');
-const WORKER_SCRIPT_PATH = path.join(__dirname, 'scripts', 'audio-session-worker.ps1');
+const WORKER_SCRIPT_PATH = path.join(
+  __dirname,
+  'scripts',
+  'audio-session-worker.ps1'
+);
 const WORKER_REQUEST_TIMEOUT_MS = 8000;
 const SESSION_SNAPSHOT_CACHE_MS = 90;
 const SESSION_SNAPSHOT_BACKGROUND_REFRESH_MS = 45;
@@ -145,7 +149,9 @@ class AudioSessionBridge {
         this._pendingRequests.delete(message.id);
 
         if (message.success === false) {
-          pendingRequest.reject(new Error(message.error || 'Audio worker request failed'));
+          pendingRequest.reject(
+            new Error(message.error || 'Audio worker request failed')
+          );
           continue;
         }
 
@@ -172,7 +178,9 @@ class AudioSessionBridge {
     });
 
     worker.on('exit', (code, signal) => {
-      const error = new Error(`Audio worker exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`);
+      const error = new Error(
+        `Audio worker exited (code=${code ?? 'null'}, signal=${signal ?? 'null'})`
+      );
 
       if (this._worker === worker) {
         this.rejectPendingRequests(error);
@@ -212,12 +220,16 @@ class AudioSessionBridge {
         processName: options.processName || '',
         volume: typeof options.volume === 'number' ? options.volume : null,
         mute: typeof options.mute === 'boolean' ? options.mute : null,
-        processNames: Array.isArray(options.processNames) ? options.processNames : []
+        processNames: Array.isArray(options.processNames)
+          ? options.processNames
+          : []
       };
 
       const responsePromise = new Promise((resolve, reject) => {
         const timeoutId = setTimeout(() => {
-          this.stopWorker(new Error(`Audio worker request timeout for action "${action}"`));
+          this.stopWorker(
+            new Error(`Audio worker request timeout for action "${action}"`)
+          );
         }, WORKER_REQUEST_TIMEOUT_MS);
 
         this._pendingRequests.set(requestId, { resolve, reject, timeoutId });
@@ -232,39 +244,61 @@ class AudioSessionBridge {
   }
 
   filterSessionApplications(applications = [], processNames = []) {
-    const normalizedFilters = [...new Set(
-      (Array.isArray(processNames) ? processNames : [])
-        .map((processName) => String(processName || '').trim().toLowerCase())
-        .filter(Boolean)
-    )];
+    const normalizedFilters = [
+      ...new Set(
+        (Array.isArray(processNames) ? processNames : [])
+          .map((processName) =>
+            String(processName || '')
+              .trim()
+              .toLowerCase()
+          )
+          .filter(Boolean)
+      )
+    ];
 
     if (!normalizedFilters.length) {
       return Array.isArray(applications) ? applications.slice() : [];
     }
 
     const filterSet = new Set(normalizedFilters);
-    return (Array.isArray(applications) ? applications : []).filter((application) => (
-      filterSet.has(String(application?.process || '').trim().toLowerCase())
-    ));
+    return (Array.isArray(applications) ? applications : []).filter(
+      (application) =>
+        filterSet.has(
+          String(application?.process || '')
+            .trim()
+            .toLowerCase()
+        )
+    );
   }
 
   patchCachedSessionApplications(processName, patch = {}) {
-    const normalizedProcessName = String(processName || '').trim().toLowerCase();
+    const normalizedProcessName = String(processName || '')
+      .trim()
+      .toLowerCase();
 
-    if (!normalizedProcessName || !Array.isArray(this._sessionSnapshot.applications)) {
+    if (
+      !normalizedProcessName ||
+      !Array.isArray(this._sessionSnapshot.applications)
+    ) {
       return;
     }
 
-    this._sessionSnapshot.applications = this._sessionSnapshot.applications.map((application) => {
-      if (String(application?.process || '').trim().toLowerCase() !== normalizedProcessName) {
-        return application;
-      }
+    this._sessionSnapshot.applications = this._sessionSnapshot.applications.map(
+      (application) => {
+        if (
+          String(application?.process || '')
+            .trim()
+            .toLowerCase() !== normalizedProcessName
+        ) {
+          return application;
+        }
 
-      return {
-        ...application,
-        ...patch
-      };
-    });
+        return {
+          ...application,
+          ...patch
+        };
+      }
+    );
   }
 
   async refreshSessionSnapshot(options = {}) {
@@ -272,7 +306,9 @@ class AudioSessionBridge {
       return this._sessionSnapshot.refreshPromise;
     }
 
-    this._sessionSnapshot.refreshPromise = this.run('GetSessions', { processNames: [] })
+    this._sessionSnapshot.refreshPromise = this.run('GetSessions', {
+      processNames: []
+    })
       .then((result) => {
         this._sessionSnapshot.applications = Array.isArray(result?.applications)
           ? result.applications
@@ -290,10 +326,11 @@ class AudioSessionBridge {
   async listSessions(processNames = []) {
     try {
       const now = Date.now();
-      const hasSnapshot = Array.isArray(this._sessionSnapshot.applications)
-        && this._sessionSnapshot.applications.length > 0;
+      const hasSnapshot =
+        Array.isArray(this._sessionSnapshot.applications) &&
+        this._sessionSnapshot.applications.length > 0;
       const snapshotAge = hasSnapshot
-        ? (now - this._sessionSnapshot.fetchedAt)
+        ? now - this._sessionSnapshot.fetchedAt
         : Number.POSITIVE_INFINITY;
 
       if (hasSnapshot && snapshotAge < SESSION_SNAPSHOT_CACHE_MS) {
@@ -303,11 +340,17 @@ class AudioSessionBridge {
           });
         }
 
-        return this.filterSessionApplications(this._sessionSnapshot.applications, processNames);
+        return this.filterSessionApplications(
+          this._sessionSnapshot.applications,
+          processNames
+        );
       }
 
       if (this._sessionSnapshot.refreshPromise && hasSnapshot) {
-        return this.filterSessionApplications(this._sessionSnapshot.applications, processNames);
+        return this.filterSessionApplications(
+          this._sessionSnapshot.applications,
+          processNames
+        );
       }
 
       const applications = await this.refreshSessionSnapshot({ force: true });

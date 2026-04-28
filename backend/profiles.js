@@ -45,7 +45,10 @@ class ProfileManager {
     const baseName = this.getSafeProfileName(name);
     const normalizedExclude = this.normalizeProfileName(excludeName);
 
-    if (baseName === normalizedExclude || !fs.existsSync(this.getProfilePath(baseName))) {
+    if (
+      baseName === normalizedExclude ||
+      !fs.existsSync(this.getProfilePath(baseName))
+    ) {
       return baseName;
     }
 
@@ -54,7 +57,10 @@ class ProfileManager {
     while (true) {
       const candidate = `${baseName} ${index}`;
 
-      if (candidate === normalizedExclude || !fs.existsSync(this.getProfilePath(candidate))) {
+      if (
+        candidate === normalizedExclude ||
+        !fs.existsSync(this.getProfilePath(candidate))
+      ) {
         return candidate;
       }
 
@@ -72,7 +78,9 @@ class ProfileManager {
         createdAt: timestamp,
         updatedAt: timestamp
       },
-      channels: Array.from({ length: channelCount }, (_unused, index) => createChannelTemplate(index + 1)),
+      channels: Array.from({ length: channelCount }, (_unused, index) =>
+        createChannelTemplate(index + 1)
+      ),
       standaloneButtons: [],
       bindings: {
         faders: [],
@@ -109,13 +117,16 @@ class ProfileManager {
   normalizeProfile(profile = {}, { name = '' } = {}) {
     const validatedProfile = this.validateProfile(profile, 'profile');
     const template = this.createProfileTemplate({ name });
-    const channels = Array.isArray(validatedProfile.channels) ? validatedProfile.channels : template.channels;
+    const channels = Array.isArray(validatedProfile.channels)
+      ? validatedProfile.channels
+      : template.channels;
     const standaloneButtons = Array.isArray(validatedProfile.standaloneButtons)
       ? validatedProfile.standaloneButtons
       : template.standaloneButtons;
-    const existingMeta = validatedProfile.meta && typeof validatedProfile.meta === 'object'
-      ? validatedProfile.meta
-      : {};
+    const existingMeta =
+      validatedProfile.meta && typeof validatedProfile.meta === 'object'
+        ? validatedProfile.meta
+        : {};
     const createdAt = existingMeta.createdAt || template.meta.createdAt;
 
     return {
@@ -133,11 +144,14 @@ class ProfileManager {
       standaloneButtons,
       bindings: {
         ...template.bindings,
-        ...(validatedProfile.bindings && typeof validatedProfile.bindings === 'object'
+        ...(validatedProfile.bindings &&
+        typeof validatedProfile.bindings === 'object'
           ? validatedProfile.bindings
           : {}),
         faders: channels
-          .filter((channel) => channel?.faderMapping || channel?.faderCC != null)
+          .filter(
+            (channel) => channel?.faderMapping || channel?.faderCC != null
+          )
           .map((channel) => ({
             channelId: channel.id ?? null,
             process: channel.app ?? 'master',
@@ -162,7 +176,8 @@ class ProfileManager {
       },
       settings: {
         ...template.settings,
-        ...(validatedProfile.settings && typeof validatedProfile.settings === 'object'
+        ...(validatedProfile.settings &&
+        typeof validatedProfile.settings === 'object'
           ? validatedProfile.settings
           : {})
       }
@@ -175,7 +190,11 @@ class ProfileManager {
       const profilePath = this.getProfilePath(safeName);
       const normalizedProfile = this.normalizeProfile(data, { name: safeName });
 
-      fs.writeFileSync(profilePath, JSON.stringify(normalizedProfile, null, 2), 'utf-8');
+      fs.writeFileSync(
+        profilePath,
+        JSON.stringify(normalizedProfile, null, 2),
+        'utf-8'
+      );
       this._log('save_profile', safeName, '->', profilePath);
 
       return { success: true, name: safeName, path: profilePath };
@@ -193,9 +212,12 @@ class ProfileManager {
         return { success: false, error: 'Profile not found' };
       }
 
-      const data = this.normalizeProfile(JSON.parse(fs.readFileSync(profilePath, 'utf-8')), {
-        name: safeName
-      });
+      const data = this.normalizeProfile(
+        JSON.parse(fs.readFileSync(profilePath, 'utf-8')),
+        {
+          name: safeName
+        }
+      );
       this._log('load_profile', safeName);
 
       return { success: true, data };
@@ -210,7 +232,8 @@ class ProfileManager {
         return { success: true, profiles: [] };
       }
 
-      const profiles = fs.readdirSync(this.baseDir)
+      const profiles = fs
+        .readdirSync(this.baseDir)
         .filter((fileName) => fileName.endsWith('.json'))
         .map((fileName) => {
           const profilePath = path.join(this.baseDir, fileName);
@@ -218,10 +241,11 @@ class ProfileManager {
           let meta = {};
 
           try {
-            meta = this.validateProfile(
-              JSON.parse(fs.readFileSync(profilePath, 'utf-8')),
-              `profile "${fileName}"`
-            )?.meta || {};
+            meta =
+              this.validateProfile(
+                JSON.parse(fs.readFileSync(profilePath, 'utf-8')),
+                `profile "${fileName}"`
+              )?.meta || {};
           } catch (error) {
             this._log('list_profiles meta read error:', profilePath, error);
           }
@@ -295,9 +319,10 @@ class ProfileManager {
   importProfile(filePath, options = {}) {
     try {
       const imported = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
-      const suggestedName = options.name
-        || imported?.meta?.name
-        || path.basename(filePath, path.extname(filePath));
+      const suggestedName =
+        options.name ||
+        imported?.meta?.name ||
+        path.basename(filePath, path.extname(filePath));
       const safeName = this.getUniqueProfileName(suggestedName);
 
       return this.save(safeName, imported);

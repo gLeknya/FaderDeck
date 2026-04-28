@@ -19,7 +19,11 @@ function subscribe(channel, listener) {
   };
 }
 
-contextBridge.exposeInMainWorld('volumeHud', Object.freeze({
-  onUpdate: (listener) => subscribe(VOLUME_HUD_UPDATE_CHANNEL, listener),
-  onVisibilityChange: (listener) => subscribe(VOLUME_HUD_VISIBILITY_CHANNEL, listener)
-}));
+contextBridge.exposeInMainWorld(
+  'volumeHud',
+  Object.freeze({
+    onUpdate: (listener) => subscribe(VOLUME_HUD_UPDATE_CHANNEL, listener),
+    onVisibilityChange: (listener) =>
+      subscribe(VOLUME_HUD_VISIBILITY_CHANNEL, listener)
+  })
+);

@@ -7,7 +7,10 @@
   const storage = window.localStorageAdapter;
 
   function loadRendererProfileSnapshot(fallback = null) {
-    return storage?.getJson(PROFILE_STORAGE_KEYS.rendererProfile, fallback) ?? fallback;
+    return (
+      storage?.getJson(PROFILE_STORAGE_KEYS.rendererProfile, fallback) ??
+      fallback
+    );
   }
 
   function saveRendererProfileSnapshot(profile) {
@@ -16,7 +19,10 @@
   }
 
   function readCurrentProfileName(fallback = '') {
-    return storage?.getItem(PROFILE_STORAGE_KEYS.currentProfile, fallback) || fallback;
+    return (
+      storage?.getItem(PROFILE_STORAGE_KEYS.currentProfile, fallback) ||
+      fallback
+    );
   }
 
   function writeCurrentProfileName(profileName = '') {
@@ -30,7 +36,9 @@
   }
 
   function readProfilePreferences(fallback = {}) {
-    return storage?.getJson(PROFILE_STORAGE_KEYS.preferences, fallback) ?? fallback;
+    return (
+      storage?.getJson(PROFILE_STORAGE_KEYS.preferences, fallback) ?? fallback
+    );
   }
 
   function writeProfilePreferences(preferences = {}) {

@@ -11,16 +11,12 @@ function isBrokenPipeError(error) {
   const message = String(error?.message || error || '').toLowerCase();
   const code = String(error?.code || '').toUpperCase();
 
-  return [
-    'EPIPE',
-    'EOF',
-    'EBADF',
-    'ERR_STREAM_DESTROYED'
-  ].includes(code) || (
-    message.includes('broken pipe')
-    || message.includes('epipe')
-    || message.includes('stream destroyed')
-    || message.includes('bad file descriptor')
+  return (
+    ['EPIPE', 'EOF', 'EBADF', 'ERR_STREAM_DESTROYED'].includes(code) ||
+    message.includes('broken pipe') ||
+    message.includes('epipe') ||
+    message.includes('stream destroyed') ||
+    message.includes('bad file descriptor')
   );
 }
 
@@ -56,7 +52,8 @@ function initializeLogger() {
   initialized = true;
   electronLog.initialize();
   electronLog.transports.file.level = 'info';
-  electronLog.transports.console.level = process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
+  electronLog.transports.console.level =
+    process.env.NODE_ENV === 'production' ? 'warn' : 'debug';
   attachConsoleStreamGuards();
 
   const originalConsoleWriteFn = electronLog.transports.console.writeFn;

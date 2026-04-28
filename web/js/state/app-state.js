@@ -1,8 +1,5 @@
 (function initAppState(window) {
-  const {
-    cloneButtonEntity,
-    cloneChannelEntity
-  } = window.channelModel;
+  const { cloneButtonEntity, cloneChannelEntity } = window.channelModel;
   const {
     DEFAULT_PERSISTED_UI_SETTINGS,
     DEFAULT_SESSION_UI_STATE,
@@ -20,7 +17,10 @@
 
   function readInitialMidiState() {
     try {
-      return midiSelectionStorage?.readMidiSelection?.() || normalizeMidiSelectionState();
+      return (
+        midiSelectionStorage?.readMidiSelection?.() ||
+        normalizeMidiSelectionState()
+      );
     } catch (error) {
       console.warn('readInitialMidiState error', error);
       return normalizeMidiSelectionState();
@@ -55,9 +55,10 @@
       },
       channels: [],
       standaloneButtons: [],
-      layout: typeof window.createEmptyLayoutState === 'function'
-        ? window.createEmptyLayoutState()
-        : { items: [] },
+      layout:
+        typeof window.createEmptyLayoutState === 'function'
+          ? window.createEmptyLayoutState()
+          : { items: [] },
       settings: {
         ...DEFAULT_PERSISTED_RENDERER_SETTINGS
       }
@@ -66,16 +67,21 @@
 
   function normalizePersistedRendererPayload(payload = {}) {
     const normalizedChannels = normalizeChannels(payload.channels);
-    const normalizedStandaloneButtons = normalizeStandaloneButtons(payload.standaloneButtons);
-    const normalizedSettings = normalizePersistedRendererSettings(payload.settings);
-    const normalizedLayout = typeof window.normalizeLayoutState === 'function'
-      ? window.normalizeLayoutState(payload.layout, {
-        channels: normalizedChannels,
-        standaloneButtons: normalizedStandaloneButtons
-      })
-      : {
-        items: []
-      };
+    const normalizedStandaloneButtons = normalizeStandaloneButtons(
+      payload.standaloneButtons
+    );
+    const normalizedSettings = normalizePersistedRendererSettings(
+      payload.settings
+    );
+    const normalizedLayout =
+      typeof window.normalizeLayoutState === 'function'
+        ? window.normalizeLayoutState(payload.layout, {
+            channels: normalizedChannels,
+            standaloneButtons: normalizedStandaloneButtons
+          })
+        : {
+            items: []
+          };
 
     return {
       meta: {
@@ -92,17 +98,19 @@
     return {
       channels: [],
       standaloneButtons: [],
-      layout: typeof window.createEmptyLayoutState === 'function'
-        ? window.createEmptyLayoutState()
-        : { items: [] },
-      layoutEditor: typeof window.createDefaultLayoutEditorSessionState === 'function'
-        ? window.createDefaultLayoutEditorSessionState()
-        : {
-          enabled: false,
-          selectedItemId: null,
-          hoveredItemId: null,
-          dropPreview: null
-        },
+      layout:
+        typeof window.createEmptyLayoutState === 'function'
+          ? window.createEmptyLayoutState()
+          : { items: [] },
+      layoutEditor:
+        typeof window.createDefaultLayoutEditorSessionState === 'function'
+          ? window.createDefaultLayoutEditorSessionState()
+          : {
+              enabled: false,
+              selectedItemId: null,
+              hoveredItemId: null,
+              dropPreview: null
+            },
       // Profile slice is session/local renderer state for profile UX metadata
       // (current name, loaded list, local preferences). It is not serialized
       // into persisted renderer profile payloads.
@@ -155,11 +163,16 @@
   }
 
   function findChannelState(channelId) {
-    return getChannelsState().find((channel) => channel.id === channelId) ?? null;
+    return (
+      getChannelsState().find((channel) => channel.id === channelId) ?? null
+    );
   }
 
   function findStandaloneButtonState(buttonId) {
-    return getStandaloneButtonsState().find((button) => button.id === buttonId) ?? null;
+    return (
+      getStandaloneButtonsState().find((button) => button.id === buttonId) ??
+      null
+    );
   }
 
   function getCurrentProfileState() {
@@ -169,23 +182,26 @@
   function setCurrentProfileState(profileName, meta = {}) {
     const nextProfileName = profileName || '';
 
-    setAppState((previousState) => {
-      if (previousState.profile.currentName === nextProfileName) {
-        return previousState;
-      }
-
-      return {
-        ...previousState,
-        profile: {
-          ...previousState.profile,
-          currentName: nextProfileName
+    setAppState(
+      (previousState) => {
+        if (previousState.profile.currentName === nextProfileName) {
+          return previousState;
         }
-      };
-    }, {
-      type: 'profile/set-current',
-      profileName: nextProfileName,
-      ...meta
-    });
+
+        return {
+          ...previousState,
+          profile: {
+            ...previousState.profile,
+            currentName: nextProfileName
+          }
+        };
+      },
+      {
+        type: 'profile/set-current',
+        profileName: nextProfileName,
+        ...meta
+      }
+    );
 
     return nextProfileName;
   }
@@ -197,22 +213,27 @@
   function setMidiSelectionState(midiState, meta = {}) {
     const nextMidiState = normalizeMidiSelectionState(midiState);
 
-    setAppState((previousState) => {
-      if (
-        previousState.midi.selectedInputId === nextMidiState.selectedInputId
-        && previousState.midi.selectedInputName === nextMidiState.selectedInputName
-      ) {
-        return previousState;
-      }
+    setAppState(
+      (previousState) => {
+        if (
+          previousState.midi.selectedInputId ===
+            nextMidiState.selectedInputId &&
+          previousState.midi.selectedInputName ===
+            nextMidiState.selectedInputName
+        ) {
+          return previousState;
+        }
 
-      return {
-        ...previousState,
-        midi: nextMidiState
-      };
-    }, {
-      type: 'midi/set-selection',
-      ...meta
-    });
+        return {
+          ...previousState,
+          midi: nextMidiState
+        };
+      },
+      {
+        type: 'midi/set-selection',
+        ...meta
+      }
+    );
 
     return nextMidiState;
   }
@@ -220,14 +241,15 @@
   function getPersistedRendererState() {
     const state = getAppState();
     const midiState = normalizeMidiSelectionState(state.midi);
-    const layoutState = typeof window.normalizeLayoutState === 'function'
-      ? window.normalizeLayoutState(state.layout, {
-        channels: state.channels,
-        standaloneButtons: state.standaloneButtons
-      })
-      : {
-        items: []
-      };
+    const layoutState =
+      typeof window.normalizeLayoutState === 'function'
+        ? window.normalizeLayoutState(state.layout, {
+            channels: state.channels,
+            standaloneButtons: state.standaloneButtons
+          })
+        : {
+            items: []
+          };
 
     // Only persisted renderer/profile data belongs in this payload.
     // Session UI state (ui.session, layoutEditor, profile UX metadata, modal/editor state)
@@ -250,40 +272,48 @@
       selectedInputName: persistedPayload.settings.midiInputName || ''
     });
 
-    setAppState((previousState) => ({
-      ...previousState,
-      channels: persistedPayload.channels,
-      standaloneButtons: persistedPayload.standaloneButtons,
-      layout: persistedPayload.layout,
-      midi: nextMidiState
-    }), {
-      type: 'renderer/hydrate',
-      ...meta
-    });
+    setAppState(
+      (previousState) => ({
+        ...previousState,
+        channels: persistedPayload.channels,
+        standaloneButtons: persistedPayload.standaloneButtons,
+        layout: persistedPayload.layout,
+        midi: nextMidiState
+      }),
+      {
+        type: 'renderer/hydrate',
+        ...meta
+      }
+    );
   }
 
   function serializeRendererState(profileName = '') {
     const persistedPayload = getPersistedRendererState();
 
-    return JSON.parse(JSON.stringify({
-      ...persistedPayload,
-      meta: {
-        name: profileName
-      }
-    }));
+    return JSON.parse(
+      JSON.stringify({
+        ...persistedPayload,
+        meta: {
+          name: profileName
+        }
+      })
+    );
   }
 
   function addStandaloneButtonState(button, meta = {}) {
     const nextButton = cloneButtonEntity(button);
 
-    setAppState((previousState) => ({
-      ...previousState,
-      standaloneButtons: [...previousState.standaloneButtons, nextButton]
-    }), {
-      type: 'standalone-buttons/add',
-      buttonId: nextButton.id,
-      ...meta
-    });
+    setAppState(
+      (previousState) => ({
+        ...previousState,
+        standaloneButtons: [...previousState.standaloneButtons, nextButton]
+      }),
+      {
+        type: 'standalone-buttons/add',
+        buttonId: nextButton.id,
+        ...meta
+      }
+    );
 
     return nextButton;
   }
@@ -291,36 +321,42 @@
   function updateStandaloneButtonState(buttonId, updater, meta = {}) {
     let updatedButton = null;
 
-    setAppState((previousState) => {
-      const buttonIndex = previousState.standaloneButtons.findIndex((button) => button.id === buttonId);
+    setAppState(
+      (previousState) => {
+        const buttonIndex = previousState.standaloneButtons.findIndex(
+          (button) => button.id === buttonId
+        );
 
-      if (buttonIndex === -1) {
-        return previousState;
-      }
+        if (buttonIndex === -1) {
+          return previousState;
+        }
 
-      const currentButton = previousState.standaloneButtons[buttonIndex];
-      const draftButton = cloneButtonEntity(currentButton);
-      const nextButton = typeof updater === 'function'
-        ? updater(draftButton) || draftButton
-        : {
-          ...draftButton,
-          ...(updater || {})
+        const currentButton = previousState.standaloneButtons[buttonIndex];
+        const draftButton = cloneButtonEntity(currentButton);
+        const nextButton =
+          typeof updater === 'function'
+            ? updater(draftButton) || draftButton
+            : {
+                ...draftButton,
+                ...(updater || {})
+              };
+
+        updatedButton = cloneButtonEntity(nextButton);
+
+        const nextButtons = previousState.standaloneButtons.slice();
+        nextButtons[buttonIndex] = updatedButton;
+
+        return {
+          ...previousState,
+          standaloneButtons: nextButtons
         };
-
-      updatedButton = cloneButtonEntity(nextButton);
-
-      const nextButtons = previousState.standaloneButtons.slice();
-      nextButtons[buttonIndex] = updatedButton;
-
-      return {
-        ...previousState,
-        standaloneButtons: nextButtons
-      };
-    }, {
-      type: 'standalone-buttons/update',
-      buttonId,
-      ...meta
-    });
+      },
+      {
+        type: 'standalone-buttons/update',
+        buttonId,
+        ...meta
+      }
+    );
 
     return updatedButton;
   }
@@ -328,30 +364,33 @@
   function removeStandaloneButtonState(buttonId, meta = {}) {
     let removedButton = null;
 
-    setAppState((previousState) => {
-      const nextButtons = previousState.standaloneButtons.filter((button) => {
-        const isTargetButton = button.id === buttonId;
+    setAppState(
+      (previousState) => {
+        const nextButtons = previousState.standaloneButtons.filter((button) => {
+          const isTargetButton = button.id === buttonId;
 
-        if (isTargetButton) {
-          removedButton = button;
+          if (isTargetButton) {
+            removedButton = button;
+          }
+
+          return !isTargetButton;
+        });
+
+        if (!removedButton) {
+          return previousState;
         }
 
-        return !isTargetButton;
-      });
-
-      if (!removedButton) {
-        return previousState;
+        return {
+          ...previousState,
+          standaloneButtons: nextButtons
+        };
+      },
+      {
+        type: 'standalone-buttons/remove',
+        buttonId,
+        ...meta
       }
-
-      return {
-        ...previousState,
-        standaloneButtons: nextButtons
-      };
-    }, {
-      type: 'standalone-buttons/remove',
-      buttonId,
-      ...meta
-    });
+    );
 
     return removedButton;
   }
@@ -370,7 +409,8 @@
   window.setMidiSelectionState = setMidiSelectionState;
   window.getPersistedRendererState = getPersistedRendererState;
   window.normalizePersistedRendererPayload = normalizePersistedRendererPayload;
-  window.createEmptyPersistedRendererPayload = createEmptyPersistedRendererPayload;
+  window.createEmptyPersistedRendererPayload =
+    createEmptyPersistedRendererPayload;
   window.hydrateRendererState = hydrateRendererState;
   window.serializeRendererState = serializeRendererState;
   window.addStandaloneButtonState = addStandaloneButtonState;

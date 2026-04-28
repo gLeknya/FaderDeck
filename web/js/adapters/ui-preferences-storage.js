@@ -6,7 +6,11 @@
     return rawValue === null ? fallback : rawValue === 'true';
   }
 
-  function readNumber(key, fallback, { min = 0, max = Number.POSITIVE_INFINITY } = {}) {
+  function readNumber(
+    key,
+    fallback,
+    { min = 0, max = Number.POSITIVE_INFINITY } = {}
+  ) {
     const rawValue = storage?.getItem(key, '');
     const parsedValue = Number.parseInt(rawValue ?? '', 10);
 

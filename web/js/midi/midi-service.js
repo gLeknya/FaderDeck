@@ -8,8 +8,8 @@
   const MIDI_STATUS = Object.freeze({
     noteOff: 0x80,
     noteOn: 0x90,
-    controlChange: 0xB0,
-    pitchBend: 0xE0
+    controlChange: 0xb0,
+    pitchBend: 0xe0
   });
 
   const MIDI_CC = Object.freeze({
@@ -44,7 +44,9 @@
   const messageListeners = new Set();
   // Live WebMIDI availability/discovery state is runtime-only as well.
   const runtimeState = {
-    supported: typeof navigator !== 'undefined' && typeof navigator.requestMIDIAccess === 'function',
+    supported:
+      typeof navigator !== 'undefined' &&
+      typeof navigator.requestMIDIAccess === 'function',
     scanning: false,
     accessReady: false,
     inputs: [],
@@ -113,25 +115,31 @@
   }
 
   function getSoftTakeoverThreshold() {
-    const rawThreshold = typeof window.getSoftTakeoverThresholdState === 'function'
-      ? window.getSoftTakeoverThresholdState()
-      : 0;
+    const rawThreshold =
+      typeof window.getSoftTakeoverThresholdState === 'function'
+        ? window.getSoftTakeoverThresholdState()
+        : 0;
 
     return Math.max(0, Math.min(15, Number(rawThreshold) || 0));
   }
 
   function getChannelSoftTakeoverSettings(channel) {
-    const resolvedSettings = typeof window.resolveChannelFaderSettings === 'function'
-      ? window.resolveChannelFaderSettings(channel)
-      : null;
+    const resolvedSettings =
+      typeof window.resolveChannelFaderSettings === 'function'
+        ? window.resolveChannelFaderSettings(channel)
+        : null;
 
     return {
-      enabled: resolvedSettings?.softTakeoverEnabled ?? getSoftTakeoverEnabled(),
+      enabled:
+        resolvedSettings?.softTakeoverEnabled ?? getSoftTakeoverEnabled(),
       threshold: Math.max(
         0,
         Math.min(
           15,
-          Number(resolvedSettings?.softTakeoverThreshold ?? getSoftTakeoverThreshold()) || 0
+          Number(
+            resolvedSettings?.softTakeoverThreshold ??
+              getSoftTakeoverThreshold()
+          ) || 0
         )
       )
     };
@@ -152,22 +160,26 @@
   function selectMidiInput(nextId = '', nextName = '', meta = {}) {
     const currentMidiState = getSelectedMidiState();
     const nextInputId = nextId || '';
-    const nextInputName = (
-      nextInputId
-      && nextInputId !== MIDI_DISABLED_OPTION_VALUE
-    ) ? (nextName || currentMidiState.selectedInputName || nextInputId) : '';
-    const nextMidiState = typeof window.setMidiSelectionState === 'function'
-      ? window.setMidiSelectionState({
-        selectedInputId: nextInputId,
-        selectedInputName: nextInputName
-      }, {
-        source: 'midi-service',
-        ...meta
-      })
-      : {
-        selectedInputId: nextInputId,
-        selectedInputName: nextInputName
-      };
+    const nextInputName =
+      nextInputId && nextInputId !== MIDI_DISABLED_OPTION_VALUE
+        ? nextName || currentMidiState.selectedInputName || nextInputId
+        : '';
+    const nextMidiState =
+      typeof window.setMidiSelectionState === 'function'
+        ? window.setMidiSelectionState(
+            {
+              selectedInputId: nextInputId,
+              selectedInputName: nextInputName
+            },
+            {
+              source: 'midi-service',
+              ...meta
+            }
+          )
+        : {
+            selectedInputId: nextInputId,
+            selectedInputName: nextInputName
+          };
 
     persistMidiSelection(nextMidiState);
     scheduleChannelButtonIndicatorSync({
@@ -191,9 +203,7 @@
   }
 
   function getMidiOutputs() {
-    return midiAccess
-      ? Array.from(midiAccess.outputs.values())
-      : [];
+    return midiAccess ? Array.from(midiAccess.outputs.values()) : [];
   }
 
   function openMidiPort(port) {
@@ -219,9 +229,15 @@
 
     const selectedInputId = getSelectedMidiInputId();
     const selectedInputName = getSelectedMidiInputName();
-    return Array.from(midiAccess.inputs.values()).find((input) => input.id === selectedInputId)
-      || Array.from(midiAccess.inputs.values()).find((input) => input.name === selectedInputName)
-      || null;
+    return (
+      Array.from(midiAccess.inputs.values()).find(
+        (input) => input.id === selectedInputId
+      ) ||
+      Array.from(midiAccess.inputs.values()).find(
+        (input) => input.name === selectedInputName
+      ) ||
+      null
+    );
   }
 
   function getSelectedMidiOutputPort() {
@@ -239,12 +255,17 @@
     const selectedInputName = selectedInput?.name || getSelectedMidiInputName();
     const selectedManufacturer = selectedInput?.manufacturer || '';
 
-    return outputs.find((output) => (
-      output.name === selectedInputName
-      && (!selectedManufacturer || output.manufacturer === selectedManufacturer)
-    )) || outputs.find((output) => output.name === selectedInputName)
-      || outputs[0]
-      || null;
+    return (
+      outputs.find(
+        (output) =>
+          output.name === selectedInputName &&
+          (!selectedManufacturer ||
+            output.manufacturer === selectedManufacturer)
+      ) ||
+      outputs.find((output) => output.name === selectedInputName) ||
+      outputs[0] ||
+      null
+    );
   }
 
   function clampMidiOutputValue(value) {
@@ -261,11 +282,11 @@
     openMidiPort(output);
 
     try {
-      output.send(bytes.map((value, index) => (
-        index === 0
-          ? (Number(value) || 0)
-          : clampMidiOutputValue(value)
-      )));
+      output.send(
+        bytes.map((value, index) =>
+          index === 0 ? Number(value) || 0 : clampMidiOutputValue(value)
+        )
+      );
       return true;
     } catch (error) {
       return false;
@@ -280,11 +301,11 @@
     openMidiPort(port);
 
     try {
-      port.send(bytes.map((value, index) => (
-        index === 0
-          ? (Number(value) || 0)
-          : clampMidiOutputValue(value)
-      )));
+      port.send(
+        bytes.map((value, index) =>
+          index === 0 ? Number(value) || 0 : clampMidiOutputValue(value)
+        )
+      );
       return true;
     } catch (error) {
       return false;
@@ -298,9 +319,15 @@
       return '';
     }
 
-    const channelNumber = Math.max(0, Math.min(15, Number(mapping.channel) || 0));
+    const channelNumber = Math.max(
+      0,
+      Math.min(15, Number(mapping.channel) || 0)
+    );
 
-    if (mapping.type === 'control_change' && Number.isInteger(Number(mapping.control))) {
+    if (
+      mapping.type === 'control_change' &&
+      Number.isInteger(Number(mapping.control))
+    ) {
       return `cc:${channelNumber}:${Number(mapping.control)}`;
     }
 
@@ -323,14 +350,20 @@
     return resolvedOutput;
   }
 
-  function sendMidiIndicatorValueByCacheKey(cacheKey = '', value = 0, output = null) {
+  function sendMidiIndicatorValueByCacheKey(
+    cacheKey = '',
+    value = 0,
+    output = null
+  ) {
     const resolvedOutput = syncMidiIndicatorOutputCache(output);
 
     if (!resolvedOutput) {
       return false;
     }
 
-    const [mappingType, channelRaw, targetRaw] = String(cacheKey || '').split(':');
+    const [mappingType, channelRaw, targetRaw] = String(cacheKey || '').split(
+      ':'
+    );
     const channelNumber = Math.max(0, Math.min(15, Number(channelRaw) || 0));
     const targetNumber = Number(targetRaw);
     const midiValue = clampMidiOutputValue(value);
@@ -372,11 +405,7 @@
       }
 
       for (let note = 0; note < 128; note += 1) {
-        messages.push([
-          MIDI_STATUS.noteOn | channel,
-          note,
-          normalizedValue
-        ]);
+        messages.push([MIDI_STATUS.noteOn | channel, note, normalizedValue]);
       }
     }
 
@@ -385,8 +414,8 @@
 
   function describeIndicatorTestMessage(message = []) {
     const status = Number(message[0]) || 0;
-    const channel = (status & 0x0F) + 1;
-    const statusType = status & 0xF0;
+    const channel = (status & 0x0f) + 1;
+    const statusType = status & 0xf0;
     const controlOrNote = Number(message[1]) || 0;
     const value = Number(message[2]) || 0;
 
@@ -406,12 +435,8 @@
       return false;
     }
 
-    const {
-      intervalId,
-      timeoutId,
-      output,
-      offMessages
-    } = midiIndicatorTestState;
+    const { intervalId, timeoutId, output, offMessages } =
+      midiIndicatorTestState;
 
     if (intervalId) {
       clearInterval(intervalId);
@@ -456,12 +481,11 @@
       const sent = sendMidiOutputMessageToPort(output, message);
 
       if (sent) {
-        offMessages.push([
-          message[0],
-          message[1],
-          0
-        ]);
-        window.console?.info?.('[indicatorstest]', describeIndicatorTestMessage(message));
+        offMessages.push([message[0], message[1], 0]);
+        window.console?.info?.(
+          '[indicatorstest]',
+          describeIndicatorTestMessage(message)
+        );
       }
 
       cursor = (cursor + 1) % onMessages.length;
@@ -476,7 +500,10 @@
 
     activateNextIndicator();
 
-    midiIndicatorTestState.intervalId = window.setInterval(activateNextIndicator, 50);
+    midiIndicatorTestState.intervalId = window.setInterval(
+      activateNextIndicator,
+      50
+    );
     midiIndicatorTestState.timeoutId = window.setTimeout(() => {
       stopIndicatorTest({ turnOff: true });
     }, durationMs);
@@ -503,12 +530,18 @@
       return false;
     }
 
-    const channelNumber = Math.max(0, Math.min(15, Number(mapping.channel) || 0));
+    const channelNumber = Math.max(
+      0,
+      Math.min(15, Number(mapping.channel) || 0)
+    );
     const midiValue = clampMidiOutputValue(value);
     const cacheKey = getMidiIndicatorCacheKey(button);
     let sent = false;
 
-    if (mapping.type === 'control_change' && Number.isInteger(Number(mapping.control))) {
+    if (
+      mapping.type === 'control_change' &&
+      Number.isInteger(Number(mapping.control))
+    ) {
       sent = sendMidiOutputMessageToPort(output, [
         MIDI_STATUS.controlChange | channelNumber,
         Number(mapping.control),
@@ -516,7 +549,11 @@
       ]);
     }
 
-    if (!sent && mapping.type === 'note' && Number.isInteger(Number(mapping.note))) {
+    if (
+      !sent &&
+      mapping.type === 'note' &&
+      Number.isInteger(Number(mapping.note))
+    ) {
       sent = sendMidiOutputMessageToPort(output, [
         MIDI_STATUS.noteOn | channelNumber,
         Number(mapping.note),
@@ -532,31 +569,37 @@
   }
 
   function getChannelButtonEntries() {
-    return (window.getChannelsState?.() || []).flatMap((channel) => (
+    return (window.getChannelsState?.() || []).flatMap((channel) =>
       Array.isArray(channel?.buttons)
         ? channel.buttons.map((button) => ({ channel, button }))
         : []
-    ));
+    );
   }
 
   function getStandaloneButtonEntries() {
-    return (window.getStandaloneButtonsState?.() || []).map((button) => ({ button }));
+    return (window.getStandaloneButtonsState?.() || []).map((button) => ({
+      button
+    }));
   }
 
   function getChannelButtonInteractionModes() {
-    return window.CHANNEL_BUTTON_INTERACTION_MODES || {
-      push: 'push',
-      toggle: 'toggle',
-      trigger: 'trigger'
-    };
+    return (
+      window.CHANNEL_BUTTON_INTERACTION_MODES || {
+        push: 'push',
+        toggle: 'toggle',
+        trigger: 'trigger'
+      }
+    );
   }
 
   function getChannelButtonIndicatorBehaviors() {
-    return window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
-      actionState: 'action-state',
-      peakMeter: 'peak-meter',
-      targetActivity: 'target-activity'
-    };
+    return (
+      window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
+        actionState: 'action-state',
+        peakMeter: 'peak-meter',
+        targetActivity: 'target-activity'
+      }
+    );
   }
 
   function getChannelButtonIndicatorMidiValue(button = {}, state = {}) {
@@ -565,39 +608,56 @@
     }
 
     const indicatorBehaviors = getChannelButtonIndicatorBehaviors();
-    const indicatorBehavior = Object.values(indicatorBehaviors).includes(button?.indicatorBehavior)
+    const indicatorBehavior = Object.values(indicatorBehaviors).includes(
+      button?.indicatorBehavior
+    )
       ? button.indicatorBehavior
-      : (
-        Object.values(indicatorBehaviors).includes(state?.indicatorBehavior)
-          ? state.indicatorBehavior
-          : indicatorBehaviors.actionState
-      );
+      : Object.values(indicatorBehaviors).includes(state?.indicatorBehavior)
+        ? state.indicatorBehavior
+        : indicatorBehaviors.actionState;
 
     if (indicatorBehavior === indicatorBehaviors.peakMeter) {
-      return Math.max(0, Math.min(127, Math.round((Number(state?.meterLevel) || 0) * 127)));
+      return Math.max(
+        0,
+        Math.min(127, Math.round((Number(state?.meterLevel) || 0) * 127))
+      );
     }
 
     if (
-      indicatorBehavior === indicatorBehaviors.actionState
-      || indicatorBehavior === indicatorBehaviors.targetActivity
+      indicatorBehavior === indicatorBehaviors.actionState ||
+      indicatorBehavior === indicatorBehaviors.targetActivity
     ) {
-      return (Boolean(state?.indicatorActive) || Boolean(state?.visualActive)) ? 127 : 0;
+      return Boolean(state?.indicatorActive) || Boolean(state?.visualActive)
+        ? 127
+        : 0;
     }
 
     const interactionModes = getChannelButtonInteractionModes();
-    const indicatorMode = Object.values(interactionModes).includes(button?.indicatorMode)
+    const indicatorMode = Object.values(interactionModes).includes(
+      button?.indicatorMode
+    )
       ? button.indicatorMode
       : interactionModes.trigger;
 
-    if (indicatorMode === interactionModes.push || indicatorMode === interactionModes.trigger) {
+    if (
+      indicatorMode === interactionModes.push ||
+      indicatorMode === interactionModes.trigger
+    ) {
       return Boolean(state?.pressed || state?.flashActive) ? 127 : 0;
     }
 
-    return (Boolean(state?.indicatorActive) || Boolean(state?.visualActive)) ? 127 : 0;
+    return Boolean(state?.indicatorActive) || Boolean(state?.visualActive)
+      ? 127
+      : 0;
   }
 
   function syncChannelButtonIndicators(meta = {}) {
-    if (!runtimeState.supported || !runtimeState.accessReady || !midiAccess || isMidiDisabledSelection()) {
+    if (
+      !runtimeState.supported ||
+      !runtimeState.accessReady ||
+      !midiAccess ||
+      isMidiDisabledSelection()
+    ) {
       return false;
     }
 
@@ -630,11 +690,15 @@
 
       seenKeys.add(cacheKey);
 
-      if (midiIndicatorOutputCache.values.get(cacheKey) === clampMidiOutputValue(value)) {
+      if (
+        midiIndicatorOutputCache.values.get(cacheKey) ===
+        clampMidiOutputValue(value)
+      ) {
         return;
       }
 
-      hasSent = sendChannelButtonOutputValue(button, value, { output }) || hasSent;
+      hasSent =
+        sendChannelButtonOutputValue(button, value, { output }) || hasSent;
     });
 
     getStandaloneButtonEntries().forEach(({ button }) => {
@@ -654,11 +718,15 @@
 
       seenKeys.add(cacheKey);
 
-      if (midiIndicatorOutputCache.values.get(cacheKey) === clampMidiOutputValue(value)) {
+      if (
+        midiIndicatorOutputCache.values.get(cacheKey) ===
+        clampMidiOutputValue(value)
+      ) {
         return;
       }
 
-      hasSent = sendChannelButtonOutputValue(button, value, { output }) || hasSent;
+      hasSent =
+        sendChannelButtonOutputValue(button, value, { output }) || hasSent;
     });
 
     [...midiIndicatorOutputCache.values.keys()].forEach((cacheKey) => {
@@ -677,8 +745,11 @@
   }
 
   function flashChannelButtonBindingFeedback(channelId, buttonId, meta = {}) {
-    const channel = (window.getChannelsState?.() || []).find((item) => item.id === channelId);
-    const button = channel?.buttons?.find((item) => item.id === buttonId) || null;
+    const channel = (window.getChannelsState?.() || []).find(
+      (item) => item.id === channelId
+    );
+    const button =
+      channel?.buttons?.find((item) => item.id === buttonId) || null;
 
     window.flashChannelButtonBindingRuntime?.(channelId, buttonId);
 
@@ -705,7 +776,10 @@
   }
 
   function flashStandaloneButtonBindingFeedback(buttonId, meta = {}) {
-    const button = (window.getStandaloneButtonsState?.() || []).find((item) => item.id === buttonId) || null;
+    const button =
+      (window.getStandaloneButtonsState?.() || []).find(
+        (item) => item.id === buttonId
+      ) || null;
 
     window.flashStandaloneButtonBindingRuntime?.(buttonId);
 
@@ -762,18 +836,26 @@
     const selectedInputName = getSelectedMidiInputName();
     const matchedInput = inputs.find((input) => input.id === selectedInputId);
 
-    if (matchedInput && !isMidiDisabledSelection() && matchedInput.name !== selectedInputName) {
-      selectMidiInput(selectedInputId, matchedInput.name, { source: 'midi-input-reconcile' });
+    if (
+      matchedInput &&
+      !isMidiDisabledSelection() &&
+      matchedInput.name !== selectedInputName
+    ) {
+      selectMidiInput(selectedInputId, matchedInput.name, {
+        source: 'midi-input-reconcile'
+      });
       return;
     }
 
     if (
-      !matchedInput
-      && selectedInputName
-      && !isMidiDisabledSelection()
-      && runtimeState.accessReady
+      !matchedInput &&
+      selectedInputName &&
+      !isMidiDisabledSelection() &&
+      runtimeState.accessReady
     ) {
-      const matchedByName = inputs.find((input) => input.name === selectedInputName);
+      const matchedByName = inputs.find(
+        (input) => input.name === selectedInputName
+      );
 
       if (matchedByName) {
         selectMidiInput(matchedByName.id, matchedByName.name, {
@@ -786,10 +868,10 @@
     }
 
     if (
-      selectedInputId
-      && !isMidiDisabledSelection()
-      && !matchedInput
-      && runtimeState.accessReady
+      selectedInputId &&
+      !isMidiDisabledSelection() &&
+      !matchedInput &&
+      runtimeState.accessReady
     ) {
       // Keep remembered selection while the device is temporarily unavailable.
       // This allows automatic recovery when the controller is reconnected later.
@@ -826,7 +908,10 @@
     try {
       return await navigator.requestMIDIAccess({ sysex: true });
     } catch (error) {
-      console.warn('WebMIDI sysex access unavailable, fallback to standard mode', error);
+      console.warn(
+        'WebMIDI sysex access unavailable, fallback to standard mode',
+        error
+      );
       return navigator.requestMIDIAccess();
     }
   }
@@ -849,7 +934,10 @@
     midiAccess.onstatechange = (event) => {
       if (event.port?.type === 'input' && event.port.state === 'connected') {
         bindMidiInput(event.port);
-      } else if (event.port?.type === 'input' && event.port.state === 'disconnected') {
+      } else if (
+        event.port?.type === 'input' &&
+        event.port.state === 'disconnected'
+      ) {
         try {
           event.port.onmidimessage = null;
         } catch (error) {
@@ -903,7 +991,10 @@
   }
 
   function initMidiStoreSync() {
-    if (midiStoreSyncInitialized || typeof window.subscribeAppState !== 'function') {
+    if (
+      midiStoreSyncInitialized ||
+      typeof window.subscribeAppState !== 'function'
+    ) {
       return;
     }
 
@@ -942,16 +1033,23 @@
   }
 
   function emitPickupEvent(channelId, message) {
-    window.dispatchEvent?.(new CustomEvent('midi:pickup', {
-      detail: {
-        channelId,
-        inputId: message?.inputId || '',
-        timestamp: Date.now()
-      }
-    }));
+    window.dispatchEvent?.(
+      new CustomEvent('midi:pickup', {
+        detail: {
+          channelId,
+          inputId: message?.inputId || '',
+          timestamp: Date.now()
+        }
+      })
+    );
   }
 
-  function shouldPickupChannel(runtime, channelValue, incomingValue, threshold) {
+  function shouldPickupChannel(
+    runtime,
+    channelValue,
+    incomingValue,
+    threshold
+  ) {
     if (Math.abs(incomingValue - channelValue) <= threshold) {
       return true;
     }
@@ -966,7 +1064,9 @@
   }
 
   function resolveMidiVolumeForChannel(channel, message) {
-    const incomingValue = clampRuntimeVolume((message.normalizedValue || 0) * 100);
+    const incomingValue = clampRuntimeVolume(
+      (message.normalizedValue || 0) * 100
+    );
     const channelSoftTakeover = getChannelSoftTakeoverSettings(channel);
 
     if (!channelSoftTakeover.enabled) {
@@ -1014,7 +1114,10 @@
   }
 
   function initMidiRuntimeResetSync() {
-    if (midiRuntimeResetSyncInitialized || typeof window.subscribeAppState !== 'function') {
+    if (
+      midiRuntimeResetSyncInitialized ||
+      typeof window.subscribeAppState !== 'function'
+    ) {
       return;
     }
 
@@ -1024,8 +1127,10 @@
         const previousSettings = previousState.ui?.settings || {};
 
         if (
-          nextSettings.softTakeoverEnabled !== previousSettings.softTakeoverEnabled
-          || nextSettings.softTakeoverThreshold !== previousSettings.softTakeoverThreshold
+          nextSettings.softTakeoverEnabled !==
+            previousSettings.softTakeoverEnabled ||
+          nextSettings.softTakeoverThreshold !==
+            previousSettings.softTakeoverThreshold
         ) {
           resetPickupRuntime();
         }
@@ -1036,7 +1141,10 @@
       }
 
       if (nextState.profile !== previousState.profile) {
-        if ((nextState.profile?.currentName || '') !== (previousState.profile?.currentName || '')) {
+        if (
+          (nextState.profile?.currentName || '') !==
+          (previousState.profile?.currentName || '')
+        ) {
           resetPickupRuntime();
         }
       }
@@ -1109,17 +1217,22 @@
   }
 
   function initMidiButtonIndicatorSync() {
-    if (midiButtonIndicatorSyncInitialized || typeof window.subscribeAppState !== 'function') {
+    if (
+      midiButtonIndicatorSyncInitialized ||
+      typeof window.subscribeAppState !== 'function'
+    ) {
       return;
     }
 
     window.subscribeAppState((nextState, previousState) => {
       if (
-        nextState.channels !== previousState.channels
-        || nextState.standaloneButtons !== previousState.standaloneButtons
-        || nextState.midi !== previousState.midi
+        nextState.channels !== previousState.channels ||
+        nextState.standaloneButtons !== previousState.standaloneButtons ||
+        nextState.midi !== previousState.midi
       ) {
-        scheduleChannelButtonIndicatorSync({ type: 'channel-button-indicator-sync' });
+        scheduleChannelButtonIndicatorSync({
+          type: 'channel-button-indicator-sync'
+        });
       }
     });
 
@@ -1188,7 +1301,7 @@
       status,
       data1,
       data2,
-      channel: status & 0x0F,
+      channel: status & 0x0f,
       inputId: event.currentTarget?.id || event.target?.id || 'unknown',
       inputName: event.currentTarget?.name || event.target?.name || '',
       timestamp: Date.now(),
@@ -1207,8 +1320,13 @@
     };
   }
 
-  function buildControlChange14BitMessage(baseMessage, control, msbValue, lsbValue) {
-    const rawValue = ((msbValue & 0x7F) << 7) | (lsbValue & 0x7F);
+  function buildControlChange14BitMessage(
+    baseMessage,
+    control,
+    msbValue,
+    lsbValue
+  ) {
+    const rawValue = ((msbValue & 0x7f) << 7) | (lsbValue & 0x7f);
 
     return {
       ...baseMessage,
@@ -1224,7 +1342,8 @@
   }
 
   function buildPitchBendMessage(baseMessage) {
-    const rawValue = ((baseMessage.data2 & 0x7F) << 7) | (baseMessage.data1 & 0x7F);
+    const rawValue =
+      ((baseMessage.data2 & 0x7f) << 7) | (baseMessage.data1 & 0x7f);
 
     return {
       ...baseMessage,
@@ -1238,8 +1357,9 @@
   function buildParameterMessage(baseMessage, parameterType, parameterState) {
     const hasLsb = Number.isInteger(parameterState.valueLsb);
     const rawValue = hasLsb
-      ? ((parameterState.valueMsb & 0x7F) << 7) | (parameterState.valueLsb & 0x7F)
-      : (parameterState.valueMsb & 0x7F);
+      ? ((parameterState.valueMsb & 0x7f) << 7) |
+        (parameterState.valueLsb & 0x7f)
+      : parameterState.valueMsb & 0x7f;
     const maxValue = hasLsb ? 16383 : 127;
 
     return {
@@ -1290,12 +1410,19 @@
 
       if (Number.isInteger(state.ccLsbValues[control])) {
         emitMidiMessage(
-          buildControlChange14BitMessage(baseMessage, control, msbValue, state.ccLsbValues[control])
+          buildControlChange14BitMessage(
+            baseMessage,
+            control,
+            msbValue,
+            state.ccLsbValues[control]
+          )
         );
         return;
       }
 
-      emitMidiMessage(buildControlChangeMessage(baseMessage, control, msbValue));
+      emitMidiMessage(
+        buildControlChangeMessage(baseMessage, control, msbValue)
+      );
     }, MIDI_HIGH_RES_COMBINE_DELAY_MS);
 
     state.pendingCcTimers.set(control, timerId);
@@ -1309,9 +1436,14 @@
   }
 
   function hasActiveParameterSelection(parameterState) {
-    return Number.isInteger(parameterState.parameterMsb)
-      && Number.isInteger(parameterState.parameterLsb)
-      && !(parameterState.parameterMsb === 127 && parameterState.parameterLsb === 127);
+    return (
+      Number.isInteger(parameterState.parameterMsb) &&
+      Number.isInteger(parameterState.parameterLsb) &&
+      !(
+        parameterState.parameterMsb === 127 &&
+        parameterState.parameterLsb === 127
+      )
+    );
   }
 
   function syncParameterSelection(state, parameterType) {
@@ -1338,9 +1470,7 @@
     }
 
     const parameterState = state[state.activeParameterType];
-    return hasActiveParameterSelection(parameterState)
-      ? parameterState
-      : null;
+    return hasActiveParameterSelection(parameterState) ? parameterState : null;
   }
 
   function handleParameterDataEntry(state, baseMessage, control, value) {
@@ -1362,7 +1492,11 @@
         }
 
         emitMidiMessage(
-          buildParameterMessage(baseMessage, state.activeParameterType, parameterState)
+          buildParameterMessage(
+            baseMessage,
+            state.activeParameterType,
+            parameterState
+          )
         );
       }, MIDI_HIGH_RES_COMBINE_DELAY_MS);
 
@@ -1377,7 +1511,13 @@
         return [];
       }
 
-      return [buildParameterMessage(baseMessage, state.activeParameterType, parameterState)];
+      return [
+        buildParameterMessage(
+          baseMessage,
+          state.activeParameterType,
+          parameterState
+        )
+      ];
     }
 
     return null;
@@ -1407,7 +1547,12 @@
     }
 
     if (control === MIDI_CC.dataEntryMsb || control === MIDI_CC.dataEntryLsb) {
-      const parameterMessages = handleParameterDataEntry(state, baseMessage, control, value);
+      const parameterMessages = handleParameterDataEntry(
+        state,
+        baseMessage,
+        control,
+        value
+      );
 
       if (parameterMessages) {
         return parameterMessages;
@@ -1420,7 +1565,10 @@
       return [];
     }
 
-    if (control >= MIDI_CONTROL_LSB_OFFSET && control < MIDI_CONTROL_LSB_OFFSET * 2) {
+    if (
+      control >= MIDI_CONTROL_LSB_OFFSET &&
+      control < MIDI_CONTROL_LSB_OFFSET * 2
+    ) {
       const baseControl = control - MIDI_CONTROL_LSB_OFFSET;
       state.ccLsbValues[baseControl] = value;
       clearPendingCcTimer(state, baseControl);
@@ -1444,37 +1592,47 @@
 
   function createMidiMessages(event) {
     const baseMessage = buildBaseMidiMessage(event);
-    const typeNibble = baseMessage.status & 0xF0;
+    const typeNibble = baseMessage.status & 0xf0;
 
     if (typeNibble === MIDI_STATUS.noteOn) {
       if (baseMessage.data2 === 0) {
-        return [{
-          ...baseMessage,
-          type: 'note_off',
-          note: baseMessage.data1,
-          velocity: 0
-        }];
+        return [
+          {
+            ...baseMessage,
+            type: 'note_off',
+            note: baseMessage.data1,
+            velocity: 0
+          }
+        ];
       }
 
-      return [{
-        ...baseMessage,
-        type: 'note_on',
-        note: baseMessage.data1,
-        velocity: baseMessage.data2
-      }];
+      return [
+        {
+          ...baseMessage,
+          type: 'note_on',
+          note: baseMessage.data1,
+          velocity: baseMessage.data2
+        }
+      ];
     }
 
     if (typeNibble === MIDI_STATUS.noteOff) {
-      return [{
-        ...baseMessage,
-        type: 'note_off',
-        note: baseMessage.data1,
-        velocity: baseMessage.data2
-      }];
+      return [
+        {
+          ...baseMessage,
+          type: 'note_off',
+          note: baseMessage.data1,
+          velocity: baseMessage.data2
+        }
+      ];
     }
 
     if (typeNibble === MIDI_STATUS.controlChange) {
-      return handleControlChangeMessage(baseMessage, baseMessage.data1, baseMessage.data2);
+      return handleControlChangeMessage(
+        baseMessage,
+        baseMessage.data1,
+        baseMessage.data2
+      );
     }
 
     if (typeNibble === MIDI_STATUS.pitchBend) {
@@ -1525,22 +1683,39 @@
     }
 
     if (mappingType === 'control_change') {
-      return (messageType === 'control_change' || messageType === 'control_change_14bit')
-        && mapping.control === message.control;
+      return (
+        (messageType === 'control_change' ||
+          messageType === 'control_change_14bit') &&
+        mapping.control === message.control
+      );
     }
 
-    if (mappingType === 'control_change_14bit' && messageType === 'control_change_14bit') {
-      return mapping.control === message.control
-        && (mapping.controlLsb ?? (mapping.control + MIDI_CONTROL_LSB_OFFSET)) === message.controlLsb;
+    if (
+      mappingType === 'control_change_14bit' &&
+      messageType === 'control_change_14bit'
+    ) {
+      return (
+        mapping.control === message.control &&
+        (mapping.controlLsb ?? mapping.control + MIDI_CONTROL_LSB_OFFSET) ===
+          message.controlLsb
+      );
     }
 
-    if (mappingType === 'control_change_14bit' && messageType === 'control_change') {
+    if (
+      mappingType === 'control_change_14bit' &&
+      messageType === 'control_change'
+    ) {
       return mapping.control === message.control;
     }
 
-    if ((mappingType === 'nrpn' || mappingType === 'rpn') && mappingType === messageType) {
-      return mapping.parameterMsb === message.parameterMsb
-        && mapping.parameterLsb === message.parameterLsb;
+    if (
+      (mappingType === 'nrpn' || mappingType === 'rpn') &&
+      mappingType === messageType
+    ) {
+      return (
+        mapping.parameterMsb === message.parameterMsb &&
+        mapping.parameterLsb === message.parameterLsb
+      );
     }
 
     return mappingType === messageType;
@@ -1590,7 +1765,10 @@
     const leftType = normalizeMappingType(left.type);
     const rightType = normalizeMappingType(right.type);
 
-    if (leftType !== rightType || (left.channel ?? 0) !== (right.channel ?? 0)) {
+    if (
+      leftType !== rightType ||
+      (left.channel ?? 0) !== (right.channel ?? 0)
+    ) {
       return false;
     }
 
@@ -1599,14 +1777,18 @@
     }
 
     if (leftType === 'control_change_14bit') {
-      return left.control === right.control
-        && (left.controlLsb ?? (left.control + MIDI_CONTROL_LSB_OFFSET))
-          === (right.controlLsb ?? (right.control + MIDI_CONTROL_LSB_OFFSET));
+      return (
+        left.control === right.control &&
+        (left.controlLsb ?? left.control + MIDI_CONTROL_LSB_OFFSET) ===
+          (right.controlLsb ?? right.control + MIDI_CONTROL_LSB_OFFSET)
+      );
     }
 
     if (leftType === 'nrpn' || leftType === 'rpn') {
-      return left.parameterMsb === right.parameterMsb
-        && left.parameterLsb === right.parameterLsb;
+      return (
+        left.parameterMsb === right.parameterMsb &&
+        left.parameterLsb === right.parameterLsb
+      );
     }
 
     return true;
@@ -1642,7 +1824,10 @@
     const leftType = String(left.type || '');
     const rightType = String(right.type || '');
 
-    if (leftType !== rightType || (left.channel ?? 0) !== (right.channel ?? 0)) {
+    if (
+      leftType !== rightType ||
+      (left.channel ?? 0) !== (right.channel ?? 0)
+    ) {
       return false;
     }
 
@@ -1663,12 +1848,17 @@
     }
 
     if (mapping.type === 'control_change') {
-      return (message.type === 'control_change' || message.type === 'control_change_14bit')
-        && Number(mapping.control) === Number(message.control);
+      return (
+        (message.type === 'control_change' ||
+          message.type === 'control_change_14bit') &&
+        Number(mapping.control) === Number(message.control)
+      );
     }
 
-    return (message.type === 'note_on' || message.type === 'note_off')
-      && Number(mapping.note) === Number(message.note);
+    return (
+      (message.type === 'note_on' || message.type === 'note_off') &&
+      Number(mapping.note) === Number(message.note)
+    );
   }
 
   function isButtonPressMessage(message) {
@@ -1750,10 +1940,14 @@
       const triggerKey = getChannelButtonTriggerKey(channel.id, button.id);
       const wasPressed = Boolean(buttonTriggerRuntimeState.get(triggerKey));
       const interactionModes = getChannelButtonInteractionModes();
-      const actionMode = Object.values(interactionModes).includes(button?.actionMode)
+      const actionMode = Object.values(interactionModes).includes(
+        button?.actionMode
+      )
         ? button.actionMode
         : interactionModes.trigger;
-      const indicatorMode = Object.values(interactionModes).includes(button?.indicatorMode)
+      const indicatorMode = Object.values(interactionModes).includes(
+        button?.indicatorMode
+      )
         ? button.indicatorMode
         : interactionModes.trigger;
 
@@ -1764,7 +1958,10 @@
 
         buttonTriggerRuntimeState.set(triggerKey, true);
 
-        if (button?.indicatorEnabled !== false && indicatorMode === interactionModes.push) {
+        if (
+          button?.indicatorEnabled !== false &&
+          indicatorMode === interactionModes.push
+        ) {
           window.setChannelButtonPressedRuntime?.(channel.id, button.id, true);
         }
 
@@ -1779,7 +1976,10 @@
       if (isButtonReleaseMessage(message)) {
         buttonTriggerRuntimeState.set(triggerKey, false);
 
-        if (button?.indicatorEnabled !== false && indicatorMode === interactionModes.push) {
+        if (
+          button?.indicatorEnabled !== false &&
+          indicatorMode === interactionModes.push
+        ) {
           window.setChannelButtonPressedRuntime?.(channel.id, button.id, false);
         }
 
@@ -1801,10 +2001,14 @@
       const triggerKey = getStandaloneButtonTriggerKey(button.id);
       const wasPressed = Boolean(buttonTriggerRuntimeState.get(triggerKey));
       const interactionModes = getChannelButtonInteractionModes();
-      const actionMode = Object.values(interactionModes).includes(button?.actionMode)
+      const actionMode = Object.values(interactionModes).includes(
+        button?.actionMode
+      )
         ? button.actionMode
         : interactionModes.trigger;
-      const indicatorMode = Object.values(interactionModes).includes(button?.indicatorMode)
+      const indicatorMode = Object.values(interactionModes).includes(
+        button?.indicatorMode
+      )
         ? button.indicatorMode
         : interactionModes.trigger;
 
@@ -1815,7 +2019,10 @@
 
         buttonTriggerRuntimeState.set(triggerKey, true);
 
-        if (button?.indicatorEnabled !== false && indicatorMode === interactionModes.push) {
+        if (
+          button?.indicatorEnabled !== false &&
+          indicatorMode === interactionModes.push
+        ) {
           window.setStandaloneButtonPressedRuntime?.(button.id, true);
         }
 
@@ -1830,7 +2037,10 @@
       if (isButtonReleaseMessage(message)) {
         buttonTriggerRuntimeState.set(triggerKey, false);
 
-        if (button?.indicatorEnabled !== false && indicatorMode === interactionModes.push) {
+        if (
+          button?.indicatorEnabled !== false &&
+          indicatorMode === interactionModes.push
+        ) {
           window.setStandaloneButtonPressedRuntime?.(button.id, false);
         }
 
@@ -1846,9 +2056,11 @@
   }
 
   function isSelectedMidiMessage(message) {
-    return Boolean(getSelectedMidiInputId())
-      && !isMidiDisabledSelection()
-      && message?.inputId === getSelectedMidiInputId();
+    return (
+      Boolean(getSelectedMidiInputId()) &&
+      !isMidiDisabledSelection() &&
+      message?.inputId === getSelectedMidiInputId()
+    );
   }
 
   function applyMidiMessageToStore(message) {
@@ -1894,14 +2106,22 @@
   async function learnFaderMapping() {
     let learnedMessage = null;
     const removeListener = addMidiMessageListener((message) => {
-      if (!isFaderMidiMessage(message) || learnedMessage || !isSelectedMidiMessage(message)) {
+      if (
+        !isFaderMidiMessage(message) ||
+        learnedMessage ||
+        !isSelectedMidiMessage(message)
+      ) {
         return;
       }
 
       learnedMessage = buildFaderMapping(message);
     });
 
-    for (let attempt = 0; attempt < MIDI_FADER_LEARN_TIMEOUT_MS / 100 && !learnedMessage; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < MIDI_FADER_LEARN_TIMEOUT_MS / 100 && !learnedMessage;
+      attempt += 1
+    ) {
       await wait(100);
     }
 
@@ -1913,10 +2133,10 @@
     let learnedMessage = null;
     const removeListener = addMidiMessageListener((message) => {
       if (
-        learnedMessage
-        || !isSelectedMidiMessage(message)
-        || !isButtonMidiMessage(message)
-        || isButtonReleaseMessage(message)
+        learnedMessage ||
+        !isSelectedMidiMessage(message) ||
+        !isButtonMidiMessage(message) ||
+        isButtonReleaseMessage(message)
       ) {
         return;
       }
@@ -1924,7 +2144,11 @@
       learnedMessage = buildButtonMapping(message);
     });
 
-    for (let attempt = 0; attempt < MIDI_FADER_LEARN_TIMEOUT_MS / 100 && !learnedMessage; attempt += 1) {
+    for (
+      let attempt = 0;
+      attempt < MIDI_FADER_LEARN_TIMEOUT_MS / 100 && !learnedMessage;
+      attempt += 1
+    ) {
       await wait(100);
     }
 
@@ -1933,44 +2157,64 @@
   }
 
   function findFaderMappingConflict(channelId, mapping) {
-    return (window.getChannelsState?.() || []).find((channel) => (
-      channel.id !== channelId && isSameFaderMapping(channel.faderMapping, mapping)
-    )) || null;
+    return (
+      (window.getChannelsState?.() || []).find(
+        (channel) =>
+          channel.id !== channelId &&
+          isSameFaderMapping(channel.faderMapping, mapping)
+      ) || null
+    );
   }
 
-  function findButtonMappingConflict(channelId, buttonId, mapping, options = {}) {
+  function findButtonMappingConflict(
+    channelId,
+    buttonId,
+    mapping,
+    options = {}
+  ) {
     const channels = window.getChannelsState?.() || [];
     const standalone = Boolean(options?.standalone);
-    const controlConflict = mapping?.type === 'control_change'
-      ? channels.find((channel) => (
-        channel.id !== channelId
-        && channel?.faderMapping
-        && (normalizeMappingType(channel.faderMapping.type) === 'control_change'
-          || normalizeMappingType(channel.faderMapping.type) === 'control_change_14bit')
-        && Number(channel.faderMapping.channel ?? 0) === Number(mapping.channel ?? 0)
-        && Number(channel.faderMapping.control) === Number(mapping.control)
-      ))
-      : null;
+    const controlConflict =
+      mapping?.type === 'control_change'
+        ? channels.find(
+            (channel) =>
+              channel.id !== channelId &&
+              channel?.faderMapping &&
+              (normalizeMappingType(channel.faderMapping.type) ===
+                'control_change' ||
+                normalizeMappingType(channel.faderMapping.type) ===
+                  'control_change_14bit') &&
+              Number(channel.faderMapping.channel ?? 0) ===
+                Number(mapping.channel ?? 0) &&
+              Number(channel.faderMapping.control) === Number(mapping.control)
+          )
+        : null;
 
     if (controlConflict) {
       return controlConflict;
     }
 
     for (const channel of channels) {
-      const buttonConflict = (Array.isArray(channel?.buttons) ? channel.buttons : []).find((button) => (
-        !(channel.id === channelId && button.id === buttonId)
-        && isSameButtonMapping(button?.midiMapping, mapping)
-      ));
+      const buttonConflict = (
+        Array.isArray(channel?.buttons) ? channel.buttons : []
+      ).find(
+        (button) =>
+          !(channel.id === channelId && button.id === buttonId) &&
+          isSameButtonMapping(button?.midiMapping, mapping)
+      );
 
       if (buttonConflict) {
         return buttonConflict;
       }
     }
 
-    const standaloneConflict = (window.getStandaloneButtonsState?.() || []).find((button) => (
-      !(standalone && button.id === buttonId)
-      && isSameButtonMapping(button?.midiMapping, mapping)
-    ));
+    const standaloneConflict = (
+      window.getStandaloneButtonsState?.() || []
+    ).find(
+      (button) =>
+        !(standalone && button.id === buttonId) &&
+        isSameButtonMapping(button?.midiMapping, mapping)
+    );
 
     if (standaloneConflict) {
       return standaloneConflict;
@@ -1981,43 +2225,72 @@
 
   function applyChannelFaderMapping(channelId, mapping, meta = {}) {
     resetPickupRuntime(channelId);
-    return window.setChannelFaderMappingState?.(channelId, mapping, {
-      source: 'midi-service',
-      ...meta
-    }) || null;
+    return (
+      window.setChannelFaderMappingState?.(channelId, mapping, {
+        source: 'midi-service',
+        ...meta
+      }) || null
+    );
   }
 
   function applyChannelButtonMapping(channelId, buttonId, mapping, meta = {}) {
-    const updatedButton = window.channelActions?.updateChannelButton?.(channelId, buttonId, {
-      midiMapping: mapping ? {
-        type: mapping.type === 'control_change' ? 'control_change' : 'note',
-        channel: Number(mapping.channel) || 0,
-        note: Number.isInteger(Number(mapping.note)) ? Number(mapping.note) : null,
-        control: Number.isInteger(Number(mapping.control)) ? Number(mapping.control) : null
-      } : null
-    }, {
-      source: 'midi-service',
-      ...meta
-    }) || null;
+    const updatedButton =
+      window.channelActions?.updateChannelButton?.(
+        channelId,
+        buttonId,
+        {
+          midiMapping: mapping
+            ? {
+                type:
+                  mapping.type === 'control_change' ? 'control_change' : 'note',
+                channel: Number(mapping.channel) || 0,
+                note: Number.isInteger(Number(mapping.note))
+                  ? Number(mapping.note)
+                  : null,
+                control: Number.isInteger(Number(mapping.control))
+                  ? Number(mapping.control)
+                  : null
+              }
+            : null
+        },
+        {
+          source: 'midi-service',
+          ...meta
+        }
+      ) || null;
 
     scheduleChannelButtonIndicatorSync({ type: 'button-mapping-update' });
     return updatedButton;
   }
 
   function applyStandaloneButtonMapping(buttonId, mapping, meta = {}) {
-    const updatedButton = window.standaloneButtonActions?.updateStandaloneButton?.(buttonId, {
-      midiMapping: mapping ? {
-        type: mapping.type === 'control_change' ? 'control_change' : 'note',
-        channel: Number(mapping.channel) || 0,
-        note: Number.isInteger(Number(mapping.note)) ? Number(mapping.note) : null,
-        control: Number.isInteger(Number(mapping.control)) ? Number(mapping.control) : null
-      } : null
-    }, {
-      source: 'midi-service',
-      ...meta
-    }) || null;
+    const updatedButton =
+      window.standaloneButtonActions?.updateStandaloneButton?.(
+        buttonId,
+        {
+          midiMapping: mapping
+            ? {
+                type:
+                  mapping.type === 'control_change' ? 'control_change' : 'note',
+                channel: Number(mapping.channel) || 0,
+                note: Number.isInteger(Number(mapping.note))
+                  ? Number(mapping.note)
+                  : null,
+                control: Number.isInteger(Number(mapping.control))
+                  ? Number(mapping.control)
+                  : null
+              }
+            : null
+        },
+        {
+          source: 'midi-service',
+          ...meta
+        }
+      ) || null;
 
-    scheduleChannelButtonIndicatorSync({ type: 'standalone-button-mapping-update' });
+    scheduleChannelButtonIndicatorSync({
+      type: 'standalone-button-mapping-update'
+    });
     return updatedButton;
   }
 

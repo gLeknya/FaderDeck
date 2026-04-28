@@ -1,9 +1,9 @@
-  (function initEntityEditorModule(window) {
-    const ENTITY_EDITOR_MODAL_ID = 'entity-edit';
-    const ENTITY_EDITOR_CLOSE_MS = 240;
-    const ENTITY_EDITOR_SIDE_PANEL_CLOSE_MS = 220;
-    const ENTITY_EDITOR_PREVIEW_MOVE_MS = 250;
-    const ENTITY_EDITOR_PREVIEW_ENTRANCE_CLASS = 'is-preview-entering';
+(function initEntityEditorModule(window) {
+  const ENTITY_EDITOR_MODAL_ID = 'entity-edit';
+  const ENTITY_EDITOR_CLOSE_MS = 240;
+  const ENTITY_EDITOR_SIDE_PANEL_CLOSE_MS = 220;
+  const ENTITY_EDITOR_PREVIEW_MOVE_MS = 250;
+  const ENTITY_EDITOR_PREVIEW_ENTRANCE_CLASS = 'is-preview-entering';
 
   const dom = {};
   const editorRuntimeSync = {
@@ -110,7 +110,9 @@
   }
 
   function escapeSelectorValue(value) {
-    return String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+    return String(value ?? '')
+      .replace(/\\/g, '\\\\')
+      .replace(/"/g, '\\"');
   }
 
   function getEditorChannel() {
@@ -211,10 +213,13 @@
       return [];
     }
 
-    return [{
-      process: fallbackProcess,
-      name: String(channel?.appName || fallbackProcess).trim() || fallbackProcess
-    }];
+    return [
+      {
+        process: fallbackProcess,
+        name:
+          String(channel?.appName || fallbackProcess).trim() || fallbackProcess
+      }
+    ];
   }
 
   function getAvailableApps() {
@@ -230,46 +235,60 @@
       return null;
     }
 
-    return getAvailableApps().find((application) => application.process === normalizedProcess) || null;
+    return (
+      getAvailableApps().find(
+        (application) => application.process === normalizedProcess
+      ) || null
+    );
   }
 
   function getChannelTargetMode(channel = {}) {
-    return window.channelTargeting?.getChannelTargetMode?.(channel)
-      || window.CHANNEL_TARGET_MODES?.apps
-      || 'apps';
+    return (
+      window.channelTargeting?.getChannelTargetMode?.(channel) ||
+      window.CHANNEL_TARGET_MODES?.apps ||
+      'apps'
+    );
   }
 
   function getChannelDeviceTargetFlow(channel = {}) {
-    return window.channelTargeting?.getChannelDeviceTargetFlow?.(channel)
-      || window.CHANNEL_DEVICE_TARGET_FLOWS?.output
-      || 'output';
+    return (
+      window.channelTargeting?.getChannelDeviceTargetFlow?.(channel) ||
+      window.CHANNEL_DEVICE_TARGET_FLOWS?.output ||
+      'output'
+    );
   }
 
   function getChannelDeviceTargets(channel = {}, flow = null) {
-    return window.channelTargeting?.getChannelDeviceTargets?.(channel, flow)
-      || [];
+    return (
+      window.channelTargeting?.getChannelDeviceTargets?.(channel, flow) || []
+    );
   }
 
   function getChannelFocusExclusions(channel = {}) {
-    return window.channelTargeting?.getChannelFocusExclusions?.(channel)
-      || [];
+    return window.channelTargeting?.getChannelFocusExclusions?.(channel) || [];
   }
 
   function resolveTargetDisplayEntry(target = {}) {
     const matchedApplication = getAvailableAppByProcess(target.process);
-    const process = String(target.process || matchedApplication?.process || '').trim();
-    const resolvedPath = String(target?.path || matchedApplication?.path || '').trim();
+    const process = String(
+      target.process || matchedApplication?.process || ''
+    ).trim();
+    const resolvedPath = String(
+      target?.path || matchedApplication?.path || ''
+    ).trim();
 
     return {
       process,
-      name: String(matchedApplication?.name || target.name || target.process || '').trim(),
+      name: String(
+        matchedApplication?.name || target.name || target.process || ''
+      ).trim(),
       iconDataUrl: String(
-        matchedApplication?.iconDataUrl
-        || window.getCachedAudioAppIconDataUrl?.({
-          process,
-          path: resolvedPath
-        })
-        || ''
+        matchedApplication?.iconDataUrl ||
+          window.getCachedAudioAppIconDataUrl?.({
+            process,
+            path: resolvedPath
+          }) ||
+          ''
       ).trim()
     };
   }
@@ -278,7 +297,10 @@
     return {
       id: String(target?.id || '').trim(),
       name: String(target?.name || target?.id || '').trim(),
-      flow: String(target?.flow || getChannelDeviceTargetFlow(getEditorChannel())).trim() || 'output'
+      flow:
+        String(
+          target?.flow || getChannelDeviceTargetFlow(getEditorChannel())
+        ).trim() || 'output'
     };
   }
 
@@ -332,13 +354,18 @@
   }
 
   function setPreviewEntranceState(isActive) {
-    dom.shell?.classList.toggle(ENTITY_EDITOR_PREVIEW_ENTRANCE_CLASS, Boolean(isActive));
+    dom.shell?.classList.toggle(
+      ENTITY_EDITOR_PREVIEW_ENTRANCE_CLASS,
+      Boolean(isActive)
+    );
   }
 
   function cleanupFloatingPreviews() {
-    document.querySelectorAll('.entity-edit-floating-preview').forEach((element) => {
-      element.remove();
-    });
+    document
+      .querySelectorAll('.entity-edit-floating-preview')
+      .forEach((element) => {
+        element.remove();
+      });
   }
 
   function clearPreviewTimer() {
@@ -396,15 +423,19 @@
     root.querySelectorAll('[id]').forEach((element) => {
       element.removeAttribute('id');
     });
-    root.querySelectorAll('[onclick], [ondblclick], [onchange]').forEach((element) => {
-      element.removeAttribute('onclick');
-      element.removeAttribute('ondblclick');
-      element.removeAttribute('onchange');
-    });
-    root.querySelectorAll('input, button, select, textarea').forEach((element) => {
-      element.disabled = true;
-      element.setAttribute('tabindex', '-1');
-    });
+    root
+      .querySelectorAll('[onclick], [ondblclick], [onchange]')
+      .forEach((element) => {
+        element.removeAttribute('onclick');
+        element.removeAttribute('ondblclick');
+        element.removeAttribute('onchange');
+      });
+    root
+      .querySelectorAll('input, button, select, textarea')
+      .forEach((element) => {
+        element.disabled = true;
+        element.setAttribute('tabindex', '-1');
+      });
     return root;
   }
 
@@ -415,7 +446,10 @@
     element.style.height = `${rect.height}px`;
   }
 
-  function createFloatingPreview(sourceElement, rect = sourceElement?.getBoundingClientRect?.()) {
+  function createFloatingPreview(
+    sourceElement,
+    rect = sourceElement?.getBoundingClientRect?.()
+  ) {
     if (!(sourceElement instanceof HTMLElement) || !rect) {
       return null;
     }
@@ -433,15 +467,20 @@
   }
 
   function getChannelButtonInteractionModes() {
-    return window.CHANNEL_BUTTON_INTERACTION_MODES || {
-      push: 'push',
-      toggle: 'toggle',
-      trigger: 'trigger'
-    };
+    return (
+      window.CHANNEL_BUTTON_INTERACTION_MODES || {
+        push: 'push',
+        toggle: 'toggle',
+        trigger: 'trigger'
+      }
+    );
   }
 
   function getPreviewMappingLabel(channel) {
-    if (!isAdvancedModeEnabled() || typeof getFaderMappingLabel !== 'function') {
+    if (
+      !isAdvancedModeEnabled() ||
+      typeof getFaderMappingLabel !== 'function'
+    ) {
       return '';
     }
 
@@ -449,12 +488,14 @@
   }
 
   function renderPreviewButtonSlot(channel, button) {
-    const className = typeof window.getChannelButtonClassName === 'function'
-      ? window.getChannelButtonClassName(channel, button)
-      : `channel-side-button ${button.active ? 'active' : ''}`;
-    const bodyMarkup = typeof window.renderChannelButtonBodyMarkup === 'function'
-      ? window.renderChannelButtonBodyMarkup(channel, button)
-      : `
+    const className =
+      typeof window.getChannelButtonClassName === 'function'
+        ? window.getChannelButtonClassName(channel, button)
+        : `channel-side-button ${button.active ? 'active' : ''}`;
+    const bodyMarkup =
+      typeof window.renderChannelButtonBodyMarkup === 'function'
+        ? window.renderChannelButtonBodyMarkup(channel, button)
+        : `
         <span class="channel-button-face">
           <span class="channel-button-main">
             <span class="button-icon">${escapeHtml(button.icon)}</span>
@@ -476,21 +517,20 @@
 
   function renderPreviewButtons(channel) {
     const buttons = Array.isArray(channel?.buttons)
-      ? channel.buttons
-          .slice(0, 4)
-          .map((button) => (
-            editorState.editingChannelButtonId === button.id
-              ? {
+      ? channel.buttons.slice(0, 4).map((button) =>
+          editorState.editingChannelButtonId === button.id
+            ? {
                 ...button,
                 text: editorState.buttonTitleDraft || button.text
               }
-              : editorState.sidePanelButtonId === button.id && editorState.sidePanelButtonTitleDirty
-                ? {
+            : editorState.sidePanelButtonId === button.id &&
+                editorState.sidePanelButtonTitleDirty
+              ? {
                   ...button,
                   text: editorState.sidePanelButtonTitleDraft || button.text
                 }
-                : button
-          ))
+              : button
+        )
       : [];
 
     if (!buttons.length) {
@@ -507,7 +547,9 @@
   }
 
   function getPreviewButtonLayoutMode(channel) {
-    const buttons = Array.isArray(channel?.buttons) ? channel.buttons.slice(0, 4) : [];
+    const buttons = Array.isArray(channel?.buttons)
+      ? channel.buttons.slice(0, 4)
+      : [];
 
     if (buttons.length >= 3) {
       return 'side';
@@ -526,12 +568,21 @@
     }
 
     const targets = getChannelTargets(channel).map(resolveTargetDisplayEntry);
-    const requestedProcess = String(channel?.titleIconTargetProcess || '').trim();
-    return targets.find((target) => target.process === requestedProcess) || targets[0] || null;
+    const requestedProcess = String(
+      channel?.titleIconTargetProcess || ''
+    ).trim();
+    return (
+      targets.find((target) => target.process === requestedProcess) ||
+      targets[0] ||
+      null
+    );
   }
 
   function renderPreviewTitleMarkup(channel, title) {
-    if (channel?.icon && typeof window.renderChannelButtonIconMarkup === 'function') {
+    if (
+      channel?.icon &&
+      typeof window.renderChannelButtonIconMarkup === 'function'
+    ) {
       return `
         <span class="channel-title-inner has-icon">
           ${window.renderChannelButtonIconMarkup({ icon: channel.icon }, 'channel-title-icon')}
@@ -540,17 +591,17 @@
       `;
     }
 
-  const titleIconTarget = getPreviewTitleIconTarget(channel);
+    const titleIconTarget = getPreviewTitleIconTarget(channel);
 
-  if (!titleIconTarget) {
-    return `<span class="channel-title-text">${escapeHtml(title)}</span>`;
-  }
+    if (!titleIconTarget) {
+      return `<span class="channel-title-text">${escapeHtml(title)}</span>`;
+    }
 
-  if (!titleIconTarget.iconDataUrl) {
-    return `<span class="channel-title-text">${escapeHtml(title)}</span>`;
-  }
+    if (!titleIconTarget.iconDataUrl) {
+      return `<span class="channel-title-text">${escapeHtml(title)}</span>`;
+    }
 
-  return `
+    return `
     <span class="channel-title-inner has-icon">
         ${renderAppIconMarkup(titleIconTarget, 'channel-title-icon')}
         <span class="channel-title-text">${escapeHtml(title)}</span>
@@ -559,7 +610,9 @@
   }
 
   function capturePreviewLayoutTransition() {
-    const previewRoot = dom.previewMount?.querySelector('.entity-edit-preview-channel');
+    const previewRoot = dom.previewMount?.querySelector(
+      '.entity-edit-preview-channel'
+    );
     const previewMountRect = dom.previewMount?.getBoundingClientRect();
 
     if (!previewRoot || !previewMountRect) {
@@ -570,36 +623,40 @@
     const buttons = new Map();
     const parts = new Map();
 
-    previewRoot.querySelectorAll('[data-preview-button-id]').forEach((element) => {
-      const buttonId = String(element.dataset.previewButtonId || '').trim();
+    previewRoot
+      .querySelectorAll('[data-preview-button-id]')
+      .forEach((element) => {
+        const buttonId = String(element.dataset.previewButtonId || '').trim();
 
-      if (!buttonId) {
-        return;
-      }
+        if (!buttonId) {
+          return;
+        }
 
-      const rect = element.getBoundingClientRect();
-      buttons.set(buttonId, {
-        left: rect.left - previewMountRect.left,
-        top: rect.top - previewMountRect.top,
-        width: rect.width,
-        height: rect.height,
-        html: element.outerHTML
+        const rect = element.getBoundingClientRect();
+        buttons.set(buttonId, {
+          left: rect.left - previewMountRect.left,
+          top: rect.top - previewMountRect.top,
+          width: rect.width,
+          height: rect.height,
+          html: element.outerHTML
+        });
       });
-    });
 
-    previewRoot.querySelectorAll('[data-preview-layout-part]').forEach((element) => {
-      const partKey = String(element.dataset.previewLayoutPart || '').trim();
+    previewRoot
+      .querySelectorAll('[data-preview-layout-part]')
+      .forEach((element) => {
+        const partKey = String(element.dataset.previewLayoutPart || '').trim();
 
-      if (!partKey) {
-        return;
-      }
+        if (!partKey) {
+          return;
+        }
 
-      const rect = element.getBoundingClientRect();
-      parts.set(partKey, {
-        left: rect.left - previewMountRect.left,
-        top: rect.top - previewMountRect.top
+        const rect = element.getBoundingClientRect();
+        parts.set(partKey, {
+          left: rect.left - previewMountRect.left,
+          top: rect.top - previewMountRect.top
+        });
       });
-    });
 
     return {
       rootWidth: rootRect.width,
@@ -615,7 +672,9 @@
       editorState.previewLayoutCleanupTimerId = null;
     }
 
-    const previewRoot = dom.previewMount?.querySelector('.entity-edit-preview-channel');
+    const previewRoot = dom.previewMount?.querySelector(
+      '.entity-edit-preview-channel'
+    );
 
     if (!previewRoot) {
       return;
@@ -627,7 +686,9 @@
   }
 
   function playPreviewLayoutTransition(snapshot) {
-    const previewRoot = dom.previewMount?.querySelector('.entity-edit-preview-channel');
+    const previewRoot = dom.previewMount?.querySelector(
+      '.entity-edit-preview-channel'
+    );
     const previewMountRect = dom.previewMount?.getBoundingClientRect();
 
     if (!snapshot || !previewRoot || !previewMountRect) {
@@ -637,8 +698,10 @@
     cleanupPreviewLayoutTransitionStyles();
 
     const nextRootRect = previewRoot.getBoundingClientRect();
-    const rootWidthChanged = Math.abs(snapshot.rootWidth - nextRootRect.width) > 0.5;
-    const rootHeightChanged = Math.abs(snapshot.rootHeight - nextRootRect.height) > 0.5;
+    const rootWidthChanged =
+      Math.abs(snapshot.rootWidth - nextRootRect.width) > 0.5;
+    const rootHeightChanged =
+      Math.abs(snapshot.rootHeight - nextRootRect.height) > 0.5;
 
     if (rootWidthChanged || rootHeightChanged) {
       previewRoot.classList.add('is-layout-animating');
@@ -656,72 +719,87 @@
     }
 
     const nextButtons = new Map();
-    previewRoot.querySelectorAll('[data-preview-button-id]').forEach((element) => {
-      const buttonId = String(element.dataset.previewButtonId || '').trim();
+    previewRoot
+      .querySelectorAll('[data-preview-button-id]')
+      .forEach((element) => {
+        const buttonId = String(element.dataset.previewButtonId || '').trim();
 
-      if (!buttonId) {
-        return;
-      }
+        if (!buttonId) {
+          return;
+        }
 
-      nextButtons.set(buttonId, element);
-    });
+        nextButtons.set(buttonId, element);
+      });
 
     nextButtons.forEach((element, buttonId) => {
       const nextRect = element.getBoundingClientRect();
       const previousRect = snapshot.buttons.get(buttonId);
 
       if (!previousRect) {
-        element.animate([
-          { opacity: 0, transform: 'translateY(18px) scale(0.96)' },
-          { opacity: 1, transform: 'translateY(0) scale(1)' }
-        ], {
-          duration: 240,
-          easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
-          fill: 'both'
-        });
+        element.animate(
+          [
+            { opacity: 0, transform: 'translateY(18px) scale(0.96)' },
+            { opacity: 1, transform: 'translateY(0) scale(1)' }
+          ],
+          {
+            duration: 240,
+            easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
+            fill: 'both'
+          }
+        );
         return;
       }
 
-      const deltaX = previousRect.left - (nextRect.left - previewMountRect.left);
+      const deltaX =
+        previousRect.left - (nextRect.left - previewMountRect.left);
       const deltaY = previousRect.top - (nextRect.top - previewMountRect.top);
 
       if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
-        element.animate([
-          { transform: `translate(${deltaX}px, ${deltaY}px)` },
-          { transform: 'translate(0, 0)' }
-        ], {
-          duration: 260,
-          easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
-          fill: 'both'
-        });
+        element.animate(
+          [
+            { transform: `translate(${deltaX}px, ${deltaY}px)` },
+            { transform: 'translate(0, 0)' }
+          ],
+          {
+            duration: 260,
+            easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
+            fill: 'both'
+          }
+        );
       }
     });
 
-    previewRoot.querySelectorAll('[data-preview-layout-part]').forEach((element) => {
-      const partKey = String(element.dataset.previewLayoutPart || '').trim();
-      const previousRect = snapshot.parts?.get(partKey);
+    previewRoot
+      .querySelectorAll('[data-preview-layout-part]')
+      .forEach((element) => {
+        const partKey = String(element.dataset.previewLayoutPart || '').trim();
+        const previousRect = snapshot.parts?.get(partKey);
 
-      if (!partKey || !previousRect) {
-        return;
-      }
+        if (!partKey || !previousRect) {
+          return;
+        }
 
-      const nextRect = element.getBoundingClientRect();
-      const deltaX = previousRect.left - (nextRect.left - previewMountRect.left);
-      const deltaY = previousRect.top - (nextRect.top - previewMountRect.top);
+        const nextRect = element.getBoundingClientRect();
+        const deltaX =
+          previousRect.left - (nextRect.left - previewMountRect.left);
+        const deltaY = previousRect.top - (nextRect.top - previewMountRect.top);
 
-      if (Math.abs(deltaX) <= 0.5 && Math.abs(deltaY) <= 0.5) {
-        return;
-      }
+        if (Math.abs(deltaX) <= 0.5 && Math.abs(deltaY) <= 0.5) {
+          return;
+        }
 
-      element.animate([
-        { transform: `translate(${deltaX}px, ${deltaY}px)` },
-        { transform: 'translate(0, 0)' }
-      ], {
-        duration: 260,
-        easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
-        fill: 'both'
+        element.animate(
+          [
+            { transform: `translate(${deltaX}px, ${deltaY}px)` },
+            { transform: 'translate(0, 0)' }
+          ],
+          {
+            duration: 260,
+            easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
+            fill: 'both'
+          }
+        );
       });
-    });
 
     snapshot.buttons.forEach((previousRect, buttonId) => {
       if (nextButtons.has(buttonId)) {
@@ -737,14 +815,17 @@
       ghost.innerHTML = previousRect.html;
       dom.previewMount?.appendChild(ghost);
 
-      const ghostAnimation = ghost.animate([
-        { opacity: 1, transform: 'translateY(0) scale(1)' },
-        { opacity: 0, transform: 'translateY(-16px) scale(0.94)' }
-      ], {
-        duration: 220,
-        easing: 'ease',
-        fill: 'both'
-      });
+      const ghostAnimation = ghost.animate(
+        [
+          { opacity: 1, transform: 'translateY(0) scale(1)' },
+          { opacity: 0, transform: 'translateY(-16px) scale(0.94)' }
+        ],
+        {
+          duration: 220,
+          easing: 'ease',
+          fill: 'both'
+        }
+      );
 
       ghostAnimation.onfinish = () => {
         ghost.remove();
@@ -754,23 +835,35 @@
 
   function syncPreviewWithLayoutTransition(channel, renderPreviewFn) {
     const snapshot = capturePreviewLayoutTransition();
-    const previewRenderer = typeof renderPreviewFn === 'function'
-      ? renderPreviewFn
-      : () => syncPreviewFromChannel(channel);
+    const previewRenderer =
+      typeof renderPreviewFn === 'function'
+        ? renderPreviewFn
+        : () => syncPreviewFromChannel(channel);
 
     previewRenderer();
     playPreviewLayoutTransition(snapshot);
   }
 
   function renderFaderPreview(channel) {
-    const title = editorState.titleDraft || channel?.title || channel?.appName || t('channels.unnamed');
-    const outputVolume = typeof mapFaderPositionToVolume === 'function'
-      ? mapFaderPositionToVolume(channel.volume, getEditorChannelResolvedSettings(channel))
-      : channel.volume;
+    const title =
+      editorState.titleDraft ||
+      channel?.title ||
+      channel?.appName ||
+      t('channels.unnamed');
+    const outputVolume =
+      typeof mapFaderPositionToVolume === 'function'
+        ? mapFaderPositionToVolume(
+            channel.volume,
+            getEditorChannelResolvedSettings(channel)
+          )
+        : channel.volume;
     const mappingLabel = getPreviewMappingLabel(channel);
     const previewButtonsMarkup = renderPreviewButtons(channel);
     const buttonLayoutMode = getPreviewButtonLayoutMode(channel);
-    const valueText = formatVolumeValue(outputVolume, getEditorChannelResolvedSettings(channel));
+    const valueText = formatVolumeValue(
+      outputVolume,
+      getEditorChannelResolvedSettings(channel)
+    );
 
     return `
       <div class="channel-strip channel-strip--${buttonLayoutMode} entity-edit-preview-channel" data-preview-channel-id="${channel.id}">
@@ -788,24 +881,28 @@
                 </div>
               </div>
 
-              ${buttonLayoutMode === 'side'
-                ? ''
-                : `
+              ${
+                buttonLayoutMode === 'side'
+                  ? ''
+                  : `
                   <div class="channel-inline-footer" data-preview-layout-part="footer">
                     <div class="volume-value">${valueText}</div>
                     ${buttonLayoutMode === 'inline' ? previewButtonsMarkup : ''}
                   </div>
-                `}
+                `
+              }
             </div>
 
-            ${buttonLayoutMode === 'side'
-              ? `
+            ${
+              buttonLayoutMode === 'side'
+                ? `
                 <div class="channel-secondary-column" data-preview-layout-part="secondary">
                   ${previewButtonsMarkup}
                   <div class="volume-value">${valueText}</div>
                 </div>
               `
-              : ''}
+                : ''
+            }
           </div>
         </div>
       </div>
@@ -821,16 +918,18 @@
 
     const resolvedButton = editorState.titleDirty
       ? {
-        ...button,
-        text: editorState.titleDraft
-      }
+          ...button,
+          text: editorState.titleDraft
+        }
       : button;
-    const className = typeof window.getStandaloneButtonClassName === 'function'
-      ? window.getStandaloneButtonClassName(resolvedButton)
-      : `standalone-button ${resolvedButton.active ? 'active' : ''}`;
-    const bodyMarkup = typeof window.renderStandaloneButtonBodyMarkup === 'function'
-      ? window.renderStandaloneButtonBodyMarkup(resolvedButton)
-      : `
+    const className =
+      typeof window.getStandaloneButtonClassName === 'function'
+        ? window.getStandaloneButtonClassName(resolvedButton)
+        : `standalone-button ${resolvedButton.active ? 'active' : ''}`;
+    const bodyMarkup =
+      typeof window.renderStandaloneButtonBodyMarkup === 'function'
+        ? window.renderStandaloneButtonBodyMarkup(resolvedButton)
+        : `
         <span class="channel-button-face">
           <span class="channel-button-main">
             <span class="button-icon">${escapeHtml(resolvedButton.icon || 'BTN')}</span>
@@ -865,14 +964,20 @@
       return;
     }
 
-    const previewRoot = dom.previewMount.querySelector('.entity-edit-preview-channel');
+    const previewRoot = dom.previewMount.querySelector(
+      '.entity-edit-preview-channel'
+    );
 
     if (!previewRoot) {
       renderPreviewContent();
       return;
     }
 
-    const title = editorState.titleDraft || channel.title || channel.appName || t('channels.unnamed');
+    const title =
+      editorState.titleDraft ||
+      channel.title ||
+      channel.appName ||
+      t('channels.unnamed');
     const titleElement = previewRoot.querySelector('.channel-title');
     const metaElement = previewRoot.querySelector('.fader-meta');
     const track = previewRoot.querySelector('[data-preview-track]');
@@ -880,9 +985,13 @@
     const fill = track?.querySelector('.fader-fill');
     const value = previewRoot.querySelector('.volume-value');
     const mappingLabel = getPreviewMappingLabel(channel);
-    const outputVolume = typeof mapFaderPositionToVolume === 'function'
-      ? mapFaderPositionToVolume(channel.volume, getEditorChannelResolvedSettings(channel))
-      : channel.volume;
+    const outputVolume =
+      typeof mapFaderPositionToVolume === 'function'
+        ? mapFaderPositionToVolume(
+            channel.volume,
+            getEditorChannelResolvedSettings(channel)
+          )
+        : channel.volume;
 
     if (titleElement) {
       titleElement.innerHTML = renderPreviewTitleMarkup(channel, title);
@@ -902,11 +1011,16 @@
     }
 
     if (value) {
-      value.textContent = formatVolumeValue(outputVolume, getEditorChannelResolvedSettings(channel));
+      value.textContent = formatVolumeValue(
+        outputVolume,
+        getEditorChannelResolvedSettings(channel)
+      );
     }
   }
 
-  function syncPreviewFromButton(button = getEditorStandaloneButton(editorState.buttonId)) {
+  function syncPreviewFromButton(
+    button = getEditorStandaloneButton(editorState.buttonId)
+  ) {
     if (!button || !dom.previewMount) {
       return;
     }
@@ -970,7 +1084,10 @@
       return;
     }
 
-    const floatingPreview = createFloatingPreview(previewElement, previewElement.getBoundingClientRect());
+    const floatingPreview = createFloatingPreview(
+      previewElement,
+      previewElement.getBoundingClientRect()
+    );
 
     if (!floatingPreview) {
       setSourcePreviewState(false);
@@ -982,7 +1099,10 @@
 
     requestAnimationFrame(() => {
       floatingPreview.classList.add('is-animating');
-      setFloatingPreviewRect(floatingPreview, sourceElement.getBoundingClientRect());
+      setFloatingPreviewRect(
+        floatingPreview,
+        sourceElement.getBoundingClientRect()
+      );
     });
 
     editorState.previewTimerId = setTimeout(() => {
@@ -1113,7 +1233,9 @@
       getPreviewVolumeFromPointer(track, event.clientY)
     );
 
-    window.addEventListener('pointermove', handlePreviewDragMove, { passive: true });
+    window.addEventListener('pointermove', handlePreviewDragMove, {
+      passive: true
+    });
     window.addEventListener('pointerup', stopPreviewDrag);
     window.addEventListener('pointercancel', stopPreviewDrag);
   }
@@ -1133,7 +1255,9 @@
       : '';
 
     if (targetMode === (window.CHANNEL_TARGET_MODES?.devices || 'devices')) {
-      const deviceTargets = getChannelDeviceTargets(channel).map(resolveDeviceTargetDisplayEntry);
+      const deviceTargets = getChannelDeviceTargets(channel).map(
+        resolveDeviceTargetDisplayEntry
+      );
 
       if (!deviceTargets.length) {
         return `
@@ -1145,7 +1269,9 @@
 
       return `
         <div class="entity-edit-target-list">
-          ${deviceTargets.map((target) => `
+          ${deviceTargets
+            .map(
+              (target) => `
             <div class="entity-edit-target-chip" data-editor-device-target-chip="${escapeHtml(target.id)}">
               <span class="entity-edit-target-icon">${escapeHtml(target.flow === 'input' ? 'IN' : 'OUT')}</span>
               <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
@@ -1159,13 +1285,17 @@
                 <span>&times;</span>
               </button>
             </div>
-          `).join('')}
+          `
+            )
+            .join('')}
         </div>
       `;
     }
 
     if (targetMode === (window.CHANNEL_TARGET_MODES?.focus || 'focus')) {
-      const exclusions = getChannelFocusExclusions(channel).map(resolveTargetDisplayEntry);
+      const exclusions = getChannelFocusExclusions(channel).map(
+        resolveTargetDisplayEntry
+      );
 
       return `
         <div class="entity-edit-target-list">
@@ -1178,8 +1308,11 @@
                 : t('editor.focusExclusionsNone')
             )}</span>
           </div>
-          ${exclusions.length
-            ? exclusions.map((target) => `
+          ${
+            exclusions.length
+              ? exclusions
+                  .map(
+                    (target) => `
               <div class="entity-edit-target-chip ${target.iconDataUrl ? 'has-icon' : ''}" data-editor-focus-exclusion-chip="${escapeHtml(target.process)}">
                 ${renderAppIconMarkup(target, 'entity-edit-target-icon')}
                 <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
@@ -1192,14 +1325,19 @@
                   <span>&times;</span>
                 </button>
               </div>
-            `).join('')
-            : ''}
+            `
+                  )
+                  .join('')
+              : ''
+          }
         </div>
       `;
     }
 
     const targets = getChannelTargets(channel).map(resolveTargetDisplayEntry);
-    const deviceTargets = getChannelDeviceTargets(channel).map(resolveDeviceTargetDisplayEntry);
+    const deviceTargets = getChannelDeviceTargets(channel).map(
+      resolveDeviceTargetDisplayEntry
+    );
 
     if (!targets.length && !deviceTargets.length) {
       return `
@@ -1211,7 +1349,9 @@
 
     return `
       <div class="entity-edit-target-list">
-        ${targets.map((target) => `
+        ${targets
+          .map(
+            (target) => `
           <div class="entity-edit-target-chip ${target.iconDataUrl ? 'has-icon' : ''}" data-editor-target-chip="${escapeHtml(target.process)}">
             ${renderAppIconMarkup(target, 'entity-edit-target-icon')}
             <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
@@ -1236,8 +1376,12 @@
               <span>&times;</span>
             </button>
           </div>
-        `).join('')}
-        ${deviceTargets.map((target) => `
+        `
+          )
+          .join('')}
+        ${deviceTargets
+          .map(
+            (target) => `
           <div class="entity-edit-target-chip" data-editor-device-target-chip="${escapeHtml(target.id)}">
             <span class="entity-edit-target-label">${escapeHtml(target.name)}</span>
             <span class="entity-edit-target-inline-meta">${escapeHtml(target.flow === 'input' ? t('editor.deviceFlowInput') : t('editor.deviceFlowOutput'))}</span>
@@ -1250,7 +1394,9 @@
               <span>&times;</span>
             </button>
           </div>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
       `;
   }
@@ -1268,7 +1414,9 @@
 
     return `
       <div class="entity-edit-target-list">
-        ${targets.map((target) => `
+        ${targets
+          .map(
+            (target) => `
           <div
             class="entity-edit-target-chip entity-edit-target-chip--standalone ${target.iconDataUrl ? 'has-icon' : ''}"
             data-editor-target-chip="${escapeHtml(target.process)}">
@@ -1282,7 +1430,9 @@
               <span>&times;</span>
             </button>
           </div>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     `;
   }
@@ -1294,56 +1444,89 @@
       mute: t('editor.buttonActionMute'),
       solo: t('editor.buttonActionSolo'),
       'set-volume': t('editor.buttonActionSetVolume'),
-      'toggle-app-visibility': translateOrFallback('editor.buttonActionToggleAppVisibility', 'Open / hide app'),
+      'toggle-app-visibility': translateOrFallback(
+        'editor.buttonActionToggleAppVisibility',
+        'Open / hide app'
+      ),
       'send-key': t('editor.buttonActionSendKey'),
       'media-previous-track': t('editor.buttonActionMediaPrevious'),
       'media-next-track': t('editor.buttonActionMediaNext'),
       'media-play': t('editor.buttonActionMediaPlay'),
       'media-pause': t('editor.buttonActionMediaPause'),
       'media-play-pause': t('editor.buttonActionMediaPlayPause'),
-      'media-rewind': translateOrFallback('editor.buttonActionMediaRewind', 'Rewind'),
-      'media-fast-forward': translateOrFallback('editor.buttonActionMediaFastForward', 'Fast forward'),
-      'media-repeat': translateOrFallback('editor.buttonActionMediaRepeat', 'Repeat'),
-      'media-shuffle': translateOrFallback('editor.buttonActionMediaShuffle', 'Shuffle'),
-      'run-user-script': translateOrFallback('editor.buttonActionRunUserScript', 'Run user script'),
-      'launch-app': translateOrFallback('editor.buttonActionLaunchApp', 'Open / run app'),
-      'set-default-output-device': translateOrFallback('editor.buttonActionSetDefaultOutputDevice', 'Set default output device'),
-      'set-default-input-device': translateOrFallback('editor.buttonActionSetDefaultInputDevice', 'Set default input device')
+      'media-rewind': translateOrFallback(
+        'editor.buttonActionMediaRewind',
+        'Rewind'
+      ),
+      'media-fast-forward': translateOrFallback(
+        'editor.buttonActionMediaFastForward',
+        'Fast forward'
+      ),
+      'media-repeat': translateOrFallback(
+        'editor.buttonActionMediaRepeat',
+        'Repeat'
+      ),
+      'media-shuffle': translateOrFallback(
+        'editor.buttonActionMediaShuffle',
+        'Shuffle'
+      ),
+      'run-user-script': translateOrFallback(
+        'editor.buttonActionRunUserScript',
+        'Run user script'
+      ),
+      'launch-app': translateOrFallback(
+        'editor.buttonActionLaunchApp',
+        'Open / run app'
+      ),
+      'set-default-output-device': translateOrFallback(
+        'editor.buttonActionSetDefaultOutputDevice',
+        'Set default output device'
+      ),
+      'set-default-input-device': translateOrFallback(
+        'editor.buttonActionSetDefaultInputDevice',
+        'Set default input device'
+      )
     };
 
     return labels[actionType] || t('editor.buttonActionNone');
   }
 
   function getStandaloneButtonActionTypes() {
-    return window.CHANNEL_BUTTON_ACTION_TYPES || {
-      none: 'none',
-      mute: 'mute',
-      solo: 'solo',
-      setVolume: 'set-volume',
-      toggleAppVisibility: 'toggle-app-visibility',
-      sendKey: 'send-key',
-      mediaPreviousTrack: 'media-previous-track',
-      mediaNextTrack: 'media-next-track',
-      mediaPlay: 'media-play',
-      mediaPause: 'media-pause',
-      mediaPlayPause: 'media-play-pause',
-      mediaRewind: 'media-rewind',
-      mediaFastForward: 'media-fast-forward',
-      mediaRepeat: 'media-repeat',
-      mediaShuffle: 'media-shuffle',
-      runUserScript: 'run-user-script',
-      launchApp: 'launch-app',
-      setDefaultOutputDevice: 'set-default-output-device',
-      setDefaultInputDevice: 'set-default-input-device'
-    };
+    return (
+      window.CHANNEL_BUTTON_ACTION_TYPES || {
+        none: 'none',
+        mute: 'mute',
+        solo: 'solo',
+        setVolume: 'set-volume',
+        toggleAppVisibility: 'toggle-app-visibility',
+        sendKey: 'send-key',
+        mediaPreviousTrack: 'media-previous-track',
+        mediaNextTrack: 'media-next-track',
+        mediaPlay: 'media-play',
+        mediaPause: 'media-pause',
+        mediaPlayPause: 'media-play-pause',
+        mediaRewind: 'media-rewind',
+        mediaFastForward: 'media-fast-forward',
+        mediaRepeat: 'media-repeat',
+        mediaShuffle: 'media-shuffle',
+        runUserScript: 'run-user-script',
+        launchApp: 'launch-app',
+        setDefaultOutputDevice: 'set-default-output-device',
+        setDefaultInputDevice: 'set-default-input-device'
+      }
+    );
   }
 
   function isStandaloneButtonChannelActionType(actionType = '') {
-    return window.standaloneButtonActions?.isChannelActionType?.(actionType) || false;
+    return (
+      window.standaloneButtonActions?.isChannelActionType?.(actionType) || false
+    );
   }
 
   function isStandaloneButtonMediaActionType(actionType = '') {
-    return window.standaloneButtonActions?.isMediaActionType?.(actionType) || false;
+    return (
+      window.standaloneButtonActions?.isMediaActionType?.(actionType) || false
+    );
   }
 
   function getStandaloneButtonLinkedChannel(button = {}) {
@@ -1354,9 +1537,9 @@
     return (window.getChannelsState?.() || []).map((channel, index) => ({
       id: channel.id,
       label: String(
-        channel.title
-        || channel.appName
-        || t('channels.defaultTitle', { index: index + 1 })
+        channel.title ||
+          channel.appName ||
+          t('channels.defaultTitle', { index: index + 1 })
       ).trim()
     }));
   }
@@ -1366,19 +1549,24 @@
       id: channel.id,
       isOwner: Number(ownerChannelId) === Number(channel.id),
       label: String(
-        channel.title
-        || channel.appName
-        || t('channels.defaultTitle', { index: index + 1 })
+        channel.title ||
+          channel.appName ||
+          t('channels.defaultTitle', { index: index + 1 })
       ).trim()
     }));
   }
 
-  function resolveDefaultButtonLinkedChannelId(button = {}, ownerChannelId = null) {
+  function resolveDefaultButtonLinkedChannelId(
+    button = {},
+    ownerChannelId = null
+  ) {
     const currentLinkedChannelId = Number(button?.linkedChannelId);
     const channelOptions = getButtonTargetChannelOptions(ownerChannelId);
 
     if (Number.isFinite(currentLinkedChannelId)) {
-      const matchedOption = channelOptions.find((channelOption) => channelOption.id === currentLinkedChannelId);
+      const matchedOption = channelOptions.find(
+        (channelOption) => channelOption.id === currentLinkedChannelId
+      );
 
       if (matchedOption) {
         return matchedOption.id;
@@ -1394,10 +1582,25 @@
 
   function getEditorButtonActionGroups() {
     return [
-      { value: 'none', label: translateOrFallback('editor.buttonActionGroupNone', 'None') },
-      { value: 'faders', label: translateOrFallback('editor.buttonActionGroupFaders', 'Faders') },
-      { value: 'multimedia', label: translateOrFallback('editor.buttonActionGroupMedia', 'Multimedia') },
-      { value: 'system', label: translateOrFallback('editor.buttonActionGroupSystem', 'System') }
+      {
+        value: 'none',
+        label: translateOrFallback('editor.buttonActionGroupNone', 'None')
+      },
+      {
+        value: 'faders',
+        label: translateOrFallback('editor.buttonActionGroupFaders', 'Faders')
+      },
+      {
+        value: 'multimedia',
+        label: translateOrFallback(
+          'editor.buttonActionGroupMedia',
+          'Multimedia'
+        )
+      },
+      {
+        value: 'system',
+        label: translateOrFallback('editor.buttonActionGroupSystem', 'System')
+      }
     ];
   }
 
@@ -1409,36 +1612,42 @@
       return 'none';
     }
 
-    if ([
-      actionTypes.mute,
-      actionTypes.solo,
-      actionTypes.setVolume,
-      actionTypes.toggleAppVisibility
-    ].includes(normalizedActionType)) {
+    if (
+      [
+        actionTypes.mute,
+        actionTypes.solo,
+        actionTypes.setVolume,
+        actionTypes.toggleAppVisibility
+      ].includes(normalizedActionType)
+    ) {
       return 'faders';
     }
 
-    if ([
-      actionTypes.mediaPreviousTrack,
-      actionTypes.mediaNextTrack,
-      actionTypes.mediaPlay,
-      actionTypes.mediaPause,
-      actionTypes.mediaPlayPause,
-      actionTypes.mediaRewind,
-      actionTypes.mediaFastForward,
-      actionTypes.mediaRepeat,
-      actionTypes.mediaShuffle
-    ].includes(normalizedActionType)) {
+    if (
+      [
+        actionTypes.mediaPreviousTrack,
+        actionTypes.mediaNextTrack,
+        actionTypes.mediaPlay,
+        actionTypes.mediaPause,
+        actionTypes.mediaPlayPause,
+        actionTypes.mediaRewind,
+        actionTypes.mediaFastForward,
+        actionTypes.mediaRepeat,
+        actionTypes.mediaShuffle
+      ].includes(normalizedActionType)
+    ) {
       return 'multimedia';
     }
 
-    if ([
-      actionTypes.runUserScript,
-      actionTypes.launchApp,
-      actionTypes.sendKey,
-      actionTypes.setDefaultOutputDevice,
-      actionTypes.setDefaultInputDevice
-    ].includes(normalizedActionType)) {
+    if (
+      [
+        actionTypes.runUserScript,
+        actionTypes.launchApp,
+        actionTypes.sendKey,
+        actionTypes.setDefaultOutputDevice,
+        actionTypes.setDefaultInputDevice
+      ].includes(normalizedActionType)
+    ) {
       return 'system';
     }
 
@@ -1450,48 +1659,137 @@
 
     if (group === 'none') {
       return [
-        { value: actionTypes.none, label: translateOrFallback('editor.buttonActionNone', 'No action') }
+        {
+          value: actionTypes.none,
+          label: translateOrFallback('editor.buttonActionNone', 'No action')
+        }
       ];
     }
 
     if (group === 'multimedia') {
       return [
-        { value: actionTypes.mediaPlayPause, label: translateOrFallback('editor.buttonActionMediaPlayPause', 'Play / pause') },
-        { value: actionTypes.mediaNextTrack, label: translateOrFallback('editor.buttonActionMediaNext', 'Next track') },
-        { value: actionTypes.mediaPreviousTrack, label: translateOrFallback('editor.buttonActionMediaPrevious', 'Previous track') },
-        { value: actionTypes.mediaRewind, label: translateOrFallback('editor.buttonActionMediaRewind', 'Rewind') },
-        { value: actionTypes.mediaFastForward, label: translateOrFallback('editor.buttonActionMediaFastForward', 'Fast forward') },
-        { value: actionTypes.mediaRepeat, label: translateOrFallback('editor.buttonActionMediaRepeat', 'Repeat') },
-        { value: actionTypes.mediaShuffle, label: translateOrFallback('editor.buttonActionMediaShuffle', 'Shuffle') },
-        { value: actionTypes.mediaPlay, label: translateOrFallback('editor.buttonActionMediaPlay', 'Play') },
-        { value: actionTypes.mediaPause, label: translateOrFallback('editor.buttonActionMediaPause', 'Pause') }
+        {
+          value: actionTypes.mediaPlayPause,
+          label: translateOrFallback(
+            'editor.buttonActionMediaPlayPause',
+            'Play / pause'
+          )
+        },
+        {
+          value: actionTypes.mediaNextTrack,
+          label: translateOrFallback(
+            'editor.buttonActionMediaNext',
+            'Next track'
+          )
+        },
+        {
+          value: actionTypes.mediaPreviousTrack,
+          label: translateOrFallback(
+            'editor.buttonActionMediaPrevious',
+            'Previous track'
+          )
+        },
+        {
+          value: actionTypes.mediaRewind,
+          label: translateOrFallback('editor.buttonActionMediaRewind', 'Rewind')
+        },
+        {
+          value: actionTypes.mediaFastForward,
+          label: translateOrFallback(
+            'editor.buttonActionMediaFastForward',
+            'Fast forward'
+          )
+        },
+        {
+          value: actionTypes.mediaRepeat,
+          label: translateOrFallback('editor.buttonActionMediaRepeat', 'Repeat')
+        },
+        {
+          value: actionTypes.mediaShuffle,
+          label: translateOrFallback(
+            'editor.buttonActionMediaShuffle',
+            'Shuffle'
+          )
+        },
+        {
+          value: actionTypes.mediaPlay,
+          label: translateOrFallback('editor.buttonActionMediaPlay', 'Play')
+        },
+        {
+          value: actionTypes.mediaPause,
+          label: translateOrFallback('editor.buttonActionMediaPause', 'Pause')
+        }
       ];
     }
 
     if (group === 'system') {
       return [
-        { value: actionTypes.runUserScript, label: translateOrFallback('editor.buttonActionRunUserScript', 'Run user script') },
-        { value: actionTypes.launchApp, label: translateOrFallback('editor.buttonActionLaunchApp', 'Open / run app') },
-        { value: actionTypes.sendKey, label: translateOrFallback('editor.buttonActionSendKey', 'Send key') },
-        { value: actionTypes.setDefaultOutputDevice, label: translateOrFallback('editor.buttonActionSetDefaultOutputDevice', 'Set default output device') },
-        { value: actionTypes.setDefaultInputDevice, label: translateOrFallback('editor.buttonActionSetDefaultInputDevice', 'Set default input device') }
+        {
+          value: actionTypes.runUserScript,
+          label: translateOrFallback(
+            'editor.buttonActionRunUserScript',
+            'Run user script'
+          )
+        },
+        {
+          value: actionTypes.launchApp,
+          label: translateOrFallback(
+            'editor.buttonActionLaunchApp',
+            'Open / run app'
+          )
+        },
+        {
+          value: actionTypes.sendKey,
+          label: translateOrFallback('editor.buttonActionSendKey', 'Send key')
+        },
+        {
+          value: actionTypes.setDefaultOutputDevice,
+          label: translateOrFallback(
+            'editor.buttonActionSetDefaultOutputDevice',
+            'Set default output device'
+          )
+        },
+        {
+          value: actionTypes.setDefaultInputDevice,
+          label: translateOrFallback(
+            'editor.buttonActionSetDefaultInputDevice',
+            'Set default input device'
+          )
+        }
       ];
     }
 
     return [
-      { value: actionTypes.mute, label: translateOrFallback('editor.buttonActionMute', 'Mute') },
-      { value: actionTypes.solo, label: translateOrFallback('editor.buttonActionSolo', 'Solo') },
-      { value: actionTypes.setVolume, label: translateOrFallback('editor.buttonActionSetVolume', 'Set volume') },
-      { value: actionTypes.toggleAppVisibility, label: translateOrFallback('editor.buttonActionToggleAppVisibility', 'Open / hide app') }
+      {
+        value: actionTypes.mute,
+        label: translateOrFallback('editor.buttonActionMute', 'Mute')
+      },
+      {
+        value: actionTypes.solo,
+        label: translateOrFallback('editor.buttonActionSolo', 'Solo')
+      },
+      {
+        value: actionTypes.setVolume,
+        label: translateOrFallback('editor.buttonActionSetVolume', 'Set volume')
+      },
+      {
+        value: actionTypes.toggleAppVisibility,
+        label: translateOrFallback(
+          'editor.buttonActionToggleAppVisibility',
+          'Open / hide app'
+        )
+      }
     ];
   }
 
   function getChannelButtonIndicatorBehaviors() {
-    return window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
-      actionState: 'action-state',
-      peakMeter: 'peak-meter',
-      targetActivity: 'target-activity'
-    };
+    return (
+      window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
+        actionState: 'action-state',
+        peakMeter: 'peak-meter',
+        targetActivity: 'target-activity'
+      }
+    );
   }
 
   function getButtonIndicatorThresholdBounds() {
@@ -1507,7 +1805,10 @@
     const numericValue = Number(value);
     return Math.max(
       bounds.min,
-      Math.min(bounds.max, Number.isFinite(numericValue) ? numericValue : bounds.fallback)
+      Math.min(
+        bounds.max,
+        Number.isFinite(numericValue) ? numericValue : bounds.fallback
+      )
     );
   }
 
@@ -1523,7 +1824,10 @@
       return bounds.min;
     }
 
-    return Math.max(bounds.min, Math.min(bounds.max, 20 * Math.log10(normalizedLevel)));
+    return Math.max(
+      bounds.min,
+      Math.min(bounds.max, 20 * Math.log10(normalizedLevel))
+    );
   }
 
   function getEditorButtonLivePeakSnapshot(button = {}, options = {}) {
@@ -1535,12 +1839,20 @@
     const runtimeState = Number.isFinite(channelId)
       ? window.getChannelButtonState?.(channelId, button?.id)
       : window.getStandaloneButtonState?.(button?.id);
-    const rawMeterLevel = Math.max(0, Math.min(1, Number(runtimeState?.rawMeterLevel) || 0));
+    const rawMeterLevel = Math.max(
+      0,
+      Math.min(1, Number(runtimeState?.rawMeterLevel) || 0)
+    );
     const rawMeterDb = Number.isFinite(Number(runtimeState?.rawMeterDb))
-      ? Math.max(bounds.min, Math.min(bounds.max, Number(runtimeState.rawMeterDb)))
+      ? Math.max(
+          bounds.min,
+          Math.min(bounds.max, Number(runtimeState.rawMeterDb))
+        )
       : convertButtonMeterLevelToDb(rawMeterLevel);
-    const levelPercent = ((rawMeterDb - bounds.min) / (bounds.max - bounds.min)) * 100;
-    const thresholdPercent = ((thresholdDb - bounds.min) / (bounds.max - bounds.min)) * 100;
+    const levelPercent =
+      ((rawMeterDb - bounds.min) / (bounds.max - bounds.min)) * 100;
+    const thresholdPercent =
+      ((thresholdDb - bounds.min) / (bounds.max - bounds.min)) * 100;
 
     return {
       rawMeterLevel,
@@ -1553,7 +1865,9 @@
 
   function renderButtonIndicatorLiveMeter(button = {}, options = {}) {
     const snapshot = getEditorButtonLivePeakSnapshot(button, options);
-    const channelId = Number.isFinite(Number(options?.channelId)) ? Number(options.channelId) : null;
+    const channelId = Number.isFinite(Number(options?.channelId))
+      ? Number(options.channelId)
+      : null;
     const bounds = getButtonIndicatorThresholdBounds();
 
     return `
@@ -1583,13 +1897,22 @@
   }
 
   function updateEntityEditorLivePeakMeters() {
-    const meterRoots = dom.modal?.querySelectorAll?.('[data-editor-button-live-meter]')
-      || document.querySelectorAll('[data-editor-button-live-meter]');
+    const meterRoots =
+      dom.modal?.querySelectorAll?.('[data-editor-button-live-meter]') ||
+      document.querySelectorAll('[data-editor-button-live-meter]');
 
     meterRoots.forEach((meterRoot) => {
-      const buttonId = Number.parseInt(meterRoot.dataset.editorButtonId || '', 10);
-      const channelId = Number.parseInt(meterRoot.dataset.editorChannelId || '', 10);
-      const thresholdDb = clampButtonIndicatorThreshold(meterRoot.dataset.editorButtonThreshold);
+      const buttonId = Number.parseInt(
+        meterRoot.dataset.editorButtonId || '',
+        10
+      );
+      const channelId = Number.parseInt(
+        meterRoot.dataset.editorChannelId || '',
+        10
+      );
+      const thresholdDb = clampButtonIndicatorThreshold(
+        meterRoot.dataset.editorButtonThreshold
+      );
 
       if (!Number.isFinite(buttonId)) {
         return;
@@ -1602,9 +1925,15 @@
           thresholdDb
         }
       );
-      const fill = meterRoot.querySelector('[data-editor-button-live-meter-fill]');
-      const threshold = meterRoot.querySelector('[data-editor-button-live-meter-threshold]');
-      const value = meterRoot.querySelector('[data-editor-button-live-meter-value]');
+      const fill = meterRoot.querySelector(
+        '[data-editor-button-live-meter-fill]'
+      );
+      const threshold = meterRoot.querySelector(
+        '[data-editor-button-live-meter-threshold]'
+      );
+      const value = meterRoot.querySelector(
+        '[data-editor-button-live-meter-value]'
+      );
 
       if (fill) {
         fill.style.transform = `scaleX(${snapshot.levelPercent / 100})`;
@@ -1652,7 +1981,10 @@
     editorRuntimeSync.initialized = true;
   }
 
-  function getDefaultIconForButtonActionType(actionType = '', fallbackIcon = 'square') {
+  function getDefaultIconForButtonActionType(
+    actionType = '',
+    fallbackIcon = 'square'
+  ) {
     const actionTypes = getStandaloneButtonActionTypes();
     const normalizedActionType = String(actionType || '').trim();
 
@@ -1735,28 +2067,44 @@
     return fallbackIcon;
   }
 
-  function renderEditorButtonSelect(label, value, options = [], attrs = '', placeholder = '') {
+  function renderEditorButtonSelect(
+    label,
+    value,
+    options = [],
+    attrs = '',
+    placeholder = ''
+  ) {
     const normalizedValue = String(value ?? '');
     const resolvedAttrs = String(attrs || '').trim();
-    const includePlaceholder = placeholder && !options.some((option) => String(option.value) === normalizedValue);
+    const includePlaceholder =
+      placeholder &&
+      !options.some((option) => String(option.value) === normalizedValue);
 
     return `
       <label class="entity-edit-button-select-field">
-        ${label
-          ? `<span class="entity-edit-button-side-subsection-label">${escapeHtml(label)}</span>`
-          : ''}
+        ${
+          label
+            ? `<span class="entity-edit-button-side-subsection-label">${escapeHtml(label)}</span>`
+            : ''
+        }
         <span class="entity-edit-button-select-shell">
           <select class="entity-edit-button-select app-selector" ${resolvedAttrs}>
-            ${includePlaceholder
-              ? `<option value="">${escapeHtml(placeholder)}</option>`
-              : ''}
-            ${options.map((option) => `
+            ${
+              includePlaceholder
+                ? `<option value="">${escapeHtml(placeholder)}</option>`
+                : ''
+            }
+            ${options
+              .map(
+                (option) => `
               <option
                 value="${escapeHtml(option.value)}"
                 ${String(option.value) === normalizedValue ? 'selected' : ''}>
                 ${escapeHtml(option.label)}
               </option>
-            `).join('')}
+            `
+              )
+              .join('')}
           </select>
         </span>
       </label>
@@ -1766,20 +2114,19 @@
   function ensureEditorAudioDevicesLoaded(flow = 'output', options = {}) {
     const normalizedFlow = flow === 'input' ? 'input' : 'output';
     const targeting = window.channelTargeting || null;
-    const api = typeof window.getApi === 'function'
-      ? window.getApi()
-      : (window.getNativeApi?.() ?? null);
+    const api =
+      typeof window.getApi === 'function'
+        ? window.getApi()
+        : (window.getNativeApi?.() ?? null);
 
     if (!targeting?.listAudioDevices && !api?.list_audio_devices) {
       return Promise.resolve([]);
     }
 
     if (
-      !options.force
-      && (
-        editorState.audioDeviceLoading[normalizedFlow]
-        || editorState.audioDeviceOptions[normalizedFlow].length
-      )
+      !options.force &&
+      (editorState.audioDeviceLoading[normalizedFlow] ||
+        editorState.audioDeviceOptions[normalizedFlow].length)
     ) {
       return Promise.resolve(editorState.audioDeviceOptions[normalizedFlow]);
     }
@@ -1788,21 +2135,26 @@
     editorState.audioDeviceErrors[normalizedFlow] = '';
 
     const loader = targeting?.listAudioDevices
-      ? targeting.listAudioDevices(normalizedFlow, { force: Boolean(options?.force) })
+      ? targeting.listAudioDevices(normalizedFlow, {
+          force: Boolean(options?.force)
+        })
       : api.list_audio_devices(normalizedFlow);
 
     return Promise.resolve(loader)
       .then((response) => {
         const devices = Array.isArray(response)
           ? response
-          : (Array.isArray(response?.devices) ? response.devices : []);
+          : Array.isArray(response?.devices)
+            ? response.devices
+            : [];
 
         editorState.audioDeviceOptions[normalizedFlow] = devices;
         return editorState.audioDeviceOptions[normalizedFlow];
       })
       .catch((error) => {
         editorState.audioDeviceOptions[normalizedFlow] = [];
-        editorState.audioDeviceErrors[normalizedFlow] = error?.message || 'Failed to load audio devices.';
+        editorState.audioDeviceErrors[normalizedFlow] =
+          error?.message || 'Failed to load audio devices.';
         console.error('list_audio_devices error', error);
         return [];
       })
@@ -1826,7 +2178,10 @@
       `;
     }
 
-    const linkedChannelId = resolveDefaultButtonLinkedChannelId(button, ownerChannelId);
+    const linkedChannelId = resolveDefaultButtonLinkedChannelId(
+      button,
+      ownerChannelId
+    );
 
     return renderEditorButtonSelect(
       translateOrFallback('editor.buttonLinkedFader', 'Fader'),
@@ -1839,7 +2194,13 @@
     );
   }
 
-  function renderButtonFileField(label, value, fieldName, pickMode, placeholder) {
+  function renderButtonFileField(
+    label,
+    value,
+    fieldName,
+    pickMode,
+    placeholder
+  ) {
     return `
       <div class="entity-edit-button-main-subsection">
         <div class="entity-edit-button-side-subsection-label">${escapeHtml(label)}</div>
@@ -1864,11 +2225,15 @@
 
   function renderButtonAudioDeviceField(button = {}, flow = 'output') {
     const normalizedFlow = flow === 'input' ? 'input' : 'output';
-    const devices = Array.isArray(editorState.audioDeviceOptions[normalizedFlow])
+    const devices = Array.isArray(
+      editorState.audioDeviceOptions[normalizedFlow]
+    )
       ? editorState.audioDeviceOptions[normalizedFlow]
       : [];
     const isLoading = Boolean(editorState.audioDeviceLoading[normalizedFlow]);
-    const errorMessage = String(editorState.audioDeviceErrors[normalizedFlow] || '').trim();
+    const errorMessage = String(
+      editorState.audioDeviceErrors[normalizedFlow] || ''
+    ).trim();
 
     if (!devices.length && !isLoading && !errorMessage) {
       void ensureEditorAudioDevicesLoaded(normalizedFlow);
@@ -1878,8 +2243,14 @@
       <div class="entity-edit-button-main-subsection">
         ${renderEditorButtonSelect(
           normalizedFlow === 'output'
-            ? translateOrFallback('editor.buttonActionSetDefaultOutputDevice', 'Set default output device')
-            : translateOrFallback('editor.buttonActionSetDefaultInputDevice', 'Set default input device'),
+            ? translateOrFallback(
+                'editor.buttonActionSetDefaultOutputDevice',
+                'Set default output device'
+              )
+            : translateOrFallback(
+                'editor.buttonActionSetDefaultInputDevice',
+                'Set default input device'
+              ),
           button?.deviceId || '',
           devices.map((device) => ({
             value: device.id,
@@ -1888,7 +2259,9 @@
           `data-editor-button-device-select="${normalizedFlow}" ${isLoading ? `data-dropdown-loading="true" data-dropdown-status-label="${escapeHtml(translateOrFallback('editor.loading', 'Loading'))}"` : ''}`,
           isLoading
             ? 'Loading devices...'
-            : (normalizedFlow === 'output' ? 'Choose output device' : 'Choose input device')
+            : normalizedFlow === 'output'
+              ? 'Choose output device'
+              : 'Choose input device'
         )}
         <div class="entity-edit-button-inline-actions">
           <button
@@ -1897,9 +2270,11 @@
             data-editor-button-refresh-devices="${normalizedFlow}">
             ${translateOrFallback('editor.refresh', 'Refresh')}
           </button>
-          ${errorMessage
-            ? `<span class="entity-edit-button-inline-note">${escapeHtml(errorMessage)}</span>`
-            : ''}
+          ${
+            errorMessage
+              ? `<span class="entity-edit-button-inline-note">${escapeHtml(errorMessage)}</span>`
+              : ''
+          }
         </div>
       </div>
     `;
@@ -1912,19 +2287,21 @@
       : null;
 
     if (
-      button?.actionType === actionTypes.mute
-      || button?.actionType === actionTypes.solo
-      || button?.actionType === actionTypes.setVolume
-      || button?.actionType === actionTypes.toggleAppVisibility
+      button?.actionType === actionTypes.mute ||
+      button?.actionType === actionTypes.solo ||
+      button?.actionType === actionTypes.setVolume ||
+      button?.actionType === actionTypes.toggleAppVisibility
     ) {
-      const linkedChannelField = ownerChannelId == null
-        ? renderButtonLinkedChannelField(button, ownerChannelId)
-        : '';
+      const linkedChannelField =
+        ownerChannelId == null
+          ? renderButtonLinkedChannelField(button, ownerChannelId)
+          : '';
 
       return `
         ${linkedChannelField}
-        ${button?.actionType === actionTypes.setVolume
-          ? `
+        ${
+          button?.actionType === actionTypes.setVolume
+            ? `
             <div class="entity-edit-button-main-subsection">
               <div class="entity-edit-button-side-subsection-label">${escapeHtml(translateOrFallback('editor.buttonSetVolumeValue', 'Volume'))}</div>
               <div class="settings-range-row entity-edit-button-side-range-row">
@@ -1940,7 +2317,8 @@
               </div>
             </div>
           `
-          : ''}
+            : ''
+        }
       `;
     }
 
@@ -1950,7 +2328,10 @@
 
     if (button?.actionType === actionTypes.runUserScript) {
       return renderButtonFileField(
-        translateOrFallback('editor.buttonActionRunUserScript', 'Run user script'),
+        translateOrFallback(
+          'editor.buttonActionRunUserScript',
+          'Run user script'
+        ),
         button?.scriptPath || '',
         'scriptPath',
         'script',
@@ -1985,7 +2366,9 @@
 
   function renderButtonModeAndGroupRow(button = {}, options = {}) {
     const interactionModes = getChannelButtonInteractionModes();
-    const resolvedActionMode = Object.values(interactionModes).includes(button?.actionMode)
+    const resolvedActionMode = Object.values(interactionModes).includes(
+      button?.actionMode
+    )
       ? button.actionMode
       : interactionModes.trigger;
     const actionGroup = getEditorButtonActionGroup(button?.actionType);
@@ -1996,8 +2379,14 @@
         <div class="entity-edit-button-action-mode-shell">
           ${renderButtonChoiceRail('action-mode', resolvedActionMode, [
             { value: interactionModes.push, label: t('editor.buttonModePush') },
-            { value: interactionModes.toggle, label: t('editor.buttonModeToggle') },
-            { value: interactionModes.trigger, label: t('editor.buttonModeTrigger') }
+            {
+              value: interactionModes.toggle,
+              label: t('editor.buttonModeToggle')
+            },
+            {
+              value: interactionModes.trigger,
+              label: t('editor.buttonModeTrigger')
+            }
           ])}
         </div>
         <div class="entity-edit-button-group-shell">
@@ -2021,7 +2410,9 @@
 
     const actionGroup = getEditorButtonActionGroup(button?.actionType);
     const actionOptions = getEditorButtonActionOptions(actionGroup);
-    const resolvedActionType = actionOptions.some((option) => String(option.value) === String(button?.actionType || ''))
+    const resolvedActionType = actionOptions.some(
+      (option) => String(option.value) === String(button?.actionType || '')
+    )
       ? String(button.actionType)
       : '';
 
@@ -2047,11 +2438,15 @@
 
   function renderButtonIndicatorBehaviorCard(button = {}, options = {}) {
     const indicatorBehaviors = getChannelButtonIndicatorBehaviors();
-    const resolvedIndicatorBehavior = Object.values(indicatorBehaviors).includes(button?.indicatorBehavior)
+    const resolvedIndicatorBehavior = Object.values(
+      indicatorBehaviors
+    ).includes(button?.indicatorBehavior)
       ? button.indicatorBehavior
       : indicatorBehaviors.actionState;
     const thresholdBounds = getButtonIndicatorThresholdBounds();
-    const indicatorThreshold = clampButtonIndicatorThreshold(button?.indicatorThreshold);
+    const indicatorThreshold = clampButtonIndicatorThreshold(
+      button?.indicatorThreshold
+    );
 
     return `
       <div class="entity-edit-button-side-card entity-edit-button-settings-card entity-edit-button-settings-card--indicator">
@@ -2060,27 +2455,45 @@
         </div>
 
         <div class="entity-edit-button-side-card-body" data-editor-card-body="indicator">
-          ${renderButtonChoiceRail('indicator-behavior', resolvedIndicatorBehavior, [
+          ${renderButtonChoiceRail(
+            'indicator-behavior',
+            resolvedIndicatorBehavior,
+            [
+              {
+                value: indicatorBehaviors.actionState,
+                label: translateOrFallback(
+                  'editor.buttonIndicatorBehaviorActionState',
+                  'Action state'
+                )
+              },
+              {
+                value: indicatorBehaviors.peakMeter,
+                label: translateOrFallback(
+                  'editor.buttonIndicatorBehaviorPeakMeter',
+                  'Peak meter'
+                )
+              },
+              {
+                value: indicatorBehaviors.targetActivity,
+                label: translateOrFallback(
+                  'editor.buttonIndicatorBehaviorTargetActivity',
+                  'Target activity'
+                )
+              }
+            ],
             {
-              value: indicatorBehaviors.actionState,
-              label: translateOrFallback('editor.buttonIndicatorBehaviorActionState', 'Action state')
-            },
-            {
-              value: indicatorBehaviors.peakMeter,
-              label: translateOrFallback('editor.buttonIndicatorBehaviorPeakMeter', 'Peak meter')
-            },
-            {
-              value: indicatorBehaviors.targetActivity,
-              label: translateOrFallback('editor.buttonIndicatorBehaviorTargetActivity', 'Target activity')
+              className: 'entity-edit-choice-rail--compact'
             }
-          ], {
-            className: 'entity-edit-choice-rail--compact'
-          })}
-          ${resolvedIndicatorBehavior === indicatorBehaviors.peakMeter
-            ? `
+          )}
+          ${
+            resolvedIndicatorBehavior === indicatorBehaviors.peakMeter
+              ? `
               <div class="entity-edit-button-main-subsection">
                 <div class="entity-edit-button-side-subsection-label">${escapeHtml(
-                  translateOrFallback('editor.buttonIndicatorPeakThreshold', 'Peak threshold (dB)')
+                  translateOrFallback(
+                    'editor.buttonIndicatorPeakThreshold',
+                    'Peak threshold (dB)'
+                  )
                 )}</div>
                 <div class="settings-range-row entity-edit-button-side-range-row">
                   <input
@@ -2096,24 +2509,31 @@
                 ${renderButtonIndicatorLiveMeter(button, options)}
               </div>
             `
-            : ''}
+              : ''
+          }
         </div>
       </div>
     `;
   }
 
   function renderStandaloneButtonSettingsSummary(button) {
-    const midiLabel = window.midiService?.getButtonMappingLabel?.(button?.midiMapping)
-      || t('editor.buttonMidiUnbound');
+    const midiLabel =
+      window.midiService?.getButtonMappingLabel?.(button?.midiMapping) ||
+      t('editor.buttonMidiUnbound');
 
     return `
       <button
         class="entity-edit-target-chip entity-edit-target-chip--button-panel"
         type="button"
         data-editor-open-standalone-button-panel="${button.id}">
-        ${typeof window.renderChannelButtonIconMarkup === 'function'
-          ? window.renderChannelButtonIconMarkup(button, 'entity-edit-target-icon')
-          : `<span class="entity-edit-target-icon">${escapeHtml(button.icon || 'BTN')}</span>`}
+        ${
+          typeof window.renderChannelButtonIconMarkup === 'function'
+            ? window.renderChannelButtonIconMarkup(
+                button,
+                'entity-edit-target-icon'
+              )
+            : `<span class="entity-edit-target-icon">${escapeHtml(button.icon || 'BTN')}</span>`
+        }
         <span class="entity-edit-target-label">${escapeHtml(getEditorButtonActionLabel(button))}</span>
         <span class="entity-edit-target-inline-meta">${escapeHtml(midiLabel)}</span>
         <span class="entity-edit-target-inline-arrow" aria-hidden="true">&gt;</span>
@@ -2122,10 +2542,13 @@
   }
 
   function renderEditorChannelButtons(channel) {
-    const buttons = Array.isArray(channel?.buttons) ? channel.buttons.slice(0, 4) : [];
+    const buttons = Array.isArray(channel?.buttons)
+      ? channel.buttons.slice(0, 4)
+      : [];
     const editingButtonId = editorState.editingChannelButtonId;
-    const addButtonRowMarkup = buttons.length < 4
-      ? `
+    const addButtonRowMarkup =
+      buttons.length < 4
+        ? `
         <button
           class="entity-edit-target-placeholder entity-edit-channel-button-placeholder entity-edit-channel-button-add-row"
           data-editor-channel-button-add-row
@@ -2134,7 +2557,7 @@
           ${t('editor.addChannelButton')}
         </button>
       `
-      : '';
+        : '';
 
     if (!buttons.length) {
       return addButtonRowMarkup;
@@ -2142,30 +2565,39 @@
 
     return `
       <div class="entity-edit-target-list entity-edit-channel-button-list">
-        ${buttons.map((button) => `
+        ${buttons
+          .map(
+            (button) => `
           <div
             class="entity-edit-target-chip entity-edit-channel-button-chip"
             data-editor-channel-button-chip="${button.id}"
             data-editor-channel-button-row="${button.id}">
-            ${typeof window.renderChannelButtonIconMarkup === 'function'
-              ? window.renderChannelButtonIconMarkup(button, 'entity-edit-target-icon')
-              : `<span class="entity-edit-target-icon">${escapeHtml(button.icon)}</span>`}
-            ${editingButtonId === button.id
-              ? `
+            ${
+              typeof window.renderChannelButtonIconMarkup === 'function'
+                ? window.renderChannelButtonIconMarkup(
+                    button,
+                    'entity-edit-target-icon'
+                  )
+                : `<span class="entity-edit-target-icon">${escapeHtml(button.icon)}</span>`
+            }
+            ${
+              editingButtonId === button.id
+                ? `
                 <input
                   class="entity-edit-channel-button-title-input"
                   type="text"
                   value="${escapeHtml(editorState.buttonTitleDraft || button.text)}"
                   data-editor-button-title-input="${button.id}">
               `
-              : `
+                : `
                 <button
                   class="entity-edit-channel-button-title"
                   type="button"
                   data-editor-open-channel-button-panel="${button.id}">
                   ${escapeHtml(getEditorButtonActionLabel(button))}
                 </button>
-              `}
+              `
+            }
             <div class="entity-edit-channel-button-actions">
               <button
                 class="entity-edit-channel-button-remove"
@@ -2183,7 +2615,9 @@
               </button>
             </div>
           </div>
-        `).join('')}
+        `
+          )
+          .join('')}
         ${addButtonRowMarkup}
       </div>
     `;
@@ -2194,18 +2628,23 @@
   }
 
   function shouldShowEditorChannelButtonPlacement(channel) {
-    const buttons = Array.isArray(channel?.buttons) ? channel.buttons.slice(0, 4) : [];
+    const buttons = Array.isArray(channel?.buttons)
+      ? channel.buttons.slice(0, 4)
+      : [];
     return buttons.length >= 1 && buttons.length <= 2;
   }
 
   function renderEditorChannelButtonPlacementContent(channel) {
-    const buttons = Array.isArray(channel?.buttons) ? channel.buttons.slice(0, 4) : [];
+    const buttons = Array.isArray(channel?.buttons)
+      ? channel.buttons.slice(0, 4)
+      : [];
 
     if (!buttons.length) {
       return '';
     }
 
-    const currentPlacement = channel?.buttonPlacement === 'side' ? 'side' : 'bottom';
+    const currentPlacement =
+      channel?.buttonPlacement === 'side' ? 'side' : 'bottom';
 
     return `
       <span class="entity-edit-channel-button-placement-label">${t('editor.buttonPlacement')}</span>
@@ -2236,13 +2675,24 @@
     `;
   }
 
-  function renderChannelButtonOptionRow(optionName, activeValue, options = [], variant = '') {
-    const rowClassName = variant ? ` entity-edit-button-option-row--${variant}` : '';
-    const optionClassName = variant ? ` entity-edit-button-option--${variant}` : '';
+  function renderChannelButtonOptionRow(
+    optionName,
+    activeValue,
+    options = [],
+    variant = ''
+  ) {
+    const rowClassName = variant
+      ? ` entity-edit-button-option-row--${variant}`
+      : '';
+    const optionClassName = variant
+      ? ` entity-edit-button-option--${variant}`
+      : '';
 
     return `
       <div class="entity-edit-button-option-row${rowClassName}">
-        ${options.map((option) => `
+        ${options
+          .map(
+            (option) => `
           <button
             class="entity-edit-button-option${optionClassName} ${String(activeValue) === String(option.value) ? 'active' : ''}"
             type="button"
@@ -2250,13 +2700,22 @@
             data-editor-button-option-value="${escapeHtml(option.value)}">
             ${escapeHtml(option.label)}
           </button>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     `;
   }
 
-  function renderButtonChoiceRail(optionName, activeValue, options = [], renderOptions = {}) {
-    const activeIndex = options.findIndex((option) => String(option.value) === String(activeValue));
+  function renderButtonChoiceRail(
+    optionName,
+    activeValue,
+    options = [],
+    renderOptions = {}
+  ) {
+    const activeIndex = options.findIndex(
+      (option) => String(option.value) === String(activeValue)
+    );
     const hasSelection = activeIndex >= 0;
     const extraClassName = String(renderOptions?.className || '').trim();
     const isDisabled = Boolean(renderOptions?.disabled);
@@ -2266,7 +2725,9 @@
           data-editor-choice="${escapeHtml(optionName)}"
           style="--choice-count: ${Math.max(1, options.length)}; --choice-index: ${Math.max(0, activeIndex)};">
           <span class="entity-edit-choice-rail__highlight" aria-hidden="true"></span>
-          ${options.map((option) => `
+          ${options
+            .map(
+              (option) => `
             <button
             class="entity-edit-choice-rail__option ${String(activeValue) === String(option.value) ? 'is-active' : ''}"
             type="button"
@@ -2275,13 +2736,22 @@
             data-editor-button-option-value="${escapeHtml(option.value)}">
             ${escapeHtml(option.label)}
           </button>
-        `).join('')}
+        `
+            )
+            .join('')}
       </div>
     `;
   }
 
-  function renderButtonChoiceGrid(optionName, activeValue, options = [], renderOptions = {}) {
-    const activeIndex = options.findIndex((option) => String(option.value) === String(activeValue));
+  function renderButtonChoiceGrid(
+    optionName,
+    activeValue,
+    options = [],
+    renderOptions = {}
+  ) {
+    const activeIndex = options.findIndex(
+      (option) => String(option.value) === String(activeValue)
+    );
     const hasSelection = activeIndex >= 0;
     const activeColumn = activeIndex % 2;
     const activeRow = Math.floor(activeIndex / 2);
@@ -2291,7 +2761,9 @@
           data-editor-choice="${escapeHtml(optionName)}"
           style="--choice-grid-column: ${Math.max(0, activeColumn)}; --choice-grid-row: ${Math.max(0, activeRow)};">
           <span class="entity-edit-choice-grid__highlight" aria-hidden="true"></span>
-          ${options.map((option) => `
+          ${options
+            .map(
+              (option) => `
             <button
             class="entity-edit-choice-grid__option ${String(activeValue) === String(option.value) ? 'is-active' : ''}"
             type="button"
@@ -2299,7 +2771,9 @@
             data-editor-button-option-value="${escapeHtml(option.value)}">
             ${escapeHtml(option.label)}
           </button>
-        `).join('')}
+        `
+            )
+            .join('')}
       </div>
     `;
   }
@@ -2354,27 +2828,61 @@
   function getChannelButtonIconKeys() {
     return Array.isArray(window.CHANNEL_BUTTON_ICON_KEYS)
       ? window.CHANNEL_BUTTON_ICON_KEYS
-      : ['square', 'spark', 'speaker', 'mute', 'layers', 'target', 'flash', 'play', 'pause', 'play-pause', 'skip-previous', 'skip-next', 'stop', 'rewind', 'fast-forward', 'shuffle', 'repeat', 'circle', 'diamond', 'triangle', 'wave', 'bolt', 'ring'];
+      : [
+          'square',
+          'spark',
+          'speaker',
+          'mute',
+          'layers',
+          'target',
+          'flash',
+          'play',
+          'pause',
+          'play-pause',
+          'skip-previous',
+          'skip-next',
+          'stop',
+          'rewind',
+          'fast-forward',
+          'shuffle',
+          'repeat',
+          'circle',
+          'diamond',
+          'triangle',
+          'wave',
+          'bolt',
+          'ring'
+        ];
   }
 
   function renderChannelButtonIconOptions(button, iconKeys = []) {
-    const resolvedIconKeys = Array.isArray(iconKeys) && iconKeys.length
-      ? iconKeys
-      : getChannelButtonIconKeys();
+    const resolvedIconKeys =
+      Array.isArray(iconKeys) && iconKeys.length
+        ? iconKeys
+        : getChannelButtonIconKeys();
 
     return `
       <div class="entity-edit-button-icon-grid">
-        ${resolvedIconKeys.map((iconKey) => `
+        ${resolvedIconKeys
+          .map(
+            (iconKey) => `
           <button
             class="entity-edit-button-icon-option ${button.icon === iconKey ? 'active' : ''}"
             type="button"
             data-editor-button-icon-option="${escapeHtml(iconKey)}"
             aria-label="${escapeHtml(iconKey)}">
-            ${typeof window.renderChannelButtonIconMarkup === 'function'
-              ? window.renderChannelButtonIconMarkup({ ...button, icon: iconKey }, 'entity-edit-button-icon-option-shell')
-              : `<span class="entity-edit-button-icon-option-shell">${escapeHtml(iconKey)}</span>`}
+            ${
+              typeof window.renderChannelButtonIconMarkup === 'function'
+                ? window.renderChannelButtonIconMarkup(
+                    { ...button, icon: iconKey },
+                    'entity-edit-button-icon-option-shell'
+                  )
+                : `<span class="entity-edit-button-icon-option-shell">${escapeHtml(iconKey)}</span>`
+            }
           </button>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     `;
   }
@@ -2382,7 +2890,31 @@
   function getChannelIconKeys() {
     return Array.isArray(window.CHANNEL_BUTTON_ICON_KEYS)
       ? window.CHANNEL_BUTTON_ICON_KEYS
-      : ['square', 'spark', 'speaker', 'mute', 'layers', 'target', 'flash', 'play', 'pause', 'play-pause', 'skip-previous', 'skip-next', 'stop', 'rewind', 'fast-forward', 'shuffle', 'repeat', 'circle', 'diamond', 'triangle', 'wave', 'bolt', 'ring'];
+      : [
+          'square',
+          'spark',
+          'speaker',
+          'mute',
+          'layers',
+          'target',
+          'flash',
+          'play',
+          'pause',
+          'play-pause',
+          'skip-previous',
+          'skip-next',
+          'stop',
+          'rewind',
+          'fast-forward',
+          'shuffle',
+          'repeat',
+          'circle',
+          'diamond',
+          'triangle',
+          'wave',
+          'bolt',
+          'ring'
+        ];
   }
 
   function renderChannelIconPicker(channel = {}) {
@@ -2398,13 +2930,20 @@
           data-editor-toggle-channel-icon-picker
           aria-expanded="${pickerOpen ? 'true' : 'false'}"
           aria-label="${escapeHtml(t('editor.buttonIcon'))}">
-          ${currentIcon && typeof window.renderChannelButtonIconMarkup === 'function'
-            ? window.renderChannelButtonIconMarkup({ icon: currentIcon }, 'entity-edit-channel-icon-trigger-shell')
-            : '<span class="entity-edit-channel-icon-trigger-shell entity-edit-channel-icon-trigger-shell--empty">A</span>'}
+          ${
+            currentIcon &&
+            typeof window.renderChannelButtonIconMarkup === 'function'
+              ? window.renderChannelButtonIconMarkup(
+                  { icon: currentIcon },
+                  'entity-edit-channel-icon-trigger-shell'
+                )
+              : '<span class="entity-edit-channel-icon-trigger-shell entity-edit-channel-icon-trigger-shell--empty">A</span>'
+          }
         </button>
 
-        ${pickerOpen
-          ? `
+        ${
+          pickerOpen
+            ? `
             <div class="entity-edit-channel-icon-popover">
               <button
                 class="entity-edit-channel-icon-option ${currentIcon ? '' : 'active'}"
@@ -2413,20 +2952,30 @@
                 aria-label="${escapeHtml(t('editor.buttonIcon'))}">
                 <span class="entity-edit-channel-icon-option-shell entity-edit-channel-icon-option-shell--empty">A</span>
               </button>
-              ${iconKeys.map((iconKey) => `
+              ${iconKeys
+                .map(
+                  (iconKey) => `
                 <button
                   class="entity-edit-channel-icon-option ${currentIcon === iconKey ? 'active' : ''}"
                   type="button"
                   data-editor-channel-icon-option="${escapeHtml(iconKey)}"
                   aria-label="${escapeHtml(iconKey)}">
-                  ${typeof window.renderChannelButtonIconMarkup === 'function'
-                    ? window.renderChannelButtonIconMarkup({ icon: iconKey }, 'entity-edit-channel-icon-option-shell')
-                    : `<span class="entity-edit-channel-icon-option-shell">${escapeHtml(iconKey)}</span>`}
+                  ${
+                    typeof window.renderChannelButtonIconMarkup === 'function'
+                      ? window.renderChannelButtonIconMarkup(
+                          { icon: iconKey },
+                          'entity-edit-channel-icon-option-shell'
+                        )
+                      : `<span class="entity-edit-channel-icon-option-shell">${escapeHtml(iconKey)}</span>`
+                  }
                 </button>
-              `).join('')}
+              `
+                )
+                .join('')}
             </div>
           `
-          : ''}
+            : ''
+        }
       </div>
     `;
   }
@@ -2436,7 +2985,8 @@
     const primaryIcons = iconKeys.slice(0, 9);
     const extraIcons = iconKeys.slice(9);
     const pickerOpen = Boolean(editorState.sidePanelIconPickerOpen);
-    const pickerExpanded = pickerOpen && Boolean(editorState.sidePanelIconPickerExpanded);
+    const pickerExpanded =
+      pickerOpen && Boolean(editorState.sidePanelIconPickerExpanded);
 
     return `
       <div class="entity-edit-button-icon-picker" data-editor-button-icon-picker>
@@ -2446,17 +2996,24 @@
           data-editor-toggle-button-icon-picker
           aria-expanded="${pickerOpen ? 'true' : 'false'}"
           aria-label="${escapeHtml(t('editor.buttonIcon'))}">
-          ${typeof window.renderChannelButtonIconMarkup === 'function'
-            ? window.renderChannelButtonIconMarkup({ ...button, icon: button?.icon || 'square' }, 'entity-edit-button-icon-trigger-shell')
-            : `<span class="entity-edit-button-icon-trigger-shell">${escapeHtml(button?.icon || 'square')}</span>`}
+          ${
+            typeof window.renderChannelButtonIconMarkup === 'function'
+              ? window.renderChannelButtonIconMarkup(
+                  { ...button, icon: button?.icon || 'square' },
+                  'entity-edit-button-icon-trigger-shell'
+                )
+              : `<span class="entity-edit-button-icon-trigger-shell">${escapeHtml(button?.icon || 'square')}</span>`
+          }
         </button>
 
-        ${pickerOpen
-          ? `
+        ${
+          pickerOpen
+            ? `
             <div class="entity-edit-button-icon-popover">
               ${renderChannelButtonIconOptions(button, primaryIcons)}
-              ${extraIcons.length
-                ? `
+              ${
+                extraIcons.length
+                  ? `
                   <button
                     class="entity-edit-button-icon-more"
                     type="button"
@@ -2467,10 +3024,12 @@
                     ${pickerExpanded ? renderChannelButtonIconOptions(button, extraIcons) : ''}
                   </div>
                 `
-                : ''}
+                  : ''
+              }
             </div>
           `
-          : ''}
+            : ''
+        }
       </div>
     `;
   }
@@ -2479,11 +3038,11 @@
     const button = getEditorButtonEntity(editorState.sidePanelButtonId);
     const resolvedButton = button
       ? {
-        ...button,
-        text: editorState.sidePanelButtonTitleDirty
-          ? editorState.sidePanelButtonTitleDraft
-          : button.text
-      }
+          ...button,
+          text: editorState.sidePanelButtonTitleDirty
+            ? editorState.sidePanelButtonTitleDraft
+            : button.text
+        }
       : null;
 
     if (!resolvedButton) {
@@ -2532,29 +3091,56 @@
   }
 
   function renderTargetModeRail(channel) {
-    return renderButtonChoiceRail('target-mode', getChannelTargetMode(channel), [
-      { value: window.CHANNEL_TARGET_MODES?.apps || 'apps', label: t('editor.targetModeApps') },
-      { value: window.CHANNEL_TARGET_MODES?.devices || 'devices', label: t('editor.targetModeDevices') },
-      { value: window.CHANNEL_TARGET_MODES?.focus || 'focus', label: t('editor.targetModeFocus') }
-    ]);
+    return renderButtonChoiceRail(
+      'target-mode',
+      getChannelTargetMode(channel),
+      [
+        {
+          value: window.CHANNEL_TARGET_MODES?.apps || 'apps',
+          label: t('editor.targetModeApps')
+        },
+        {
+          value: window.CHANNEL_TARGET_MODES?.devices || 'devices',
+          label: t('editor.targetModeDevices')
+        },
+        {
+          value: window.CHANNEL_TARGET_MODES?.focus || 'focus',
+          label: t('editor.targetModeFocus')
+        }
+      ]
+    );
   }
 
   function renderDeviceFlowRail(channel) {
-    return renderButtonChoiceRail('device-target-flow', getChannelDeviceTargetFlow(channel), [
-      { value: window.CHANNEL_DEVICE_TARGET_FLOWS?.output || 'output', label: t('editor.deviceFlowOutput') },
-      { value: window.CHANNEL_DEVICE_TARGET_FLOWS?.input || 'input', label: t('editor.deviceFlowInput') }
-    ]);
+    return renderButtonChoiceRail(
+      'device-target-flow',
+      getChannelDeviceTargetFlow(channel),
+      [
+        {
+          value: window.CHANNEL_DEVICE_TARGET_FLOWS?.output || 'output',
+          label: t('editor.deviceFlowOutput')
+        },
+        {
+          value: window.CHANNEL_DEVICE_TARGET_FLOWS?.input || 'input',
+          label: t('editor.deviceFlowInput')
+        }
+      ]
+    );
   }
 
   function renderTargetPanelApps(channel) {
-    const selectedTargets = new Set(getChannelTargets(channel).map((target) => target.process));
+    const selectedTargets = new Set(
+      getChannelTargets(channel).map((target) => target.process)
+    );
     const availableApps = getAvailableApps();
 
     if (!availableApps.length) {
       return `<div class="entity-edit-side-empty">${t('editor.sidePanelEmpty')}</div>`;
     }
 
-    return availableApps.map((application) => `
+    return availableApps
+      .map(
+        (application) => `
       <button
         class="entity-edit-side-option ${application.iconDataUrl ? 'has-icon' : ''} ${selectedTargets.has(application.process) ? 'active' : ''}"
         type="button"
@@ -2562,17 +3148,23 @@
         ${renderAppIconMarkup(application, 'entity-edit-side-option-icon')}
         <span class="entity-edit-side-option-label">${escapeHtml(application.name || application.process)}</span>
       </button>
-    `).join('');
+    `
+      )
+      .join('');
   }
 
   function renderTargetPanelDevices(channel) {
     const targetFlow = getChannelDeviceTargetFlow(channel);
-    const selectedTargetIds = new Set(getChannelDeviceTargets(channel, targetFlow).map((target) => target.id));
+    const selectedTargetIds = new Set(
+      getChannelDeviceTargets(channel, targetFlow).map((target) => target.id)
+    );
     const devices = Array.isArray(editorState.audioDeviceOptions[targetFlow])
       ? editorState.audioDeviceOptions[targetFlow]
       : [];
     const isLoading = Boolean(editorState.audioDeviceLoading[targetFlow]);
-    const errorMessage = String(editorState.audioDeviceErrors[targetFlow] || '').trim();
+    const errorMessage = String(
+      editorState.audioDeviceErrors[targetFlow] || ''
+    ).trim();
 
     if (errorMessage) {
       return `<div class="entity-edit-side-empty">${escapeHtml(errorMessage)}</div>`;
@@ -2586,7 +3178,9 @@
       return `<div class="entity-edit-side-empty">${t('editor.noDevicesAvailable')}</div>`;
     }
 
-    return devices.map((device) => `
+    return devices
+      .map(
+        (device) => `
       <button
         class="entity-edit-side-option ${selectedTargetIds.has(device.id) ? 'active' : ''}"
         type="button"
@@ -2597,11 +3191,15 @@
           ${device.isDefault ? ` (${escapeHtml(t('editor.defaultDeviceLabel'))})` : ''}
         </span>
       </button>
-    `).join('');
+    `
+      )
+      .join('');
   }
 
   function renderTargetPanelFocus(channel) {
-    const exclusions = new Set(getChannelFocusExclusions(channel).map((target) => target.process));
+    const exclusions = new Set(
+      getChannelFocusExclusions(channel).map((target) => target.process)
+    );
     const availableApps = getAvailableApps();
 
     if (!availableApps.length) {
@@ -2610,7 +3208,9 @@
 
     return `
       <div class="entity-edit-side-note">${escapeHtml(t('editor.focusExclusionsHint'))}</div>
-      ${availableApps.map((application) => `
+      ${availableApps
+        .map(
+          (application) => `
         <button
           class="entity-edit-side-option ${application.iconDataUrl ? 'has-icon' : ''} ${exclusions.has(application.process) ? 'active' : ''}"
           type="button"
@@ -2618,7 +3218,9 @@
           ${renderAppIconMarkup(application, 'entity-edit-side-option-icon')}
           <span class="entity-edit-side-option-label">${escapeHtml(application.name || application.process)}</span>
         </button>
-      `).join('')}
+      `
+        )
+        .join('')}
     `;
   }
 
@@ -2638,27 +3240,33 @@
 
   function renderCurveModeButtons(selectedType) {
     return ['ease-in', 'ease-out', 'ease-in-out']
-      .map((curveType) => `
+      .map(
+        (curveType) => `
         <button
           class="curve-mode-button ${curveType === selectedType ? 'active' : ''}"
           type="button"
           data-editor-curve-type="${curveType}"
           title="${escapeHtml(
-            t(curveType === 'ease-in'
-              ? 'settings.curveEaseIn'
-              : curveType === 'ease-out'
-                ? 'settings.curveEaseOut'
-                : 'settings.curveEaseInOut')
+            t(
+              curveType === 'ease-in'
+                ? 'settings.curveEaseIn'
+                : curveType === 'ease-out'
+                  ? 'settings.curveEaseOut'
+                  : 'settings.curveEaseInOut'
+            )
           )}">
           <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="${curveType === 'ease-in'
-              ? 'M4 18C8 18 10 18 13 14C15.5 10.5 17 6 20 6'
-              : curveType === 'ease-out'
-                ? 'M4 18C7 18 8.5 13.5 11 10C14 6 16 6 20 6'
-                : 'M4 18C8 18 9 14 12 12C15 10 16 6 20 6'}"></path>
+            <path d="${
+              curveType === 'ease-in'
+                ? 'M4 18C8 18 10 18 13 14C15.5 10.5 17 6 20 6'
+                : curveType === 'ease-out'
+                  ? 'M4 18C7 18 8.5 13.5 11 10C14 6 16 6 20 6'
+                  : 'M4 18C8 18 9 14 12 12C15 10 16 6 20 6'
+            }"></path>
           </svg>
         </button>
-      `)
+      `
+      )
       .join('');
   }
 
@@ -2668,11 +3276,13 @@
     for (let step = 0; step <= 24; step += 1) {
       const progress = step / 24;
       const x = 20 + progress * 180;
-      const y = 120 - (
+      const y =
+        120 -
         ((typeof mapFaderPositionToVolume === 'function'
           ? mapFaderPositionToVolume(progress * 100, settings)
-          : progress * 100) / 100) * 100
-      );
+          : progress * 100) /
+          100) *
+          100;
 
       points.push(`${step === 0 ? 'M' : 'L'}${x.toFixed(2)} ${y.toFixed(2)}`);
     }
@@ -2790,7 +3400,11 @@
   }
 
   function renderFaderEditor(channel) {
-    const title = editorState.titleDraft || channel?.title || channel?.appName || t('channels.unnamed');
+    const title =
+      editorState.titleDraft ||
+      channel?.title ||
+      channel?.appName ||
+      t('channels.unnamed');
 
     return `
       <div class="entity-edit-main-layout" data-entity-type="fader">
@@ -2912,9 +3526,10 @@
       return;
     }
 
-    const enhance = typeof enhanceCustomSelects === 'function'
-      ? enhanceCustomSelects
-      : window.enhanceCustomSelects;
+    const enhance =
+      typeof enhanceCustomSelects === 'function'
+        ? enhanceCustomSelects
+        : window.enhanceCustomSelects;
 
     if (typeof enhance === 'function') {
       enhance(root);
@@ -2929,49 +3544,67 @@
     const choiceRects = new Map();
     const bodyRects = new Map();
 
-    dom.sidePanel.querySelectorAll('[data-editor-choice]').forEach((element) => {
-      const key = String(element.dataset.editorChoice || '').trim();
-      const selected = element.querySelector('.entity-edit-choice-rail__option.is-active, .entity-edit-choice-grid__option.is-active');
-      const highlight = element.querySelector('.entity-edit-choice-rail__highlight, .entity-edit-choice-grid__highlight');
+    dom.sidePanel
+      .querySelectorAll('[data-editor-choice]')
+      .forEach((element) => {
+        const key = String(element.dataset.editorChoice || '').trim();
+        const selected = element.querySelector(
+          '.entity-edit-choice-rail__option.is-active, .entity-edit-choice-grid__option.is-active'
+        );
+        const highlight = element.querySelector(
+          '.entity-edit-choice-rail__highlight, .entity-edit-choice-grid__highlight'
+        );
 
-      if (!key || (!selected && !highlight)) {
-        return;
-      }
+        if (!key || (!selected && !highlight)) {
+          return;
+        }
 
-      choiceRects.set(
-        key,
-        (highlight?.getBoundingClientRect?.() || selected?.getBoundingClientRect?.() || null)
-      );
-    });
-
-    dom.sidePanel.querySelectorAll('[data-editor-card-body]').forEach((element) => {
-      const key = String(element.dataset.editorCardBody || '').trim();
-
-      if (!key) {
-        return;
-      }
-
-      bodyRects.set(key, {
-        height: element.getBoundingClientRect().height,
-        isDisabled: Boolean(element.closest('.entity-edit-button-settings-card.is-disabled'))
+        choiceRects.set(
+          key,
+          highlight?.getBoundingClientRect?.() ||
+            selected?.getBoundingClientRect?.() ||
+            null
+        );
       });
-    });
+
+    dom.sidePanel
+      .querySelectorAll('[data-editor-card-body]')
+      .forEach((element) => {
+        const key = String(element.dataset.editorCardBody || '').trim();
+
+        if (!key) {
+          return;
+        }
+
+        bodyRects.set(key, {
+          height: element.getBoundingClientRect().height,
+          isDisabled: Boolean(
+            element.closest('.entity-edit-button-settings-card.is-disabled')
+          )
+        });
+      });
 
     return { choiceRects, bodyRects };
   }
 
-  function animateSidePanelChoiceGhost(previousRect, nextRect, choiceRoot = null) {
-    const highlight = choiceRoot?.querySelector('.entity-edit-choice-rail__highlight, .entity-edit-choice-grid__highlight');
+  function animateSidePanelChoiceGhost(
+    previousRect,
+    nextRect,
+    choiceRoot = null
+  ) {
+    const highlight = choiceRoot?.querySelector(
+      '.entity-edit-choice-rail__highlight, .entity-edit-choice-grid__highlight'
+    );
 
     if (!previousRect || !nextRect || !highlight) {
       return;
     }
 
     if (
-      Math.abs(previousRect.left - nextRect.left) < 0.5
-      && Math.abs(previousRect.top - nextRect.top) < 0.5
-      && Math.abs(previousRect.width - nextRect.width) < 0.5
-      && Math.abs(previousRect.height - nextRect.height) < 0.5
+      Math.abs(previousRect.left - nextRect.left) < 0.5 &&
+      Math.abs(previousRect.top - nextRect.top) < 0.5 &&
+      Math.abs(previousRect.width - nextRect.width) < 0.5 &&
+      Math.abs(previousRect.height - nextRect.height) < 0.5
     ) {
       return;
     }
@@ -3029,10 +3662,18 @@
       return;
     }
 
-    const nextDisabled = Boolean(element.closest('.entity-edit-button-settings-card.is-disabled'));
+    const nextDisabled = Boolean(
+      element.closest('.entity-edit-button-settings-card.is-disabled')
+    );
     const nextHeight = nextDisabled ? 0 : element.scrollHeight;
-    const previousHeight = previousState ? previousState.height : (nextDisabled ? 0 : nextHeight);
-    const previousDisabled = previousState ? previousState.isDisabled : nextDisabled;
+    const previousHeight = previousState
+      ? previousState.height
+      : nextDisabled
+        ? 0
+        : nextHeight;
+    const previousDisabled = previousState
+      ? previousState.isDisabled
+      : nextDisabled;
 
     if (previousDisabled === nextDisabled) {
       return;
@@ -3046,7 +3687,9 @@
     element.style.height = `${Math.max(0, previousHeight)}px`;
     element.style.maxHeight = 'none';
     element.style.opacity = previousDisabled ? '0' : '1';
-    element.style.transform = previousDisabled ? 'translateY(-8px)' : 'translateY(0)';
+    element.style.transform = previousDisabled
+      ? 'translateY(-8px)'
+      : 'translateY(0)';
     element.getBoundingClientRect();
 
     element.style.transition = [
@@ -3058,7 +3701,9 @@
     requestAnimationFrame(() => {
       element.style.height = `${Math.max(0, nextHeight)}px`;
       element.style.opacity = nextDisabled ? '0' : '1';
-      element.style.transform = nextDisabled ? 'translateY(-8px)' : 'translateY(0)';
+      element.style.transform = nextDisabled
+        ? 'translateY(-8px)'
+        : 'translateY(0)';
     });
 
     window.setTimeout(() => {
@@ -3077,29 +3722,43 @@
     }
 
     const allowedChoiceKeys = Array.isArray(options?.choiceKeys)
-      ? new Set(options.choiceKeys.map((key) => String(key || '').trim()).filter(Boolean))
+      ? new Set(
+          options.choiceKeys
+            .map((key) => String(key || '').trim())
+            .filter(Boolean)
+        )
       : null;
 
-    dom.sidePanel.querySelectorAll('[data-editor-choice]').forEach((element) => {
-      const key = String(element.dataset.editorChoice || '').trim();
-      const nextHighlight = element.querySelector('.entity-edit-choice-rail__highlight, .entity-edit-choice-grid__highlight');
-      const previousRect = snapshot.choiceRects?.get(key);
+    dom.sidePanel
+      .querySelectorAll('[data-editor-choice]')
+      .forEach((element) => {
+        const key = String(element.dataset.editorChoice || '').trim();
+        const nextHighlight = element.querySelector(
+          '.entity-edit-choice-rail__highlight, .entity-edit-choice-grid__highlight'
+        );
+        const previousRect = snapshot.choiceRects?.get(key);
 
-      if (allowedChoiceKeys && !allowedChoiceKeys.has(key)) {
-        return;
-      }
+        if (allowedChoiceKeys && !allowedChoiceKeys.has(key)) {
+          return;
+        }
 
-      if (!nextHighlight || !previousRect) {
-        return;
-      }
+        if (!nextHighlight || !previousRect) {
+          return;
+        }
 
-      animateSidePanelChoiceGhost(previousRect, nextHighlight.getBoundingClientRect(), element);
-    });
+        animateSidePanelChoiceGhost(
+          previousRect,
+          nextHighlight.getBoundingClientRect(),
+          element
+        );
+      });
 
-    dom.sidePanel.querySelectorAll('[data-editor-card-body]').forEach((element) => {
-      const key = String(element.dataset.editorCardBody || '').trim();
-      animateSidePanelBodyTransition(element, snapshot.bodyRects?.get(key));
-    });
+    dom.sidePanel
+      .querySelectorAll('[data-editor-card-body]')
+      .forEach((element) => {
+        const key = String(element.dataset.editorCardBody || '').trim();
+        animateSidePanelBodyTransition(element, snapshot.bodyRects?.get(key));
+      });
   }
 
   function renderSidePanel(channel) {
@@ -3107,7 +3766,11 @@
       return;
     }
 
-    if (editorState.entityType === 'button' && !editorState.sidePanelOpen && !editorState.sidePanelClosing) {
+    if (
+      editorState.entityType === 'button' &&
+      !editorState.sidePanelOpen &&
+      !editorState.sidePanelClosing
+    ) {
       dom.shell?.classList.remove('entity-edit-side-open');
       dom.shell?.classList.remove('entity-edit-side-closing');
       dom.sidePanel.classList.remove('is-open');
@@ -3122,26 +3785,39 @@
     const motionChoiceKeys = Array.isArray(editorState.sidePanelMotionChoices)
       ? editorState.sidePanelMotionChoices.slice()
       : [];
-    const previousButtonPanelScrollTop = editorState.sidePanelMode === 'channel-button'
-      ? (dom.sidePanel.querySelector('.entity-edit-button-side-layout')?.scrollTop || 0)
-      : 0;
+    const previousButtonPanelScrollTop =
+      editorState.sidePanelMode === 'channel-button'
+        ? dom.sidePanel.querySelector('.entity-edit-button-side-layout')
+            ?.scrollTop || 0
+        : 0;
 
-    dom.shell?.classList.toggle('entity-edit-side-open', editorState.sidePanelOpen);
-    dom.shell?.classList.toggle('entity-edit-side-closing', editorState.sidePanelClosing);
+    dom.shell?.classList.toggle(
+      'entity-edit-side-open',
+      editorState.sidePanelOpen
+    );
+    dom.shell?.classList.toggle(
+      'entity-edit-side-closing',
+      editorState.sidePanelClosing
+    );
     dom.sidePanel.classList.toggle('is-open', editorState.sidePanelOpen);
     dom.sidePanel.classList.toggle('is-closing', editorState.sidePanelClosing);
 
-      if (!isTargetsSidePanelMode()) {
-        dom.sidePanel.innerHTML = renderChannelButtonSidePanel(resolvedTargetEntity);
+    if (!isTargetsSidePanelMode()) {
+      dom.sidePanel.innerHTML =
+        renderChannelButtonSidePanel(resolvedTargetEntity);
       enhanceEntityEditorCustomSelects(dom.sidePanel);
-      applySidePanelMotionSnapshot(motionSnapshot, { choiceKeys: motionChoiceKeys });
+      applySidePanelMotionSnapshot(motionSnapshot, {
+        choiceKeys: motionChoiceKeys
+      });
       editorState.sidePanelMotionChoices = null;
       dom.sideOptions = null;
       dom.sidePanel.querySelectorAll('.settings-range').forEach((element) => {
         updateSettingsRangeFill?.(element);
       });
       scheduleEntityEditorLivePeakMeterUpdate();
-      const nextLayout = dom.sidePanel.querySelector('.entity-edit-button-side-layout');
+      const nextLayout = dom.sidePanel.querySelector(
+        '.entity-edit-button-side-layout'
+      );
 
       if (nextLayout) {
         nextLayout.scrollTop = previousButtonPanelScrollTop;
@@ -3167,16 +3843,21 @@
             </button>
           </div>
 
-          ${editorState.entityType === 'fader'
-            ? `
+          ${
+            editorState.entityType === 'fader'
+              ? `
               <div class="entity-edit-side-target-controls">
                 ${renderTargetModeRail(resolvedTargetEntity)}
-                ${getChannelTargetMode(resolvedTargetEntity) === (window.CHANNEL_TARGET_MODES?.devices || 'devices')
-                  ? renderDeviceFlowRail(resolvedTargetEntity)
-                  : ''}
+                ${
+                  getChannelTargetMode(resolvedTargetEntity) ===
+                  (window.CHANNEL_TARGET_MODES?.devices || 'devices')
+                    ? renderDeviceFlowRail(resolvedTargetEntity)
+                    : ''
+                }
               </div>
             `
-            : ''}
+              : ''
+          }
 
           <div class="entity-edit-side-options-shell">
             <div class="entity-edit-side-options" id="entityEditSideOptions">
@@ -3197,9 +3878,10 @@
       return;
     }
 
-    targetsBody.innerHTML = editorState.entityType === 'button'
-      ? renderStandaloneEditorTargets(channel)
-      : renderEditorTargets(channel);
+    targetsBody.innerHTML =
+      editorState.entityType === 'button'
+        ? renderStandaloneEditorTargets(channel)
+        : renderEditorTargets(channel);
   }
 
   function getEditorChannelButtonsTransitionKey(element) {
@@ -3211,12 +3893,16 @@
       return 'add-row';
     }
 
-    const buttonRowId = String(element.dataset.editorChannelButtonRow || '').trim();
+    const buttonRowId = String(
+      element.dataset.editorChannelButtonRow || ''
+    ).trim();
     return buttonRowId ? `button:${buttonRowId}` : '';
   }
 
   function captureEditorChannelButtonsSnapshot() {
-    const buttonsBody = dom.main?.querySelector('[data-editor-channel-buttons-body]');
+    const buttonsBody = dom.main?.querySelector(
+      '[data-editor-channel-buttons-body]'
+    );
 
     if (!buttonsBody) {
       return null;
@@ -3226,7 +3912,9 @@
     const items = new Map();
 
     buttonsBody
-      .querySelectorAll('[data-editor-channel-button-row], [data-editor-channel-button-add-row]')
+      .querySelectorAll(
+        '[data-editor-channel-button-row], [data-editor-channel-button-add-row]'
+      )
       .forEach((element) => {
         const key = getEditorChannelButtonsTransitionKey(element);
 
@@ -3252,7 +3940,9 @@
   }
 
   function playEditorChannelButtonsTransition(snapshot) {
-    const buttonsBody = dom.main?.querySelector('[data-editor-channel-buttons-body]');
+    const buttonsBody = dom.main?.querySelector(
+      '[data-editor-channel-buttons-body]'
+    );
 
     if (!snapshot || !buttonsBody) {
       return;
@@ -3262,7 +3952,9 @@
     const nextItems = new Map();
 
     buttonsBody
-      .querySelectorAll('[data-editor-channel-button-row], [data-editor-channel-button-add-row]')
+      .querySelectorAll(
+        '[data-editor-channel-button-row], [data-editor-channel-button-add-row]'
+      )
       .forEach((element) => {
         const key = getEditorChannelButtonsTransitionKey(element);
 
@@ -3282,14 +3974,17 @@
         const deltaY = previousRect.top - (nextRect.top - nextBodyRect.top);
 
         if (Math.abs(deltaX) > 0.5 || Math.abs(deltaY) > 0.5) {
-          element.animate([
-            { transform: `translate(${deltaX}px, ${deltaY}px)` },
-            { transform: 'translate(0, 0)' }
-          ], {
-            duration: 260,
-            easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
-            fill: 'both'
-          });
+          element.animate(
+            [
+              { transform: `translate(${deltaX}px, ${deltaY}px)` },
+              { transform: 'translate(0, 0)' }
+            ],
+            {
+              duration: 260,
+              easing: 'cubic-bezier(0.22, 0.78, 0.2, 1)',
+              fill: 'both'
+            }
+          );
         }
 
         return;
@@ -3310,14 +4005,17 @@
       ghost.innerHTML = previousRect.html;
       buttonsBody.appendChild(ghost);
 
-      const ghostAnimation = ghost.animate([
-        { opacity: 1, transform: 'translateY(0) scale(1)' },
-        { opacity: 0, transform: 'translateY(-16px) scale(0.96)' }
-      ], {
-        duration: 220,
-        easing: 'ease',
-        fill: 'both'
-      });
+      const ghostAnimation = ghost.animate(
+        [
+          { opacity: 1, transform: 'translateY(0) scale(1)' },
+          { opacity: 0, transform: 'translateY(-16px) scale(0.96)' }
+        ],
+        {
+          duration: 220,
+          easing: 'ease',
+          fill: 'both'
+        }
+      );
 
       ghostAnimation.onfinish = () => {
         ghost.remove();
@@ -3327,17 +4025,28 @@
 
   function syncEditorChannelButtonsUi(channel = getEditorChannel()) {
     const snapshot = captureEditorChannelButtonsSnapshot();
-    const buttonsBody = dom.main?.querySelector('[data-editor-channel-buttons-body]');
-    const placementWrap = dom.main?.querySelector('[data-editor-channel-button-placement-wrap]');
+    const buttonsBody = dom.main?.querySelector(
+      '[data-editor-channel-buttons-body]'
+    );
+    const placementWrap = dom.main?.querySelector(
+      '[data-editor-channel-button-placement-wrap]'
+    );
 
     if (buttonsBody) {
       buttonsBody.innerHTML = renderEditorChannelButtons(channel);
     }
 
     if (placementWrap) {
-      placementWrap.classList.toggle('is-visible', shouldShowEditorChannelButtonPlacement(channel));
-      placementWrap.classList.toggle('is-hidden', !shouldShowEditorChannelButtonPlacement(channel));
-      placementWrap.innerHTML = renderEditorChannelButtonPlacementContent(channel);
+      placementWrap.classList.toggle(
+        'is-visible',
+        shouldShowEditorChannelButtonPlacement(channel)
+      );
+      placementWrap.classList.toggle(
+        'is-hidden',
+        !shouldShowEditorChannelButtonPlacement(channel)
+      );
+      placementWrap.innerHTML =
+        renderEditorChannelButtonPlacementContent(channel);
     }
 
     playEditorChannelButtonsTransition(snapshot);
@@ -3356,28 +4065,55 @@
     const targetMode = getChannelTargetMode(channel);
 
     if (targetMode === (window.CHANNEL_TARGET_MODES?.devices || 'devices')) {
-      const selectedTargetIds = new Set(getChannelDeviceTargets(channel, getChannelDeviceTargetFlow(channel)).map((target) => target.id));
-      dom.sideOptions.querySelectorAll('[data-editor-toggle-device-target]').forEach((option) => {
-        option.classList.toggle('active', selectedTargetIds.has(option.dataset.editorToggleDeviceTarget));
-      });
+      const selectedTargetIds = new Set(
+        getChannelDeviceTargets(
+          channel,
+          getChannelDeviceTargetFlow(channel)
+        ).map((target) => target.id)
+      );
+      dom.sideOptions
+        .querySelectorAll('[data-editor-toggle-device-target]')
+        .forEach((option) => {
+          option.classList.toggle(
+            'active',
+            selectedTargetIds.has(option.dataset.editorToggleDeviceTarget)
+          );
+        });
       return;
     }
 
     if (targetMode === (window.CHANNEL_TARGET_MODES?.focus || 'focus')) {
-      const selectedExclusions = new Set(getChannelFocusExclusions(channel).map((target) => target.process));
-      dom.sideOptions.querySelectorAll('[data-editor-toggle-focus-exclusion]').forEach((option) => {
-        option.classList.toggle('active', selectedExclusions.has(option.dataset.editorToggleFocusExclusion));
-      });
+      const selectedExclusions = new Set(
+        getChannelFocusExclusions(channel).map((target) => target.process)
+      );
+      dom.sideOptions
+        .querySelectorAll('[data-editor-toggle-focus-exclusion]')
+        .forEach((option) => {
+          option.classList.toggle(
+            'active',
+            selectedExclusions.has(option.dataset.editorToggleFocusExclusion)
+          );
+        });
       return;
     }
 
-    const selectedTargets = new Set(getChannelTargets(channel).map((target) => target.process));
-    dom.sideOptions.querySelectorAll('[data-editor-toggle-target]').forEach((option) => {
-      option.classList.toggle('active', selectedTargets.has(option.dataset.editorToggleTarget));
-    });
+    const selectedTargets = new Set(
+      getChannelTargets(channel).map((target) => target.process)
+    );
+    dom.sideOptions
+      .querySelectorAll('[data-editor-toggle-target]')
+      .forEach((option) => {
+        option.classList.toggle(
+          'active',
+          selectedTargets.has(option.dataset.editorToggleTarget)
+        );
+      });
   }
 
-  function syncSidePanelOptions(channel = getEditorTargetEntity(), { preserveScroll = true } = {}) {
+  function syncSidePanelOptions(
+    channel = getEditorTargetEntity(),
+    { preserveScroll = true } = {}
+  ) {
     if (!dom.sideOptions || !isTargetsSidePanelMode()) {
       return;
     }
@@ -3425,9 +4161,13 @@
       chip.classList.remove('is-entering');
       void chip.offsetWidth;
       chip.classList.add('is-entering');
-      chip.addEventListener('animationend', () => {
-        chip.classList.remove('is-entering');
-      }, { once: true });
+      chip.addEventListener(
+        'animationend',
+        () => {
+          chip.classList.remove('is-entering');
+        },
+        { once: true }
+      );
     });
   }
 
@@ -3450,9 +4190,13 @@
       chip.classList.remove('is-entering');
       void chip.offsetWidth;
       chip.classList.add('is-entering');
-      chip.addEventListener('animationend', () => {
-        chip.classList.remove('is-entering');
-      }, { once: true });
+      chip.addEventListener(
+        'animationend',
+        () => {
+          chip.classList.remove('is-entering');
+        },
+        { once: true }
+      );
     });
   }
 
@@ -3475,9 +4219,10 @@
 
   function handleEditorAddChannelButton(channelId) {
     editorState.previewLayoutTransitionRequested = true;
-    const button = typeof addChannelButton === 'function'
-      ? addChannelButton(channelId)
-      : null;
+    const button =
+      typeof addChannelButton === 'function'
+        ? addChannelButton(channelId)
+        : null;
 
     if (!button) {
       return null;
@@ -3499,7 +4244,11 @@
     buttonLabel.textContent = nextTitle;
   }
 
-  function focusChannelButtonTitleInput(buttonId, selectionStart = null, selectionEnd = null) {
+  function focusChannelButtonTitleInput(
+    buttonId,
+    selectionStart = null,
+    selectionEnd = null
+  ) {
     const nextInput = dom.main?.querySelector(
       `[data-editor-button-title-input="${escapeSelectorValue(buttonId)}"]`
     );
@@ -3510,7 +4259,10 @@
 
     nextInput.focus({ preventScroll: true });
 
-    if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
+    if (
+      typeof selectionStart === 'number' &&
+      typeof selectionEnd === 'number'
+    ) {
       nextInput.setSelectionRange(selectionStart, selectionEnd);
       return;
     }
@@ -3535,7 +4287,10 @@
 
   function cancelChannelButtonTitleEdit() {
     const channel = getEditorChannel();
-    const button = getEditorChannelButton(editorState.editingChannelButtonId, channel);
+    const button = getEditorChannelButton(
+      editorState.editingChannelButtonId,
+      channel
+    );
 
     editorState.buttonTitleDraft = '';
     editorState.editingChannelButtonId = null;
@@ -3561,7 +4316,10 @@
       return;
     }
 
-    const nextTitle = String(editorState.buttonTitleDraft || '').trim() || button.text || t('buttons.defaultLabel');
+    const nextTitle =
+      String(editorState.buttonTitleDraft || '').trim() ||
+      button.text ||
+      t('buttons.defaultLabel');
     editorState.buttonTitleDraft = '';
     editorState.editingChannelButtonId = null;
 
@@ -3570,11 +4328,16 @@
       return;
     }
 
-    window.channelActions?.updateChannelButton?.(channel.id, buttonId, {
-      text: nextTitle
-    }, {
-      source: 'entity-editor'
-    });
+    window.channelActions?.updateChannelButton?.(
+      channel.id,
+      buttonId,
+      {
+        text: nextTitle
+      },
+      {
+        source: 'entity-editor'
+      }
+    );
   }
 
   function syncEditorRangeFills() {
@@ -3625,20 +4388,20 @@
         editorState.previewLayoutTransitionRequested = false;
       }
       return;
-      }
+    }
 
-      dom.main.innerHTML = renderButtonEditor();
-      enhanceEntityEditorCustomSelects(dom.main);
-      renderSidePanel(getEditorTargetEntity());
-      syncEditorRangeFills();
-      scheduleEntityEditorLivePeakMeterUpdate();
+    dom.main.innerHTML = renderButtonEditor();
+    enhanceEntityEditorCustomSelects(dom.main);
+    renderSidePanel(getEditorTargetEntity());
+    syncEditorRangeFills();
+    scheduleEntityEditorLivePeakMeterUpdate();
+    dom.main.scrollTop = previousMainScrollTop;
+    requestAnimationFrame(() => {
       dom.main.scrollTop = previousMainScrollTop;
-      requestAnimationFrame(() => {
-        dom.main.scrollTop = previousMainScrollTop;
-      });
-      renderPreviewContent();
-      dom.previewFrame?.classList.add('is-ready');
-      setSourcePreviewState(editorState.sourceHidden);
+    });
+    renderPreviewContent();
+    dom.previewFrame?.classList.add('is-ready');
+    setSourcePreviewState(editorState.sourceHidden);
   }
 
   function commitEditorTitle() {
@@ -3653,13 +4416,20 @@
         return;
       }
 
-      const nextTitle = editorState.titleDraft.trim() || button.text || t('buttons.defaultLabel');
-      window.standaloneButtonActions?.updateStandaloneButton?.(editorState.buttonId, {
-        text: nextTitle
-      }, {
-        type: 'standalone-buttons/update',
-        source: 'entity-editor'
-      });
+      const nextTitle =
+        editorState.titleDraft.trim() ||
+        button.text ||
+        t('buttons.defaultLabel');
+      window.standaloneButtonActions?.updateStandaloneButton?.(
+        editorState.buttonId,
+        {
+          text: nextTitle
+        },
+        {
+          type: 'standalone-buttons/update',
+          source: 'entity-editor'
+        }
+      );
       editorState.titleDraft = nextTitle;
       editorState.titleDirty = false;
       syncPreviewFromButton(getEditorStandaloneButton(editorState.buttonId));
@@ -3672,10 +4442,16 @@
       return;
     }
 
-    const nextTitle = editorState.titleDraft.trim() || channel.appName || t('channels.unnamed');
-    renameChannelState?.(channel.id, nextTitle, channel.appName || t('channels.unnamed'), {
-      source: 'entity-editor'
-    });
+    const nextTitle =
+      editorState.titleDraft.trim() || channel.appName || t('channels.unnamed');
+    renameChannelState?.(
+      channel.id,
+      nextTitle,
+      channel.appName || t('channels.unnamed'),
+      {
+        source: 'entity-editor'
+      }
+    );
     editorState.titleDraft = nextTitle;
     editorState.titleDirty = false;
     saveProfileToLocal?.();
@@ -3687,11 +4463,15 @@
       return;
     }
 
-    updateChannelCustomSettingsState?.(editorState.channelId, {
-      [settingKey]: settingValue
-    }, {
-      source: 'entity-editor'
-    });
+    updateChannelCustomSettingsState?.(
+      editorState.channelId,
+      {
+        [settingKey]: settingValue
+      },
+      {
+        source: 'entity-editor'
+      }
+    );
     saveProfileToLocal?.();
   }
 
@@ -3711,7 +4491,9 @@
       const targetMode = getChannelTargetMode(channel);
 
       if (targetMode === (window.CHANNEL_TARGET_MODES?.devices || 'devices')) {
-        void ensureEditorAudioDevicesLoaded(getChannelDeviceTargetFlow(channel));
+        void ensureEditorAudioDevicesLoaded(
+          getChannelDeviceTargetFlow(channel)
+        );
         return;
       }
 
@@ -3780,17 +4562,24 @@
     };
   }
 
-  function buildSynchronizedButtonActionPatch(currentButton = {}, nextActionType = '', ownerChannelId = null) {
+  function buildSynchronizedButtonActionPatch(
+    currentButton = {},
+    nextActionType = '',
+    ownerChannelId = null
+  ) {
     const actionTypes = getStandaloneButtonActionTypes();
-    const normalizedActionType = Object.values(actionTypes).includes(nextActionType)
+    const normalizedActionType = Object.values(actionTypes).includes(
+      nextActionType
+    )
       ? nextActionType
       : actionTypes.none;
     const nextPatch = {
       actionType: normalizedActionType,
       actionEnabled: normalizedActionType !== actionTypes.none,
-      indicatorEnabled: typeof currentButton?.indicatorEnabled === 'boolean'
-        ? currentButton.indicatorEnabled
-        : true,
+      indicatorEnabled:
+        typeof currentButton?.indicatorEnabled === 'boolean'
+          ? currentButton.indicatorEnabled
+          : true,
       indicatorModeLinkedToAction: true
     };
 
@@ -3801,7 +4590,9 @@
 
     if (normalizedActionType !== actionTypes.none) {
       const interactionModes = getChannelButtonInteractionModes();
-      nextPatch.indicatorMode = Object.values(interactionModes).includes(currentButton?.actionMode)
+      nextPatch.indicatorMode = Object.values(interactionModes).includes(
+        currentButton?.actionMode
+      )
         ? currentButton.actionMode
         : interactionModes.trigger;
     }
@@ -3810,11 +4601,14 @@
       if (Number.isFinite(Number(ownerChannelId))) {
         nextPatch.linkedChannelId = Number(ownerChannelId);
       } else {
-        const defaultLinkedChannelId = resolveDefaultButtonLinkedChannelId(currentButton, ownerChannelId);
+        const defaultLinkedChannelId = resolveDefaultButtonLinkedChannelId(
+          currentButton,
+          ownerChannelId
+        );
 
         if (
-          !Number.isFinite(Number(currentButton?.linkedChannelId))
-          && Number.isFinite(Number(defaultLinkedChannelId))
+          !Number.isFinite(Number(currentButton?.linkedChannelId)) &&
+          Number.isFinite(Number(defaultLinkedChannelId))
         ) {
           nextPatch.linkedChannelId = Number(defaultLinkedChannelId);
         }
@@ -3831,8 +4625,11 @@
       return actionTypes.none;
     }
 
-    return getEditorButtonActionOptions(group)
-      .find((option) => option.value !== actionTypes.none)?.value || actionTypes.none;
+    return (
+      getEditorButtonActionOptions(group).find(
+        (option) => option.value !== actionTypes.none
+      )?.value || actionTypes.none
+    );
   }
 
   function handleStandaloneButtonMainClick(event) {
@@ -3840,33 +4637,49 @@
       return false;
     }
 
-    const currentButton = getEditorButtonEntity(editorState.sidePanelButtonId || editorState.buttonId);
+    const currentButton = getEditorButtonEntity(
+      editorState.sidePanelButtonId || editorState.buttonId
+    );
 
     if (!currentButton) {
       return false;
     }
 
-    const closedIconPicker = (
-      editorState.sidePanelIconPickerOpen
-      && !event.target.closest('[data-editor-button-icon-picker]')
-    );
+    const closedIconPicker =
+      editorState.sidePanelIconPickerOpen &&
+      !event.target.closest('[data-editor-button-icon-picker]');
 
     if (closedIconPicker) {
       editorState.sidePanelIconPickerOpen = false;
       editorState.sidePanelIconPickerExpanded = false;
     }
 
-    const iconPickerToggleButton = event.target.closest('[data-editor-toggle-button-icon-picker]');
-    const iconPickerMoreButton = event.target.closest('[data-editor-toggle-button-icon-picker-more]');
+    const iconPickerToggleButton = event.target.closest(
+      '[data-editor-toggle-button-icon-picker]'
+    );
+    const iconPickerMoreButton = event.target.closest(
+      '[data-editor-toggle-button-icon-picker-more]'
+    );
     const iconButton = event.target.closest('[data-editor-button-icon-option]');
-    const optionButton = event.target.closest('[data-editor-button-option-name]');
-    const bindMidiButton = event.target.closest('[data-editor-bind-channel-button-midi]');
-    const keyCaptureButton = event.target.closest('[data-editor-side-button-key-capture]');
-    const pickFileButton = event.target.closest('[data-editor-button-pick-file]');
-    const refreshDevicesButton = event.target.closest('[data-editor-button-refresh-devices]');
+    const optionButton = event.target.closest(
+      '[data-editor-button-option-name]'
+    );
+    const bindMidiButton = event.target.closest(
+      '[data-editor-bind-channel-button-midi]'
+    );
+    const keyCaptureButton = event.target.closest(
+      '[data-editor-side-button-key-capture]'
+    );
+    const pickFileButton = event.target.closest(
+      '[data-editor-button-pick-file]'
+    );
+    const refreshDevicesButton = event.target.closest(
+      '[data-editor-button-refresh-devices]'
+    );
 
     if (iconPickerToggleButton) {
-      editorState.sidePanelIconPickerOpen = !editorState.sidePanelIconPickerOpen;
+      editorState.sidePanelIconPickerOpen =
+        !editorState.sidePanelIconPickerOpen;
 
       if (!editorState.sidePanelIconPickerOpen) {
         editorState.sidePanelIconPickerExpanded = false;
@@ -3878,7 +4691,8 @@
 
     if (iconPickerMoreButton) {
       editorState.sidePanelIconPickerOpen = true;
-      editorState.sidePanelIconPickerExpanded = !editorState.sidePanelIconPickerExpanded;
+      editorState.sidePanelIconPickerExpanded =
+        !editorState.sidePanelIconPickerExpanded;
       renderEntityEditor();
       return true;
     }
@@ -3892,11 +4706,18 @@
     }
 
     if (pickFileButton) {
-      const api = typeof window.getApi === 'function'
-        ? window.getApi()
-        : (window.getNativeApi?.() ?? null);
-      const pickMode = String(pickFileButton.dataset.editorButtonPickFile || 'app').trim().toLowerCase();
-      const fieldName = String(pickFileButton.dataset.editorButtonPathTarget || '').trim();
+      const api =
+        typeof window.getApi === 'function'
+          ? window.getApi()
+          : (window.getNativeApi?.() ?? null);
+      const pickMode = String(
+        pickFileButton.dataset.editorButtonPickFile || 'app'
+      )
+        .trim()
+        .toLowerCase();
+      const fieldName = String(
+        pickFileButton.dataset.editorButtonPathTarget || ''
+      ).trim();
 
       if (api?.pick_action_file && fieldName) {
         Promise.resolve(api.pick_action_file(pickMode))
@@ -3905,11 +4726,14 @@
               return;
             }
 
-            updateSidePanelChannelButton({
-              [fieldName]: String(response.filePath || '')
-            }, {
-              type: 'standalone-buttons/update'
-            });
+            updateSidePanelChannelButton(
+              {
+                [fieldName]: String(response.filePath || '')
+              },
+              {
+                type: 'standalone-buttons/update'
+              }
+            );
           })
           .catch((error) => {
             console.error('pick_action_file error', error);
@@ -3920,18 +4744,28 @@
     }
 
     if (refreshDevicesButton) {
-      const flow = String(refreshDevicesButton.dataset.editorButtonRefreshDevices || 'output').trim().toLowerCase();
-      void ensureEditorAudioDevicesLoaded(flow === 'input' ? 'input' : 'output', { force: true });
+      const flow = String(
+        refreshDevicesButton.dataset.editorButtonRefreshDevices || 'output'
+      )
+        .trim()
+        .toLowerCase();
+      void ensureEditorAudioDevicesLoaded(
+        flow === 'input' ? 'input' : 'output',
+        { force: true }
+      );
       return true;
     }
 
     if (keyCaptureButton) {
-      editorState.sidePanelKeyCaptureActive = !editorState.sidePanelKeyCaptureActive;
+      editorState.sidePanelKeyCaptureActive =
+        !editorState.sidePanelKeyCaptureActive;
       renderEntityEditor();
 
       if (editorState.sidePanelKeyCaptureActive) {
         requestAnimationFrame(() => {
-          dom.main?.querySelector('[data-editor-side-button-key-capture]')?.focus?.();
+          dom.main
+            ?.querySelector('[data-editor-side-button-key-capture]')
+            ?.focus?.();
         });
       }
 
@@ -3941,11 +4775,14 @@
     if (iconButton) {
       editorState.sidePanelIconPickerOpen = false;
       editorState.sidePanelIconPickerExpanded = false;
-      updateSidePanelChannelButton({
-        icon: iconButton.dataset.editorButtonIconOption
-      }, {
-        type: 'standalone-buttons/update'
-      });
+      updateSidePanelChannelButton(
+        {
+          icon: iconButton.dataset.editorButtonIconOption
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
       return true;
     }
 
@@ -3954,40 +4791,52 @@
       const optionValue = optionButton.dataset.editorButtonOptionValue;
 
       if (optionName === 'content-display') {
-        updateSidePanelChannelButton({
-          contentDisplay: optionValue
-        }, {
-          type: 'standalone-buttons/update'
-        });
+        updateSidePanelChannelButton(
+          {
+            contentDisplay: optionValue
+          },
+          {
+            type: 'standalone-buttons/update'
+          }
+        );
         return true;
       }
 
       if (optionName === 'action-type-none') {
-        updateSidePanelChannelButton(buildSynchronizedButtonActionPatch(
-          currentButton,
-          getStandaloneButtonActionTypes().none,
-          null
-        ), {
-          type: 'standalone-buttons/update'
-        });
+        updateSidePanelChannelButton(
+          buildSynchronizedButtonActionPatch(
+            currentButton,
+            getStandaloneButtonActionTypes().none,
+            null
+          ),
+          {
+            type: 'standalone-buttons/update'
+          }
+        );
         return true;
       }
 
       if (optionName === 'action-mode') {
-        updateSidePanelChannelButton(buildSynchronizedButtonModePatch(optionValue), {
-          type: 'standalone-buttons/update',
-          motionChoices: ['action-mode']
-        });
+        updateSidePanelChannelButton(
+          buildSynchronizedButtonModePatch(optionValue),
+          {
+            type: 'standalone-buttons/update',
+            motionChoices: ['action-mode']
+          }
+        );
         return true;
       }
 
       if (optionName === 'indicator-behavior') {
-        updateSidePanelChannelButton({
-          indicatorBehavior: optionValue
-        }, {
-          type: 'standalone-buttons/update',
-          motionChoices: ['indicator-behavior']
-        });
+        updateSidePanelChannelButton(
+          {
+            indicatorBehavior: optionValue
+          },
+          {
+            type: 'standalone-buttons/update',
+            motionChoices: ['indicator-behavior']
+          }
+        );
         return true;
       }
     }
@@ -4005,12 +4854,20 @@
       return false;
     }
 
-    const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
-    const indicatorThresholdRange = event.target.closest('[data-editor-side-button-indicator-threshold]');
+    const actionValueRange = event.target.closest(
+      '[data-editor-side-button-action-value]'
+    );
+    const indicatorThresholdRange = event.target.closest(
+      '[data-editor-side-button-indicator-threshold]'
+    );
 
     if (indicatorThresholdRange) {
-      const nextValue = clampButtonIndicatorThreshold(indicatorThresholdRange.value);
-      const valueLabel = indicatorThresholdRange.parentElement?.querySelector('[data-editor-side-button-indicator-threshold-label]');
+      const nextValue = clampButtonIndicatorThreshold(
+        indicatorThresholdRange.value
+      );
+      const valueLabel = indicatorThresholdRange.parentElement?.querySelector(
+        '[data-editor-side-button-indicator-threshold-label]'
+      );
       updateSettingsRangeFill?.(indicatorThresholdRange);
 
       if (valueLabel) {
@@ -4018,7 +4875,9 @@
       }
 
       const meterRoot = indicatorThresholdRange
-        .closest('.entity-edit-button-side-subsection, .entity-edit-button-main-subsection')
+        .closest(
+          '.entity-edit-button-side-subsection, .entity-edit-button-main-subsection'
+        )
         ?.querySelector('[data-editor-button-live-meter]');
 
       if (meterRoot) {
@@ -4034,8 +4893,13 @@
       return false;
     }
 
-    const nextValue = Math.max(0, Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0));
-    const valueLabel = actionValueRange.parentElement?.querySelector('[data-editor-side-button-action-value-label]');
+    const nextValue = Math.max(
+      0,
+      Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0)
+    );
+    const valueLabel = actionValueRange.parentElement?.querySelector(
+      '[data-editor-side-button-action-value-label]'
+    );
     updateSettingsRangeFill?.(actionValueRange);
 
     if (valueLabel) {
@@ -4050,17 +4914,33 @@
       return false;
     }
 
-    const currentButton = getEditorButtonEntity(editorState.sidePanelButtonId || editorState.buttonId);
-    const actionGroupSelect = event.target.closest('[data-editor-button-action-group-select]');
-    const actionTypeSelect = event.target.closest('[data-editor-button-action-type-select]');
-    const linkedChannelSelect = event.target.closest('[data-editor-button-linked-channel-select]');
-    const deviceSelect = event.target.closest('[data-editor-button-device-select]');
+    const currentButton = getEditorButtonEntity(
+      editorState.sidePanelButtonId || editorState.buttonId
+    );
+    const actionGroupSelect = event.target.closest(
+      '[data-editor-button-action-group-select]'
+    );
+    const actionTypeSelect = event.target.closest(
+      '[data-editor-button-action-type-select]'
+    );
+    const linkedChannelSelect = event.target.closest(
+      '[data-editor-button-linked-channel-select]'
+    );
+    const deviceSelect = event.target.closest(
+      '[data-editor-button-device-select]'
+    );
     const pathInput = event.target.closest('[data-editor-button-path-field]');
-    const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
-    const indicatorThresholdRange = event.target.closest('[data-editor-side-button-indicator-threshold]');
+    const actionValueRange = event.target.closest(
+      '[data-editor-side-button-action-value]'
+    );
+    const indicatorThresholdRange = event.target.closest(
+      '[data-editor-side-button-indicator-threshold]'
+    );
 
     if (actionGroupSelect) {
-      const nextActionType = getDefaultActionTypeForGroup(actionGroupSelect.value);
+      const nextActionType = getDefaultActionTypeForGroup(
+        actionGroupSelect.value
+      );
       updateSidePanelChannelButton(
         buildSynchronizedButtonActionPatch(currentButton, nextActionType, null),
         { type: 'standalone-buttons/update' }
@@ -4070,7 +4950,11 @@
 
     if (actionTypeSelect) {
       updateSidePanelChannelButton(
-        buildSynchronizedButtonActionPatch(currentButton, actionTypeSelect.value, null),
+        buildSynchronizedButtonActionPatch(
+          currentButton,
+          actionTypeSelect.value,
+          null
+        ),
         { type: 'standalone-buttons/update' }
       );
       return true;
@@ -4078,57 +4962,83 @@
 
     if (linkedChannelSelect) {
       const linkedChannelId = Number.parseInt(linkedChannelSelect.value, 10);
-      updateSidePanelChannelButton({
-        linkedChannelId: Number.isFinite(linkedChannelId) ? linkedChannelId : null
-      }, {
-        type: 'standalone-buttons/update'
-      });
+      updateSidePanelChannelButton(
+        {
+          linkedChannelId: Number.isFinite(linkedChannelId)
+            ? linkedChannelId
+            : null
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
       return true;
     }
 
     if (deviceSelect) {
-      updateSidePanelChannelButton({
-        deviceId: String(deviceSelect.value || '').trim()
-      }, {
-        type: 'standalone-buttons/update'
-      });
+      updateSidePanelChannelButton(
+        {
+          deviceId: String(deviceSelect.value || '').trim()
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
       return true;
     }
 
     if (pathInput) {
-      const fieldName = String(pathInput.dataset.editorButtonPathField || '').trim();
+      const fieldName = String(
+        pathInput.dataset.editorButtonPathField || ''
+      ).trim();
 
       if (!fieldName) {
         return false;
       }
 
-      updateSidePanelChannelButton({
-        [fieldName]: pathInput.value
-      }, {
-        type: 'standalone-buttons/update'
-      });
+      updateSidePanelChannelButton(
+        {
+          [fieldName]: pathInput.value
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
       return true;
     }
 
     if (actionValueRange) {
-      updateSidePanelChannelButton({
-        actionValue: Math.max(0, Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0))
-      }, {
-        type: 'standalone-buttons/update'
-      });
+      updateSidePanelChannelButton(
+        {
+          actionValue: Math.max(
+            0,
+            Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0)
+          )
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
 
       return true;
     }
 
     if (indicatorThresholdRange) {
-      updateSidePanelChannelButton({
-        indicatorThreshold: clampButtonIndicatorThreshold(indicatorThresholdRange.value)
-      }, {
-        type: 'standalone-buttons/update'
-      });
+      updateSidePanelChannelButton(
+        {
+          indicatorThreshold: clampButtonIndicatorThreshold(
+            indicatorThresholdRange.value
+          )
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
 
       const meterRoot = indicatorThresholdRange
-        .closest('.entity-edit-button-side-subsection, .entity-edit-button-main-subsection')
+        .closest(
+          '.entity-edit-button-side-subsection, .entity-edit-button-main-subsection'
+        )
         ?.querySelector('[data-editor-button-live-meter]');
 
       if (meterRoot) {
@@ -4146,7 +5056,10 @@
   }
 
   function handleStandaloneButtonMainKeyDown(event) {
-    if (editorState.entityType !== 'button' || !editorState.sidePanelKeyCaptureActive) {
+    if (
+      editorState.entityType !== 'button' ||
+      !editorState.sidePanelKeyCaptureActive
+    ) {
       return false;
     }
 
@@ -4165,19 +5078,29 @@
       return true;
     }
 
-    const currentButton = getEditorButtonEntity(editorState.sidePanelButtonId || editorState.buttonId);
+    const currentButton = getEditorButtonEntity(
+      editorState.sidePanelButtonId || editorState.buttonId
+    );
     const actionTypes = getStandaloneButtonActionTypes();
-    const nextActionType = currentButton?.actionType === actionTypes.none
-      ? actionTypes.sendKey
-      : currentButton?.actionType;
+    const nextActionType =
+      currentButton?.actionType === actionTypes.none
+        ? actionTypes.sendKey
+        : currentButton?.actionType;
 
     editorState.sidePanelKeyCaptureActive = false;
-    updateSidePanelChannelButton({
-      ...buildSynchronizedButtonActionPatch(currentButton, nextActionType, null),
-      key: normalizedKey
-    }, {
-      type: 'standalone-buttons/update'
-    });
+    updateSidePanelChannelButton(
+      {
+        ...buildSynchronizedButtonActionPatch(
+          currentButton,
+          nextActionType,
+          null
+        ),
+        key: normalizedKey
+      },
+      {
+        type: 'standalone-buttons/update'
+      }
+    );
 
     return true;
   }
@@ -4187,10 +5110,9 @@
       return;
     }
 
-    const closedChannelIconPicker = (
-      editorState.channelIconPickerOpen
-      && !event.target.closest('[data-editor-channel-icon-picker]')
-    );
+    const closedChannelIconPicker =
+      editorState.channelIconPickerOpen &&
+      !event.target.closest('[data-editor-channel-icon-picker]');
 
     if (closedChannelIconPicker) {
       editorState.channelIconPickerOpen = false;
@@ -4198,7 +5120,9 @@
       return;
     }
 
-    const toggleChannelIconPickerButton = event.target.closest('[data-editor-toggle-channel-icon-picker]');
+    const toggleChannelIconPickerButton = event.target.closest(
+      '[data-editor-toggle-channel-icon-picker]'
+    );
 
     if (toggleChannelIconPickerButton && editorState.entityType === 'fader') {
       editorState.channelIconPickerOpen = !editorState.channelIconPickerOpen;
@@ -4206,13 +5130,17 @@
       return;
     }
 
-    const channelIconOptionButton = event.target.closest('[data-editor-channel-icon-option]');
+    const channelIconOptionButton = event.target.closest(
+      '[data-editor-channel-icon-option]'
+    );
 
     if (channelIconOptionButton && editorState.entityType === 'fader') {
       editorState.channelIconPickerOpen = false;
       window.channelActions?.setChannelIcon?.(
         editorState.channelId,
-        String(channelIconOptionButton.dataset.editorChannelIconOption || '').trim(),
+        String(
+          channelIconOptionButton.dataset.editorChannelIconOption || ''
+        ).trim(),
         { source: 'entity-editor' }
       );
       return;
@@ -4223,17 +5151,29 @@
       return;
     }
 
-    const startButtonTitleEditButton = event.target.closest('[data-editor-start-button-title-edit]');
+    const startButtonTitleEditButton = event.target.closest(
+      '[data-editor-start-button-title-edit]'
+    );
 
     if (startButtonTitleEditButton) {
-      startChannelButtonTitleEdit(Number.parseInt(startButtonTitleEditButton.dataset.editorStartButtonTitleEdit, 10));
+      startChannelButtonTitleEdit(
+        Number.parseInt(
+          startButtonTitleEditButton.dataset.editorStartButtonTitleEdit,
+          10
+        )
+      );
       return;
     }
 
-    const removeChannelButton = event.target.closest('[data-editor-remove-channel-button]');
+    const removeChannelButton = event.target.closest(
+      '[data-editor-remove-channel-button]'
+    );
 
     if (removeChannelButton) {
-      const buttonId = Number.parseInt(removeChannelButton.dataset.editorRemoveChannelButton, 10);
+      const buttonId = Number.parseInt(
+        removeChannelButton.dataset.editorRemoveChannelButton,
+        10
+      );
 
       if (Number.isNaN(buttonId)) {
         return;
@@ -4242,16 +5182,25 @@
       editorState.previewLayoutTransitionRequested = true;
       editorState.buttonTitleDraft = '';
       editorState.editingChannelButtonId = null;
-      window.channelActions?.removeChannelButton?.(editorState.channelId, buttonId, {
-        source: 'entity-editor'
-      });
+      window.channelActions?.removeChannelButton?.(
+        editorState.channelId,
+        buttonId,
+        {
+          source: 'entity-editor'
+        }
+      );
       return;
     }
 
-    const openChannelButtonPanelButton = event.target.closest('[data-editor-open-channel-button-panel]');
+    const openChannelButtonPanelButton = event.target.closest(
+      '[data-editor-open-channel-button-panel]'
+    );
 
     if (openChannelButtonPanelButton) {
-      const buttonId = Number.parseInt(openChannelButtonPanelButton.dataset.editorOpenChannelButtonPanel, 10);
+      const buttonId = Number.parseInt(
+        openChannelButtonPanelButton.dataset.editorOpenChannelButtonPanel,
+        10
+      );
 
       if (Number.isNaN(buttonId)) {
         return;
@@ -4261,10 +5210,15 @@
       return;
     }
 
-    const openStandaloneButtonPanelButton = event.target.closest('[data-editor-open-standalone-button-panel]');
+    const openStandaloneButtonPanelButton = event.target.closest(
+      '[data-editor-open-standalone-button-panel]'
+    );
 
     if (openStandaloneButtonPanelButton) {
-      const buttonId = Number.parseInt(openStandaloneButtonPanelButton.dataset.editorOpenStandaloneButtonPanel, 10);
+      const buttonId = Number.parseInt(
+        openStandaloneButtonPanelButton.dataset.editorOpenStandaloneButtonPanel,
+        10
+      );
 
       if (Number.isNaN(buttonId)) {
         return;
@@ -4292,36 +5246,53 @@
 
       if (!channel.customSettingsEnabled) {
         const resolvedSettings = getEditorChannelResolvedSettings(channel);
-        updateChannelCustomSettingsState?.(channel.id, {
-          faderInterpolationEnabled: Boolean(resolvedSettings.faderInterpolationEnabled),
-          softTakeoverEnabled: Boolean(resolvedSettings.softTakeoverEnabled),
-          softTakeoverThreshold: Number(resolvedSettings.softTakeoverThreshold) || 0,
-          volumeCurveEnabled: Boolean(resolvedSettings.volumeCurveEnabled),
-          volumeCurveType: resolvedSettings.volumeCurveType || 'ease-in-out',
-          volumeCurveAmount: Number(resolvedSettings.volumeCurveAmount) || 0,
-          showFractionalNumbers: Boolean(resolvedSettings.showFractionalNumbers)
-        }, {
-          source: 'entity-editor'
-        });
+        updateChannelCustomSettingsState?.(
+          channel.id,
+          {
+            faderInterpolationEnabled: Boolean(
+              resolvedSettings.faderInterpolationEnabled
+            ),
+            softTakeoverEnabled: Boolean(resolvedSettings.softTakeoverEnabled),
+            softTakeoverThreshold:
+              Number(resolvedSettings.softTakeoverThreshold) || 0,
+            volumeCurveEnabled: Boolean(resolvedSettings.volumeCurveEnabled),
+            volumeCurveType: resolvedSettings.volumeCurveType || 'ease-in-out',
+            volumeCurveAmount: Number(resolvedSettings.volumeCurveAmount) || 0,
+            showFractionalNumbers: Boolean(
+              resolvedSettings.showFractionalNumbers
+            )
+          },
+          {
+            source: 'entity-editor'
+          }
+        );
       }
 
-      setChannelCustomSettingsEnabledState?.(channel.id, !channel.customSettingsEnabled, {
-        source: 'entity-editor'
-      });
+      setChannelCustomSettingsEnabledState?.(
+        channel.id,
+        !channel.customSettingsEnabled,
+        {
+          source: 'entity-editor'
+        }
+      );
       saveProfileToLocal?.();
       renderEntityEditor();
       requestAnimationFrame(() => {
         if (!channel.customSettingsEnabled) {
-          dom.main?.querySelector('.entity-edit-custom-expandable.open')?.scrollIntoView({
-            block: 'nearest',
-            behavior: 'smooth'
-          });
+          dom.main
+            ?.querySelector('.entity-edit-custom-expandable.open')
+            ?.scrollIntoView({
+              block: 'nearest',
+              behavior: 'smooth'
+            });
         }
       });
       return;
     }
 
-    const removeTargetButton = event.target.closest('[data-editor-remove-target]');
+    const removeTargetButton = event.target.closest(
+      '[data-editor-remove-target]'
+    );
 
     if (removeTargetButton) {
       const targetChip = removeTargetButton.closest('.entity-edit-target-chip');
@@ -4333,22 +5304,36 @@
             removeTargetButton.dataset.editorRemoveTarget,
             { source: 'entity-editor' }
           );
-          syncTargetSelectionUi(getEditorStandaloneButton(editorState.buttonId));
+          syncTargetSelectionUi(
+            getEditorStandaloneButton(editorState.buttonId)
+          );
         } else {
-          window.channelActions?.removeChannelTarget?.(editorState.channelId, removeTargetButton.dataset.editorRemoveTarget, {
-            source: 'entity-editor'
-          });
+          window.channelActions?.removeChannelTarget?.(
+            editorState.channelId,
+            removeTargetButton.dataset.editorRemoveTarget,
+            {
+              source: 'entity-editor'
+            }
+          );
         }
       });
       return;
     }
 
-    const removeDeviceTargetButton = event.target.closest('[data-editor-remove-device-target]');
+    const removeDeviceTargetButton = event.target.closest(
+      '[data-editor-remove-device-target]'
+    );
 
     if (removeDeviceTargetButton && editorState.entityType === 'fader') {
-      const targetChip = removeDeviceTargetButton.closest('.entity-edit-target-chip');
-      const targetId = String(removeDeviceTargetButton.dataset.editorRemoveDeviceTarget || '').trim();
-      const targetFlow = String(removeDeviceTargetButton.dataset.editorRemoveDeviceTargetFlow || '').trim();
+      const targetChip = removeDeviceTargetButton.closest(
+        '.entity-edit-target-chip'
+      );
+      const targetId = String(
+        removeDeviceTargetButton.dataset.editorRemoveDeviceTarget || ''
+      ).trim();
+      const targetFlow = String(
+        removeDeviceTargetButton.dataset.editorRemoveDeviceTargetFlow || ''
+      ).trim();
 
       if (!targetId) {
         return;
@@ -4365,11 +5350,17 @@
       return;
     }
 
-    const removeFocusExclusionButton = event.target.closest('[data-editor-remove-focus-exclusion]');
+    const removeFocusExclusionButton = event.target.closest(
+      '[data-editor-remove-focus-exclusion]'
+    );
 
     if (removeFocusExclusionButton && editorState.entityType === 'fader') {
-      const targetChip = removeFocusExclusionButton.closest('.entity-edit-target-chip');
-      const targetProcess = String(removeFocusExclusionButton.dataset.editorRemoveFocusExclusion || '').trim();
+      const targetChip = removeFocusExclusionButton.closest(
+        '.entity-edit-target-chip'
+      );
+      const targetProcess = String(
+        removeFocusExclusionButton.dataset.editorRemoveFocusExclusion || ''
+      ).trim();
 
       if (!targetProcess) {
         return;
@@ -4385,14 +5376,17 @@
       return;
     }
 
-    const titleIconButton = event.target.closest('[data-editor-toggle-title-icon]');
+    const titleIconButton = event.target.closest(
+      '[data-editor-toggle-title-icon]'
+    );
 
     if (titleIconButton && editorState.entityType === 'fader') {
       const channel = getEditorChannel();
       const targetProcess = titleIconButton.dataset.editorToggleTitleIcon;
       const isActive = Boolean(
-        channel?.showTargetIconInTitle
-        && String(channel?.titleIconTargetProcess || '').trim() === String(targetProcess || '').trim()
+        channel?.showTargetIconInTitle &&
+        String(channel?.titleIconTargetProcess || '').trim() ===
+          String(targetProcess || '').trim()
       );
 
       editorState.previewLayoutTransitionRequested = true;
@@ -4405,7 +5399,9 @@
       return;
     }
 
-    const useTargetNameButton = event.target.closest('[data-editor-use-target-name]');
+    const useTargetNameButton = event.target.closest(
+      '[data-editor-use-target-name]'
+    );
 
     if (useTargetNameButton && editorState.entityType === 'fader') {
       const channel = getEditorChannel();
@@ -4430,7 +5426,9 @@
       return;
     }
 
-    const buttonPlacementToggle = event.target.closest('[data-editor-button-placement]');
+    const buttonPlacementToggle = event.target.closest(
+      '[data-editor-button-placement]'
+    );
 
     if (buttonPlacementToggle && editorState.entityType === 'fader') {
       editorState.previewLayoutTransitionRequested = true;
@@ -4455,7 +5453,10 @@
     const curveButton = event.target.closest('[data-editor-curve-type]');
 
     if (curveButton && editorState.entityType === 'fader') {
-      updateChannelCustomSetting('volumeCurveType', curveButton.dataset.editorCurveType);
+      updateChannelCustomSetting(
+        'volumeCurveType',
+        curveButton.dataset.editorCurveType
+      );
       renderEntityEditor();
     }
   }
@@ -4480,12 +5481,20 @@
       return;
     }
 
-    const buttonTitleInput = event.target.closest('[data-editor-button-title-input]');
+    const buttonTitleInput = event.target.closest(
+      '[data-editor-button-title-input]'
+    );
 
     if (buttonTitleInput) {
-      editorState.editingChannelButtonId = Number.parseInt(buttonTitleInput.dataset.editorButtonTitleInput, 10);
+      editorState.editingChannelButtonId = Number.parseInt(
+        buttonTitleInput.dataset.editorButtonTitleInput,
+        10
+      );
       editorState.buttonTitleDraft = buttonTitleInput.value;
-      syncPreviewDraftButtonTitle(buttonTitleInput.dataset.editorButtonTitleInput, buttonTitleInput.value);
+      syncPreviewDraftButtonTitle(
+        buttonTitleInput.dataset.editorButtonTitleInput,
+        buttonTitleInput.value
+      );
       return;
     }
 
@@ -4497,7 +5506,9 @@
 
     const settingKey = rangeElement.dataset.editorSettingRange;
     const nextValue = Number.parseInt(rangeElement.value, 10) || 0;
-    const valueLabel = rangeElement.parentElement?.querySelector('.settings-range-value');
+    const valueLabel = rangeElement.parentElement?.querySelector(
+      '.settings-range-value'
+    );
 
     updateSettingsRangeFill?.(rangeElement);
 
@@ -4559,9 +5570,10 @@
     if (event.key === 'Escape') {
       const channel = getEditorChannel();
       const button = getEditorStandaloneButton(editorState.buttonId);
-      editorState.titleDraft = editorState.entityType === 'button'
-        ? (button?.text || t('buttons.defaultLabel'))
-        : (channel?.title || channel?.appName || t('channels.unnamed'));
+      editorState.titleDraft =
+        editorState.entityType === 'button'
+          ? button?.text || t('buttons.defaultLabel')
+          : channel?.title || channel?.appName || t('channels.unnamed');
       editorState.titleDirty = false;
       event.target.value = editorState.titleDraft;
       if (editorState.entityType === 'button') {
@@ -4584,7 +5596,9 @@
       return null;
     }
 
-    const changedKeys = Object.keys(patch || {}).filter((key) => currentButton[key] !== patch[key]);
+    const changedKeys = Object.keys(patch || {}).filter(
+      (key) => currentButton[key] !== patch[key]
+    );
 
     if (!changedKeys.length) {
       return currentButton;
@@ -4595,29 +5609,36 @@
       : [];
 
     if (editorState.entityType === 'button') {
-      return window.standaloneButtonActions?.updateStandaloneButton?.(
+      return (
+        window.standaloneButtonActions?.updateStandaloneButton?.(
+          editorState.sidePanelButtonId,
+          patch,
+          {
+            source: 'entity-editor-side-panel',
+            ...meta
+          }
+        ) || null
+      );
+    }
+
+    return (
+      window.channelActions?.updateChannelButton?.(
+        editorState.channelId,
         editorState.sidePanelButtonId,
         patch,
         {
           source: 'entity-editor-side-panel',
           ...meta
         }
-      ) || null;
-    }
-
-    return window.channelActions?.updateChannelButton?.(
-      editorState.channelId,
-      editorState.sidePanelButtonId,
-      patch,
-      {
-        source: 'entity-editor-side-panel',
-        ...meta
-      }
-    ) || null;
+      ) || null
+    );
   }
 
   function commitSidePanelButtonTitleDraft() {
-    if (!editorState.sidePanelButtonId || !editorState.sidePanelButtonTitleDirty) {
+    if (
+      !editorState.sidePanelButtonId ||
+      !editorState.sidePanelButtonTitleDirty
+    ) {
       return;
     }
 
@@ -4628,7 +5649,10 @@
       return;
     }
 
-    const nextTitle = String(editorState.sidePanelButtonTitleDraft || '').trim() || button.text || t('buttons.defaultLabel');
+    const nextTitle =
+      String(editorState.sidePanelButtonTitleDraft || '').trim() ||
+      button.text ||
+      t('buttons.defaultLabel');
     resetSidePanelButtonDraft({
       ...button,
       text: nextTitle
@@ -4643,16 +5667,22 @@
       return;
     }
 
-    updateSidePanelChannelButton({
-      text: nextTitle
-    }, {
-      type: editorState.entityType === 'button'
-        ? 'standalone-buttons/update'
-        : 'channels/button-update'
-    });
+    updateSidePanelChannelButton(
+      {
+        text: nextTitle
+      },
+      {
+        type:
+          editorState.entityType === 'button'
+            ? 'standalone-buttons/update'
+            : 'channels/button-update'
+      }
+    );
   }
 
-  function syncSidePanelButtonTitleDraft(button = getEditorButtonEntity(editorState.sidePanelButtonId)) {
+  function syncSidePanelButtonTitleDraft(
+    button = getEditorButtonEntity(editorState.sidePanelButtonId)
+  ) {
     if (!button || editorState.sidePanelButtonTitleDirty) {
       return;
     }
@@ -4661,21 +5691,35 @@
   }
 
   function handleSidePanelInput(event) {
-    const titleInput = event.target.closest('[data-editor-side-button-title-input]');
+    const titleInput = event.target.closest(
+      '[data-editor-side-button-title-input]'
+    );
 
     if (titleInput) {
       editorState.sidePanelButtonTitleDraft = titleInput.value;
       editorState.sidePanelButtonTitleDirty = true;
-      syncPreviewDraftButtonTitle(titleInput.dataset.editorSideButtonTitleInput, titleInput.value);
+      syncPreviewDraftButtonTitle(
+        titleInput.dataset.editorSideButtonTitleInput,
+        titleInput.value
+      );
       return;
     }
 
-    const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
-    const indicatorThresholdRange = event.target.closest('[data-editor-side-button-indicator-threshold]');
+    const actionValueRange = event.target.closest(
+      '[data-editor-side-button-action-value]'
+    );
+    const indicatorThresholdRange = event.target.closest(
+      '[data-editor-side-button-indicator-threshold]'
+    );
 
     if (actionValueRange) {
-      const nextValue = Math.max(0, Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0));
-      const valueLabel = actionValueRange.parentElement?.querySelector('[data-editor-side-button-action-value-label]');
+      const nextValue = Math.max(
+        0,
+        Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0)
+      );
+      const valueLabel = actionValueRange.parentElement?.querySelector(
+        '[data-editor-side-button-action-value-label]'
+      );
       updateSettingsRangeFill?.(actionValueRange);
 
       if (valueLabel) {
@@ -4684,8 +5728,12 @@
     }
 
     if (indicatorThresholdRange) {
-      const nextValue = clampButtonIndicatorThreshold(indicatorThresholdRange.value);
-      const valueLabel = indicatorThresholdRange.parentElement?.querySelector('[data-editor-side-button-indicator-threshold-label]');
+      const nextValue = clampButtonIndicatorThreshold(
+        indicatorThresholdRange.value
+      );
+      const valueLabel = indicatorThresholdRange.parentElement?.querySelector(
+        '[data-editor-side-button-indicator-threshold-label]'
+      );
       updateSettingsRangeFill?.(indicatorThresholdRange);
 
       if (valueLabel) {
@@ -4693,7 +5741,9 @@
       }
 
       const meterRoot = indicatorThresholdRange
-        .closest('.entity-edit-button-side-subsection, .entity-edit-button-main-subsection')
+        .closest(
+          '.entity-edit-button-side-subsection, .entity-edit-button-main-subsection'
+        )
         ?.querySelector('[data-editor-button-live-meter]');
 
       if (meterRoot) {
@@ -4706,19 +5756,34 @@
 
   function handleSidePanelChange(event) {
     const currentButton = getEditorButtonEntity(editorState.sidePanelButtonId);
-    const updateType = editorState.entityType === 'button'
-      ? 'standalone-buttons/update'
-      : 'channels/button-update';
-    const actionGroupSelect = event.target.closest('[data-editor-button-action-group-select]');
-    const actionTypeSelect = event.target.closest('[data-editor-button-action-type-select]');
-    const linkedChannelSelect = event.target.closest('[data-editor-button-linked-channel-select]');
-    const deviceSelect = event.target.closest('[data-editor-button-device-select]');
+    const updateType =
+      editorState.entityType === 'button'
+        ? 'standalone-buttons/update'
+        : 'channels/button-update';
+    const actionGroupSelect = event.target.closest(
+      '[data-editor-button-action-group-select]'
+    );
+    const actionTypeSelect = event.target.closest(
+      '[data-editor-button-action-type-select]'
+    );
+    const linkedChannelSelect = event.target.closest(
+      '[data-editor-button-linked-channel-select]'
+    );
+    const deviceSelect = event.target.closest(
+      '[data-editor-button-device-select]'
+    );
     const pathInput = event.target.closest('[data-editor-button-path-field]');
-    const actionValueRange = event.target.closest('[data-editor-side-button-action-value]');
-    const indicatorThresholdRange = event.target.closest('[data-editor-side-button-indicator-threshold]');
+    const actionValueRange = event.target.closest(
+      '[data-editor-side-button-action-value]'
+    );
+    const indicatorThresholdRange = event.target.closest(
+      '[data-editor-side-button-indicator-threshold]'
+    );
 
     if (actionGroupSelect) {
-      const nextActionType = getDefaultActionTypeForGroup(actionGroupSelect.value);
+      const nextActionType = getDefaultActionTypeForGroup(
+        actionGroupSelect.value
+      );
       updateSidePanelChannelButton(
         buildSynchronizedButtonActionPatch(
           currentButton,
@@ -4744,47 +5809,67 @@
 
     if (linkedChannelSelect) {
       const linkedChannelId = Number.parseInt(linkedChannelSelect.value, 10);
-      updateSidePanelChannelButton({
-        linkedChannelId: Number.isFinite(linkedChannelId) ? linkedChannelId : null
-      }, {
-        type: updateType
-      });
+      updateSidePanelChannelButton(
+        {
+          linkedChannelId: Number.isFinite(linkedChannelId)
+            ? linkedChannelId
+            : null
+        },
+        {
+          type: updateType
+        }
+      );
       return;
     }
 
     if (deviceSelect) {
-      updateSidePanelChannelButton({
-        deviceId: String(deviceSelect.value || '').trim()
-      }, {
-        type: updateType
-      });
+      updateSidePanelChannelButton(
+        {
+          deviceId: String(deviceSelect.value || '').trim()
+        },
+        {
+          type: updateType
+        }
+      );
       return;
     }
 
     if (pathInput) {
-      const fieldName = String(pathInput.dataset.editorButtonPathField || '').trim();
+      const fieldName = String(
+        pathInput.dataset.editorButtonPathField || ''
+      ).trim();
 
       if (!fieldName) {
         return;
       }
 
-      updateSidePanelChannelButton({
-        [fieldName]: pathInput.value
-      }, {
-        type: updateType
-      });
+      updateSidePanelChannelButton(
+        {
+          [fieldName]: pathInput.value
+        },
+        {
+          type: updateType
+        }
+      );
       return;
     }
 
     if (indicatorThresholdRange) {
-      updateSidePanelChannelButton({
-        indicatorThreshold: clampButtonIndicatorThreshold(indicatorThresholdRange.value)
-      }, {
-        type: updateType
-      });
+      updateSidePanelChannelButton(
+        {
+          indicatorThreshold: clampButtonIndicatorThreshold(
+            indicatorThresholdRange.value
+          )
+        },
+        {
+          type: updateType
+        }
+      );
 
       const meterRoot = indicatorThresholdRange
-        .closest('.entity-edit-button-side-subsection, .entity-edit-button-main-subsection')
+        .closest(
+          '.entity-edit-button-side-subsection, .entity-edit-button-main-subsection'
+        )
         ?.querySelector('[data-editor-button-live-meter]');
 
       if (meterRoot) {
@@ -4801,11 +5886,17 @@
       return;
     }
 
-    updateSidePanelChannelButton({
-      actionValue: Math.max(0, Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0))
-    }, {
-      type: updateType
-    });
+    updateSidePanelChannelButton(
+      {
+        actionValue: Math.max(
+          0,
+          Math.min(100, Number.parseInt(actionValueRange.value, 10) || 0)
+        )
+      },
+      {
+        type: updateType
+      }
+    );
   }
 
   function handleSidePanelFocusOut(event) {
@@ -4819,11 +5910,11 @@
       event.preventDefault();
       event.stopPropagation();
 
-        if (event.key === 'Escape') {
-          editorState.sidePanelKeyCaptureActive = false;
-          renderSidePanel(getEditorTargetEntity());
-          return;
-        }
+      if (event.key === 'Escape') {
+        editorState.sidePanelKeyCaptureActive = false;
+        renderSidePanel(getEditorTargetEntity());
+        return;
+      }
 
       const normalizedKey = getNormalizedCapturedButtonKey(event);
 
@@ -4831,25 +5922,32 @@
         return;
       }
 
-      const currentButton = getEditorButtonEntity(editorState.sidePanelButtonId);
+      const currentButton = getEditorButtonEntity(
+        editorState.sidePanelButtonId
+      );
       const actionTypes = getStandaloneButtonActionTypes();
-      const nextActionType = currentButton?.actionType === actionTypes.none
-        ? actionTypes.sendKey
-        : currentButton?.actionType;
+      const nextActionType =
+        currentButton?.actionType === actionTypes.none
+          ? actionTypes.sendKey
+          : currentButton?.actionType;
 
       editorState.sidePanelKeyCaptureActive = false;
-      updateSidePanelChannelButton({
-        ...buildSynchronizedButtonActionPatch(
-          currentButton,
-          nextActionType,
-          editorState.entityType === 'fader' ? editorState.channelId : null
-        ),
-        key: normalizedKey
-      }, {
-        type: editorState.entityType === 'button'
-          ? 'standalone-buttons/update'
-          : 'channels/button-update'
-      });
+      updateSidePanelChannelButton(
+        {
+          ...buildSynchronizedButtonActionPatch(
+            currentButton,
+            nextActionType,
+            editorState.entityType === 'fader' ? editorState.channelId : null
+          ),
+          key: normalizedKey
+        },
+        {
+          type:
+            editorState.entityType === 'button'
+              ? 'standalone-buttons/update'
+              : 'channels/button-update'
+        }
+      );
       return;
     }
 
@@ -4863,18 +5961,18 @@
       return;
     }
 
-      if (event.key === 'Escape') {
-        const button = getEditorButtonEntity(editorState.sidePanelButtonId);
-        resetSidePanelButtonDraft(button);
-        event.target.value = editorState.sidePanelButtonTitleDraft;
-        if (editorState.entityType === 'button') {
-          syncPreviewFromButton(getEditorStandaloneButton(editorState.buttonId));
-        } else {
-          syncPreviewFromChannel(getEditorChannel());
-        }
-        event.target.blur();
+    if (event.key === 'Escape') {
+      const button = getEditorButtonEntity(editorState.sidePanelButtonId);
+      resetSidePanelButtonDraft(button);
+      event.target.value = editorState.sidePanelButtonTitleDraft;
+      if (editorState.entityType === 'button') {
+        syncPreviewFromButton(getEditorStandaloneButton(editorState.buttonId));
+      } else {
+        syncPreviewFromChannel(getEditorChannel());
       }
+      event.target.blur();
     }
+  }
 
   function handleSidePanelClick(event) {
     if (event.target.closest('[data-editor-close-targets]')) {
@@ -4884,20 +5982,38 @@
     }
 
     if (!isTargetsSidePanelMode()) {
-      const iconPickerToggleButton = event.target.closest('[data-editor-toggle-button-icon-picker]');
-      const iconPickerMoreButton = event.target.closest('[data-editor-toggle-button-icon-picker-more]');
-      const iconButton = event.target.closest('[data-editor-button-icon-option]');
-      const optionButton = event.target.closest('[data-editor-button-option-name]');
-      const bindMidiButton = event.target.closest('[data-editor-bind-channel-button-midi]');
-      const keyCaptureButton = event.target.closest('[data-editor-side-button-key-capture]');
-      const pickFileButton = event.target.closest('[data-editor-button-pick-file]');
-      const refreshDevicesButton = event.target.closest('[data-editor-button-refresh-devices]');
-      const updateType = editorState.entityType === 'button'
-        ? 'standalone-buttons/update'
-        : 'channels/button-update';
+      const iconPickerToggleButton = event.target.closest(
+        '[data-editor-toggle-button-icon-picker]'
+      );
+      const iconPickerMoreButton = event.target.closest(
+        '[data-editor-toggle-button-icon-picker-more]'
+      );
+      const iconButton = event.target.closest(
+        '[data-editor-button-icon-option]'
+      );
+      const optionButton = event.target.closest(
+        '[data-editor-button-option-name]'
+      );
+      const bindMidiButton = event.target.closest(
+        '[data-editor-bind-channel-button-midi]'
+      );
+      const keyCaptureButton = event.target.closest(
+        '[data-editor-side-button-key-capture]'
+      );
+      const pickFileButton = event.target.closest(
+        '[data-editor-button-pick-file]'
+      );
+      const refreshDevicesButton = event.target.closest(
+        '[data-editor-button-refresh-devices]'
+      );
+      const updateType =
+        editorState.entityType === 'button'
+          ? 'standalone-buttons/update'
+          : 'channels/button-update';
 
       if (iconPickerToggleButton) {
-        editorState.sidePanelIconPickerOpen = !editorState.sidePanelIconPickerOpen;
+        editorState.sidePanelIconPickerOpen =
+          !editorState.sidePanelIconPickerOpen;
 
         if (!editorState.sidePanelIconPickerOpen) {
           editorState.sidePanelIconPickerExpanded = false;
@@ -4909,7 +6025,8 @@
 
       if (iconPickerMoreButton) {
         editorState.sidePanelIconPickerOpen = true;
-        editorState.sidePanelIconPickerExpanded = !editorState.sidePanelIconPickerExpanded;
+        editorState.sidePanelIconPickerExpanded =
+          !editorState.sidePanelIconPickerExpanded;
         renderSidePanel(getEditorTargetEntity());
         return;
       }
@@ -4917,13 +6034,19 @@
       if (bindMidiButton) {
         if (editorState.entityType === 'button') {
           window.midiActions?.learnStandaloneButtonMapping?.(
-            Number.parseInt(bindMidiButton.dataset.editorBindChannelButtonMidi, 10),
+            Number.parseInt(
+              bindMidiButton.dataset.editorBindChannelButtonMidi,
+              10
+            ),
             { source: 'entity-editor-side-panel' }
           );
         } else {
           window.midiActions?.learnChannelButtonMapping?.(
             editorState.channelId,
-            Number.parseInt(bindMidiButton.dataset.editorBindChannelButtonMidi, 10),
+            Number.parseInt(
+              bindMidiButton.dataset.editorBindChannelButtonMidi,
+              10
+            ),
             { source: 'entity-editor-side-panel' }
           );
         }
@@ -4931,11 +6054,18 @@
       }
 
       if (pickFileButton) {
-        const api = typeof window.getApi === 'function'
-          ? window.getApi()
-          : (window.getNativeApi?.() ?? null);
-        const pickMode = String(pickFileButton.dataset.editorButtonPickFile || 'app').trim().toLowerCase();
-        const fieldName = String(pickFileButton.dataset.editorButtonPathTarget || '').trim();
+        const api =
+          typeof window.getApi === 'function'
+            ? window.getApi()
+            : (window.getNativeApi?.() ?? null);
+        const pickMode = String(
+          pickFileButton.dataset.editorButtonPickFile || 'app'
+        )
+          .trim()
+          .toLowerCase();
+        const fieldName = String(
+          pickFileButton.dataset.editorButtonPathTarget || ''
+        ).trim();
 
         if (api?.pick_action_file && fieldName) {
           Promise.resolve(api.pick_action_file(pickMode))
@@ -4944,11 +6074,14 @@
                 return;
               }
 
-              updateSidePanelChannelButton({
-                [fieldName]: String(response.filePath || '')
-              }, {
-                type: updateType
-              });
+              updateSidePanelChannelButton(
+                {
+                  [fieldName]: String(response.filePath || '')
+                },
+                {
+                  type: updateType
+                }
+              );
             })
             .catch((error) => {
               console.error('pick_action_file error', error);
@@ -4959,18 +6092,28 @@
       }
 
       if (refreshDevicesButton) {
-        const flow = String(refreshDevicesButton.dataset.editorButtonRefreshDevices || 'output').trim().toLowerCase();
-        void ensureEditorAudioDevicesLoaded(flow === 'input' ? 'input' : 'output', { force: true });
+        const flow = String(
+          refreshDevicesButton.dataset.editorButtonRefreshDevices || 'output'
+        )
+          .trim()
+          .toLowerCase();
+        void ensureEditorAudioDevicesLoaded(
+          flow === 'input' ? 'input' : 'output',
+          { force: true }
+        );
         return;
       }
 
       if (keyCaptureButton) {
-        editorState.sidePanelKeyCaptureActive = !editorState.sidePanelKeyCaptureActive;
+        editorState.sidePanelKeyCaptureActive =
+          !editorState.sidePanelKeyCaptureActive;
         renderSidePanel(getEditorTargetEntity());
 
         if (editorState.sidePanelKeyCaptureActive) {
           requestAnimationFrame(() => {
-            dom.sidePanel?.querySelector('[data-editor-side-button-key-capture]')?.focus?.();
+            dom.sidePanel
+              ?.querySelector('[data-editor-side-button-key-capture]')
+              ?.focus?.();
           });
         }
 
@@ -4978,8 +6121,8 @@
       }
 
       if (
-        editorState.sidePanelIconPickerOpen
-        && !event.target.closest('[data-editor-button-icon-picker]')
+        editorState.sidePanelIconPickerOpen &&
+        !event.target.closest('[data-editor-button-icon-picker]')
       ) {
         editorState.sidePanelIconPickerOpen = false;
         editorState.sidePanelIconPickerExpanded = false;
@@ -4988,25 +6131,33 @@
       if (iconButton) {
         editorState.sidePanelIconPickerOpen = false;
         editorState.sidePanelIconPickerExpanded = false;
-        updateSidePanelChannelButton({
-          icon: iconButton.dataset.editorButtonIconOption
-        }, {
-          type: updateType
-        });
+        updateSidePanelChannelButton(
+          {
+            icon: iconButton.dataset.editorButtonIconOption
+          },
+          {
+            type: updateType
+          }
+        );
         return;
       }
 
       if (optionButton) {
         const optionName = optionButton.dataset.editorButtonOptionName;
         const optionValue = optionButton.dataset.editorButtonOptionValue;
-        const currentButton = getEditorButtonEntity(editorState.sidePanelButtonId);
+        const currentButton = getEditorButtonEntity(
+          editorState.sidePanelButtonId
+        );
 
         if (optionName === 'content-display') {
-          updateSidePanelChannelButton({
-            contentDisplay: optionValue
-          }, {
-            type: updateType
-          });
+          updateSidePanelChannelButton(
+            {
+              contentDisplay: optionValue
+            },
+            {
+              type: updateType
+            }
+          );
           return;
         }
 
@@ -5026,20 +6177,26 @@
         }
 
         if (optionName === 'action-mode') {
-          updateSidePanelChannelButton(buildSynchronizedButtonModePatch(optionValue), {
-            type: updateType,
-            motionChoices: ['action-mode']
-          });
+          updateSidePanelChannelButton(
+            buildSynchronizedButtonModePatch(optionValue),
+            {
+              type: updateType,
+              motionChoices: ['action-mode']
+            }
+          );
           return;
         }
 
         if (optionName === 'indicator-behavior') {
-          updateSidePanelChannelButton({
-            indicatorBehavior: optionValue
-          }, {
-            type: updateType,
-            motionChoices: ['indicator-behavior']
-          });
+          updateSidePanelChannelButton(
+            {
+              indicatorBehavior: optionValue
+            },
+            {
+              type: updateType,
+              motionChoices: ['indicator-behavior']
+            }
+          );
           return;
         }
       }
@@ -5047,11 +6204,17 @@
       return;
     }
 
-    const optionButton = event.target.closest('[data-editor-button-option-name]');
+    const optionButton = event.target.closest(
+      '[data-editor-button-option-name]'
+    );
 
     if (optionButton && editorState.entityType === 'fader') {
-      const optionName = String(optionButton.dataset.editorButtonOptionName || '').trim();
-      const optionValue = String(optionButton.dataset.editorButtonOptionValue || '').trim();
+      const optionName = String(
+        optionButton.dataset.editorButtonOptionName || ''
+      ).trim();
+      const optionValue = String(
+        optionButton.dataset.editorButtonOptionValue || ''
+      ).trim();
 
       if (optionName === 'target-mode') {
         window.channelActions?.setChannelTargetMode?.(
@@ -5060,10 +6223,16 @@
           { source: 'entity-editor' }
         );
 
-        if (optionValue === (window.CHANNEL_TARGET_MODES?.devices || 'devices')) {
-          void ensureEditorAudioDevicesLoaded(getChannelDeviceTargetFlow(getEditorChannel()));
-        } else if (optionValue === (window.CHANNEL_TARGET_MODES?.apps || 'apps')
-          || optionValue === (window.CHANNEL_TARGET_MODES?.focus || 'focus')) {
+        if (
+          optionValue === (window.CHANNEL_TARGET_MODES?.devices || 'devices')
+        ) {
+          void ensureEditorAudioDevicesLoaded(
+            getChannelDeviceTargetFlow(getEditorChannel())
+          );
+        } else if (
+          optionValue === (window.CHANNEL_TARGET_MODES?.apps || 'apps') ||
+          optionValue === (window.CHANNEL_TARGET_MODES?.focus || 'focus')
+        ) {
           requestTargetsPanelApplicationsRefresh({ force: true });
         }
         return;
@@ -5080,20 +6249,28 @@
       }
     }
 
-    const toggleTargetButton = event.target.closest('[data-editor-toggle-target]');
+    const toggleTargetButton = event.target.closest(
+      '[data-editor-toggle-target]'
+    );
 
     if (toggleTargetButton) {
       const channel = getEditorTargetEntity();
-      const targetProcess = String(toggleTargetButton.dataset.editorToggleTarget || '').trim();
+      const targetProcess = String(
+        toggleTargetButton.dataset.editorToggleTarget || ''
+      ).trim();
 
       if (!channel || !targetProcess) {
         return;
       }
 
-      const selectedTargets = new Set(getChannelTargets(channel).map((target) => target.process));
-      const availableApp = (typeof getAvailableAudioApps === 'function'
-        ? getAvailableAudioApps()
-        : []).find((app) => app.process === targetProcess);
+      const selectedTargets = new Set(
+        getChannelTargets(channel).map((target) => target.process)
+      );
+      const availableApp = (
+        typeof getAvailableAudioApps === 'function'
+          ? getAvailableAudioApps()
+          : []
+      ).find((app) => app.process === targetProcess);
 
       if (selectedTargets.has(targetProcess)) {
         if (editorState.entityType === 'button') {
@@ -5102,7 +6279,9 @@
             targetProcess,
             { source: 'entity-editor' }
           );
-          syncTargetSelectionUi(getEditorStandaloneButton(editorState.buttonId));
+          syncTargetSelectionUi(
+            getEditorStandaloneButton(editorState.buttonId)
+          );
         } else {
           window.channelActions?.removeChannelTarget?.(
             channel.id,
@@ -5134,12 +6313,19 @@
       return;
     }
 
-    const toggleDeviceTargetButton = event.target.closest('[data-editor-toggle-device-target]');
+    const toggleDeviceTargetButton = event.target.closest(
+      '[data-editor-toggle-device-target]'
+    );
 
     if (toggleDeviceTargetButton && editorState.entityType === 'fader') {
       const channel = getEditorChannel();
-      const targetId = String(toggleDeviceTargetButton.dataset.editorToggleDeviceTarget || '').trim();
-      const targetFlow = String(toggleDeviceTargetButton.dataset.editorToggleDeviceTargetFlow || '').trim() || 'output';
+      const targetId = String(
+        toggleDeviceTargetButton.dataset.editorToggleDeviceTarget || ''
+      ).trim();
+      const targetFlow =
+        String(
+          toggleDeviceTargetButton.dataset.editorToggleDeviceTargetFlow || ''
+        ).trim() || 'output';
 
       if (!channel || !targetId) {
         return;
@@ -5148,9 +6334,11 @@
       const selectedTargetIds = new Set(
         getChannelDeviceTargets(channel, targetFlow).map((target) => target.id)
       );
-      const availableDevice = (Array.isArray(editorState.audioDeviceOptions[targetFlow])
-        ? editorState.audioDeviceOptions[targetFlow]
-        : []).find((device) => String(device?.id || '').trim() === targetId);
+      const availableDevice = (
+        Array.isArray(editorState.audioDeviceOptions[targetFlow])
+          ? editorState.audioDeviceOptions[targetFlow]
+          : []
+      ).find((device) => String(device?.id || '').trim() === targetId);
 
       if (selectedTargetIds.has(targetId)) {
         window.channelActions?.removeChannelDeviceTarget?.(
@@ -5172,20 +6360,28 @@
       return;
     }
 
-    const toggleFocusExclusionButton = event.target.closest('[data-editor-toggle-focus-exclusion]');
+    const toggleFocusExclusionButton = event.target.closest(
+      '[data-editor-toggle-focus-exclusion]'
+    );
 
     if (toggleFocusExclusionButton && editorState.entityType === 'fader') {
       const channel = getEditorChannel();
-      const targetProcess = String(toggleFocusExclusionButton.dataset.editorToggleFocusExclusion || '').trim();
+      const targetProcess = String(
+        toggleFocusExclusionButton.dataset.editorToggleFocusExclusion || ''
+      ).trim();
 
       if (!channel || !targetProcess) {
         return;
       }
 
-      const selectedExclusions = new Set(getChannelFocusExclusions(channel).map((target) => target.process));
-      const availableApp = (typeof getAvailableAudioApps === 'function'
-        ? getAvailableAudioApps()
-        : []).find((app) => app.process === targetProcess);
+      const selectedExclusions = new Set(
+        getChannelFocusExclusions(channel).map((target) => target.process)
+      );
+      const availableApp = (
+        typeof getAvailableAudioApps === 'function'
+          ? getAvailableAudioApps()
+          : []
+      ).find((app) => app.process === targetProcess);
 
       if (selectedExclusions.has(targetProcess)) {
         window.channelActions?.removeChannelFocusExclusion?.(
@@ -5217,17 +6413,27 @@
       buttonId: payload.buttonId ?? null,
       standalone: Boolean(payload.standalone),
       sourceSelector: resolveEntitySourceSelector(payload),
-      sidePanelOpen: payload.initialSidePanelMode === 'channel-button' && Number.isFinite(payload.initialButtonId),
-      sidePanelMode: payload.initialSidePanelMode === 'channel-button' ? 'channel-button' : 'targets',
-      sidePanelButtonId: Number.isFinite(payload.initialButtonId) ? payload.initialButtonId : null
+      sidePanelOpen:
+        payload.initialSidePanelMode === 'channel-button' &&
+        Number.isFinite(payload.initialButtonId),
+      sidePanelMode:
+        payload.initialSidePanelMode === 'channel-button'
+          ? 'channel-button'
+          : 'targets',
+      sidePanelButtonId: Number.isFinite(payload.initialButtonId)
+        ? payload.initialButtonId
+        : null
     });
 
     const channel = getEditorChannel();
     const standaloneButton = getEditorStandaloneButton(editorState.buttonId);
-    editorState.titleDraft = editorState.entityType === 'button'
-      ? (standaloneButton?.text || t('buttons.defaultLabel'))
-      : (channel?.title || channel?.appName || t('channels.unnamed'));
-    resetSidePanelButtonDraft(getEditorButtonEntity(editorState.sidePanelButtonId));
+    editorState.titleDraft =
+      editorState.entityType === 'button'
+        ? standaloneButton?.text || t('buttons.defaultLabel')
+        : channel?.title || channel?.appName || t('channels.unnamed');
+    resetSidePanelButtonDraft(
+      getEditorButtonEntity(editorState.sidePanelButtonId)
+    );
 
     dom.shell?.classList.remove('entity-edit-side-open');
     dom.sidePanel?.classList.remove('is-open');
@@ -5286,7 +6492,10 @@
 
     nextInput.focus({ preventScroll: true });
 
-    if (typeof selectionStart === 'number' && typeof selectionEnd === 'number') {
+    if (
+      typeof selectionStart === 'number' &&
+      typeof selectionEnd === 'number'
+    ) {
       nextInput.setSelectionRange(selectionStart, selectionEnd);
     }
   }
@@ -5332,7 +6541,11 @@
       return false;
     }
 
-    return openModal?.(ENTITY_EDITOR_MODAL_ID, payload, { source: 'entity-editor' }) || false;
+    return (
+      openModal?.(ENTITY_EDITOR_MODAL_ID, payload, {
+        source: 'entity-editor'
+      }) || false
+    );
   }
 
   function openChannelEditor(channelId) {
@@ -5351,7 +6564,8 @@
 
   function openChannelButtonEditor(channelId, buttonId) {
     const channel = findChannelState?.(channelId);
-    const button = channel?.buttons?.find((item) => item.id === buttonId) || null;
+    const button =
+      channel?.buttons?.find((item) => item.id === buttonId) || null;
 
     if (!channel || !button) {
       return false;
@@ -5383,7 +6597,10 @@
   }
 
   function initEntityEditorStateSync() {
-    if (initEntityEditorStateSync.initialized || typeof subscribeAppState !== 'function') {
+    if (
+      initEntityEditorStateSync.initialized ||
+      typeof subscribeAppState !== 'function'
+    ) {
       return;
     }
 
@@ -5392,7 +6609,10 @@
         return;
       }
 
-      if (editorState.entityType === 'fader' && nextState.channels !== previousState.channels) {
+      if (
+        editorState.entityType === 'fader' &&
+        nextState.channels !== previousState.channels
+      ) {
         const channel = findChannelState?.(editorState.channelId);
 
         if (!channel) {
@@ -5406,22 +6626,22 @@
         }
 
         if (
-          meta?.type === 'channels/set-volume'
-          || meta?.type === 'channels/button-toggle'
+          meta?.type === 'channels/set-volume' ||
+          meta?.type === 'channels/button-toggle'
         ) {
           syncPreviewFromChannel(channel);
           return;
         }
 
         if (
-          meta?.type === 'channels/add-app-target'
-          || meta?.type === 'channels/remove-app-target'
-          || meta?.type === 'channels/clear-app'
-          || meta?.type === 'channels/set-app'
-          || meta?.type === 'channels/add-device-target'
-          || meta?.type === 'channels/remove-device-target'
-          || meta?.type === 'channels/add-focus-exclusion'
-          || meta?.type === 'channels/remove-focus-exclusion'
+          meta?.type === 'channels/add-app-target' ||
+          meta?.type === 'channels/remove-app-target' ||
+          meta?.type === 'channels/clear-app' ||
+          meta?.type === 'channels/set-app' ||
+          meta?.type === 'channels/add-device-target' ||
+          meta?.type === 'channels/remove-device-target' ||
+          meta?.type === 'channels/add-focus-exclusion' ||
+          meta?.type === 'channels/remove-focus-exclusion'
         ) {
           syncTargetSelectionUi(channel);
 
@@ -5433,8 +6653,8 @@
         }
 
         if (
-          meta?.type === 'channels/set-target-mode'
-          || meta?.type === 'channels/set-device-target-flow'
+          meta?.type === 'channels/set-target-mode' ||
+          meta?.type === 'channels/set-device-target-flow'
         ) {
           syncTargetSelectionUi(channel);
 
@@ -5446,17 +6666,17 @@
         }
 
         if (
-          meta?.type === 'channels/button-add'
-          || meta?.type === 'channels/button-remove'
-          || meta?.type === 'channels/button-update'
-          || meta?.type === 'channels/set-button-placement'
+          meta?.type === 'channels/button-add' ||
+          meta?.type === 'channels/button-remove' ||
+          meta?.type === 'channels/button-update' ||
+          meta?.type === 'channels/set-button-placement'
         ) {
           syncEditorChannelButtonsUi(channel);
 
           if (
-            editorState.sidePanelMode === 'channel-button'
-            && editorState.sidePanelButtonId
-            && !getEditorChannelButton(editorState.sidePanelButtonId, channel)
+            editorState.sidePanelMode === 'channel-button' &&
+            editorState.sidePanelButtonId &&
+            !getEditorChannelButton(editorState.sidePanelButtonId, channel)
           ) {
             editorState.sidePanelOpen = false;
             editorState.sidePanelClosing = false;
@@ -5465,8 +6685,13 @@
             editorState.sidePanelKeyCaptureActive = false;
             resetSidePanelButtonDraft(null);
             renderSidePanel(channel);
-          } else if (editorState.sidePanelMode === 'channel-button' && editorState.sidePanelOpen) {
-            syncSidePanelButtonTitleDraft(getEditorChannelButton(editorState.sidePanelButtonId, channel));
+          } else if (
+            editorState.sidePanelMode === 'channel-button' &&
+            editorState.sidePanelOpen
+          ) {
+            syncSidePanelButtonTitleDraft(
+              getEditorChannelButton(editorState.sidePanelButtonId, channel)
+            );
             renderSidePanel(channel);
           }
 
@@ -5481,7 +6706,8 @@
         }
 
         if (meta?.type === 'channels/set-title-icon') {
-          const previewTransitionRequested = editorState.previewLayoutTransitionRequested;
+          const previewTransitionRequested =
+            editorState.previewLayoutTransitionRequested;
           syncEditorTargetsBody(channel);
 
           if (isTargetsPanelVisible() && isTargetsSidePanelMode()) {
@@ -5498,8 +6724,11 @@
         }
 
         if (meta?.type === 'channels/rename') {
-          const activeTitleInput = dom.main?.querySelector('#entityEditTitleInput');
-          const nextTitle = channel.title || channel.appName || t('channels.unnamed');
+          const activeTitleInput = dom.main?.querySelector(
+            '#entityEditTitleInput'
+          );
+          const nextTitle =
+            channel.title || channel.appName || t('channels.unnamed');
 
           if (activeTitleInput && document.activeElement !== activeTitleInput) {
             activeTitleInput.value = nextTitle;
@@ -5522,9 +6751,9 @@
         }
 
         if (
-          editorState.sidePanelMode === 'channel-button'
-          && editorState.sidePanelButtonId
-          && !getEditorChannelButton(editorState.sidePanelButtonId, channel)
+          editorState.sidePanelMode === 'channel-button' &&
+          editorState.sidePanelButtonId &&
+          !getEditorChannelButton(editorState.sidePanelButtonId, channel)
         ) {
           editorState.sidePanelOpen = false;
           editorState.sidePanelClosing = false;
@@ -5533,16 +6762,32 @@
           editorState.sidePanelKeyCaptureActive = false;
         }
 
-        const activeTitleInput = dom.main?.querySelector('#entityEditTitleInput');
-        const activeButtonTitleInput = dom.main?.querySelector('[data-editor-button-title-input]');
+        const activeTitleInput = dom.main?.querySelector(
+          '#entityEditTitleInput'
+        );
+        const activeButtonTitleInput = dom.main?.querySelector(
+          '[data-editor-button-title-input]'
+        );
         const isEditingTitle = document.activeElement === activeTitleInput;
-        const isEditingButtonTitle = document.activeElement === activeButtonTitleInput;
-        const selectionStart = isEditingTitle ? activeTitleInput.selectionStart : null;
-        const selectionEnd = isEditingTitle ? activeTitleInput.selectionEnd : null;
-        const buttonSelectionStart = isEditingButtonTitle ? activeButtonTitleInput.selectionStart : null;
-        const buttonSelectionEnd = isEditingButtonTitle ? activeButtonTitleInput.selectionEnd : null;
+        const isEditingButtonTitle =
+          document.activeElement === activeButtonTitleInput;
+        const selectionStart = isEditingTitle
+          ? activeTitleInput.selectionStart
+          : null;
+        const selectionEnd = isEditingTitle
+          ? activeTitleInput.selectionEnd
+          : null;
+        const buttonSelectionStart = isEditingButtonTitle
+          ? activeButtonTitleInput.selectionStart
+          : null;
+        const buttonSelectionEnd = isEditingButtonTitle
+          ? activeButtonTitleInput.selectionEnd
+          : null;
         const editingButtonId = isEditingButtonTitle
-          ? Number.parseInt(activeButtonTitleInput.dataset.editorButtonTitleInput, 10)
+          ? Number.parseInt(
+              activeButtonTitleInput.dataset.editorButtonTitleInput,
+              10
+            )
           : null;
 
         renderEntityEditor();
@@ -5555,14 +6800,21 @@
 
         if (isEditingButtonTitle && Number.isFinite(editingButtonId)) {
           requestAnimationFrame(() => {
-            focusChannelButtonTitleInput(editingButtonId, buttonSelectionStart, buttonSelectionEnd);
+            focusChannelButtonTitleInput(
+              editingButtonId,
+              buttonSelectionStart,
+              buttonSelectionEnd
+            );
           });
         }
 
         return;
       }
 
-      if (editorState.entityType === 'button' && nextState.standaloneButtons !== previousState.standaloneButtons) {
+      if (
+        editorState.entityType === 'button' &&
+        nextState.standaloneButtons !== previousState.standaloneButtons
+      ) {
         const button = getEditorStandaloneButton(editorState.buttonId);
 
         if (!button) {
@@ -5570,14 +6822,23 @@
           return;
         }
 
-        if (editorState.sidePanelMode === 'channel-button' && editorState.sidePanelOpen) {
+        if (
+          editorState.sidePanelMode === 'channel-button' &&
+          editorState.sidePanelOpen
+        ) {
           syncSidePanelButtonTitleDraft(button);
         }
 
-        const activeTitleInput = dom.main?.querySelector('#entityEditTitleInput');
+        const activeTitleInput = dom.main?.querySelector(
+          '#entityEditTitleInput'
+        );
         const isEditingTitle = document.activeElement === activeTitleInput;
-        const selectionStart = isEditingTitle ? activeTitleInput.selectionStart : null;
-        const selectionEnd = isEditingTitle ? activeTitleInput.selectionEnd : null;
+        const selectionStart = isEditingTitle
+          ? activeTitleInput.selectionStart
+          : null;
+        const selectionEnd = isEditingTitle
+          ? activeTitleInput.selectionEnd
+          : null;
 
         renderEntityEditor();
 
@@ -5672,10 +6933,10 @@
   }
 
   window.refreshEntityEditor = refreshEntityEditor;
-    window.openEntityEditor = openEntityEditor;
-    window.openChannelEditor = openChannelEditor;
-    window.openChannelButtonEditor = openChannelButtonEditor;
-    window.openStandaloneButtonEditor = openStandaloneButtonEditor;
-    window.handleEditorAddChannelButton = handleEditorAddChannelButton;
-    window.initEntityEditor = initEntityEditor;
-  })(window);
+  window.openEntityEditor = openEntityEditor;
+  window.openChannelEditor = openChannelEditor;
+  window.openChannelButtonEditor = openChannelButtonEditor;
+  window.openStandaloneButtonEditor = openStandaloneButtonEditor;
+  window.handleEditorAddChannelButton = handleEditorAddChannelButton;
+  window.initEntityEditor = initEntityEditor;
+})(window);

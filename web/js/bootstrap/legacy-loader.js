@@ -4,7 +4,8 @@ export function loadLegacyScript(path) {
     script.src = new URL(path, import.meta.url).toString();
     script.async = false;
     script.onload = () => resolve(path);
-    script.onerror = () => reject(new Error(`Failed to load renderer script: ${path}`));
+    script.onerror = () =>
+      reject(new Error(`Failed to load renderer script: ${path}`));
     document.body.appendChild(script);
   });
 }

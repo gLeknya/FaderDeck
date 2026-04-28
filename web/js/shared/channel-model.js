@@ -194,18 +194,19 @@
   }
 
   function cloneButtonEntity(button = {}) {
-    const normalizedText = String(
-      button.text ?? button.title ?? ''
-    ).trim();
+    const normalizedText = String(button.text ?? button.title ?? '').trim();
     const icon = CHANNEL_BUTTON_ICON_KEYS.includes(button.icon)
       ? button.icon
       : CHANNEL_BUTTON_ICON_KEYS[0];
-    const actionType = Object.values(CHANNEL_BUTTON_ACTION_TYPES).includes(button.actionType)
+    const actionType = Object.values(CHANNEL_BUTTON_ACTION_TYPES).includes(
+      button.actionType
+    )
       ? button.actionType
       : CHANNEL_BUTTON_ACTION_TYPES.none;
-    const actionEnabled = typeof button.actionEnabled === 'boolean'
-      ? button.actionEnabled
-      : actionType !== CHANNEL_BUTTON_ACTION_TYPES.none;
+    const actionEnabled =
+      typeof button.actionEnabled === 'boolean'
+        ? button.actionEnabled
+        : actionType !== CHANNEL_BUTTON_ACTION_TYPES.none;
     const actionMode = normalizeChannelButtonMode(button.actionMode);
     const indicatorMode = resolveLegacyIndicatorMode(button);
     const indicatorBehavior = normalizeChannelButtonIndicatorBehavior(
@@ -214,40 +215,56 @@
         ? CHANNEL_BUTTON_INDICATOR_BEHAVIORS.peakMeter
         : CHANNEL_BUTTON_INDICATOR_BEHAVIORS.actionState
     );
-    const indicatorEnabled = typeof button.indicatorEnabled === 'boolean'
-      ? button.indicatorEnabled
-      : true;
-    const indicatorModeLinkedToAction = typeof button.indicatorModeLinkedToAction === 'boolean'
-      ? button.indicatorModeLinkedToAction
-      : false;
-    const indicatorType = Object.values(CHANNEL_BUTTON_INDICATOR_TYPES).includes(button.indicatorType)
+    const indicatorEnabled =
+      typeof button.indicatorEnabled === 'boolean'
+        ? button.indicatorEnabled
+        : true;
+    const indicatorModeLinkedToAction =
+      typeof button.indicatorModeLinkedToAction === 'boolean'
+        ? button.indicatorModeLinkedToAction
+        : false;
+    const indicatorType = Object.values(
+      CHANNEL_BUTTON_INDICATOR_TYPES
+    ).includes(button.indicatorType)
       ? button.indicatorType
-      : (indicatorBehavior === CHANNEL_BUTTON_INDICATOR_BEHAVIORS.peakMeter
+      : indicatorBehavior === CHANNEL_BUTTON_INDICATOR_BEHAVIORS.peakMeter
         ? CHANNEL_BUTTON_INDICATOR_TYPES.meter
-        : (indicatorMode === CHANNEL_BUTTON_INTERACTION_MODES.toggle
-        ? CHANNEL_BUTTON_INDICATOR_TYPES.toggle
-        : CHANNEL_BUTTON_INDICATOR_TYPES.press));
-    const contentDisplay = Object.values(CHANNEL_BUTTON_CONTENT_MODES).includes(button.contentDisplay)
+        : indicatorMode === CHANNEL_BUTTON_INTERACTION_MODES.toggle
+          ? CHANNEL_BUTTON_INDICATOR_TYPES.toggle
+          : CHANNEL_BUTTON_INDICATOR_TYPES.press;
+    const contentDisplay = Object.values(CHANNEL_BUTTON_CONTENT_MODES).includes(
+      button.contentDisplay
+    )
       ? button.contentDisplay
       : CHANNEL_BUTTON_CONTENT_MODES.iconTitle;
-    const metaDisplay = Object.values(CHANNEL_BUTTON_META_MODES).includes(button.metaDisplay)
+    const metaDisplay = Object.values(CHANNEL_BUTTON_META_MODES).includes(
+      button.metaDisplay
+    )
       ? button.metaDisplay
       : CHANNEL_BUTTON_META_MODES.actionIndicator;
-    const midiMapping = button.midiMapping && typeof button.midiMapping === 'object'
-      ? {
-        type: button.midiMapping.type === 'control_change' ? 'control_change' : 'note',
-        channel: Number(button.midiMapping.channel) || 0,
-        note: Number.isInteger(Number(button.midiMapping.note)) ? Number(button.midiMapping.note) : null,
-        control: Number.isInteger(Number(button.midiMapping.control)) ? Number(button.midiMapping.control) : null
-      }
-      : (Number.isInteger(Number(button.note))
+    const midiMapping =
+      button.midiMapping && typeof button.midiMapping === 'object'
         ? {
-          type: 'note',
-          channel: 0,
-          note: Number(button.note),
-          control: null
-        }
-        : null);
+            type:
+              button.midiMapping.type === 'control_change'
+                ? 'control_change'
+                : 'note',
+            channel: Number(button.midiMapping.channel) || 0,
+            note: Number.isInteger(Number(button.midiMapping.note))
+              ? Number(button.midiMapping.note)
+              : null,
+            control: Number.isInteger(Number(button.midiMapping.control))
+              ? Number(button.midiMapping.control)
+              : null
+          }
+        : Number.isInteger(Number(button.note))
+          ? {
+              type: 'note',
+              channel: 0,
+              note: Number(button.note),
+              control: null
+            }
+          : null;
     const actionValue = Math.max(
       0,
       Math.min(
@@ -260,7 +277,7 @@
 
     return {
       ...button,
-      id: button.id ?? (Date.now() + Math.floor(Math.random() * 1000)),
+      id: button.id ?? Date.now() + Math.floor(Math.random() * 1000),
       text: normalizedText,
       icon,
       linkedChannelId: Number.isFinite(Number(button.linkedChannelId))
@@ -276,7 +293,9 @@
       indicatorEnabled,
       indicatorMode,
       indicatorBehavior,
-      indicatorThreshold: normalizeChannelButtonIndicatorThreshold(button.indicatorThreshold),
+      indicatorThreshold: normalizeChannelButtonIndicatorThreshold(
+        button.indicatorThreshold
+      ),
       indicatorModeLinkedToAction,
       indicatorType,
       contentDisplay,
@@ -301,16 +320,21 @@
     };
   }
 
-  function createChannelDeviceTarget(deviceId = '', name = '', flow = CHANNEL_DEVICE_TARGET_FLOWS.output) {
+  function createChannelDeviceTarget(
+    deviceId = '',
+    name = '',
+    flow = CHANNEL_DEVICE_TARGET_FLOWS.output
+  ) {
     const normalizedDeviceId = String(deviceId || '').trim();
 
     if (!normalizedDeviceId) {
       return null;
     }
 
-    const normalizedFlow = flow === CHANNEL_DEVICE_TARGET_FLOWS.input
-      ? CHANNEL_DEVICE_TARGET_FLOWS.input
-      : CHANNEL_DEVICE_TARGET_FLOWS.output;
+    const normalizedFlow =
+      flow === CHANNEL_DEVICE_TARGET_FLOWS.input
+        ? CHANNEL_DEVICE_TARGET_FLOWS.input
+        : CHANNEL_DEVICE_TARGET_FLOWS.output;
 
     return {
       id: normalizedDeviceId,
@@ -323,15 +347,20 @@
     return createChannelTarget(target.process, target.name);
   }
 
-  function cloneChannelDeviceTarget(target = {}, fallbackFlow = CHANNEL_DEVICE_TARGET_FLOWS.output) {
-    return createChannelDeviceTarget(target.id || target.deviceId, target.name, target.flow || fallbackFlow);
+  function cloneChannelDeviceTarget(
+    target = {},
+    fallbackFlow = CHANNEL_DEVICE_TARGET_FLOWS.output
+  ) {
+    return createChannelDeviceTarget(
+      target.id || target.deviceId,
+      target.name,
+      target.flow || fallbackFlow
+    );
   }
 
   function normalizeChannelTargets(channel = {}) {
     const explicitTargets = Array.isArray(channel.targets)
-      ? channel.targets
-          .map(cloneChannelTarget)
-          .filter(Boolean)
+      ? channel.targets.map(cloneChannelTarget).filter(Boolean)
       : [];
 
     if (explicitTargets.length > 0) {
@@ -364,14 +393,16 @@
           ? rawTargets.output
           : []
     )
-      .map((target) => cloneChannelDeviceTarget(target, CHANNEL_DEVICE_TARGET_FLOWS.output))
+      .map((target) =>
+        cloneChannelDeviceTarget(target, CHANNEL_DEVICE_TARGET_FLOWS.output)
+      )
       .filter(Boolean);
     const inputTargets = (
-      Array.isArray(rawTargets?.input)
-        ? rawTargets.input
-        : []
+      Array.isArray(rawTargets?.input) ? rawTargets.input : []
     )
-      .map((target) => cloneChannelDeviceTarget(target, CHANNEL_DEVICE_TARGET_FLOWS.input))
+      .map((target) =>
+        cloneChannelDeviceTarget(target, CHANNEL_DEVICE_TARGET_FLOWS.input)
+      )
       .filter(Boolean);
 
     return {
@@ -384,7 +415,11 @@
   }
 
   function normalizeChannelFocusExclusions(channel = {}) {
-    return (Array.isArray(channel?.focusExcludedTargets) ? channel.focusExcludedTargets : [])
+    return (
+      Array.isArray(channel?.focusExcludedTargets)
+        ? channel.focusExcludedTargets
+        : []
+    )
       .map(cloneChannelTarget)
       .filter(Boolean);
   }
@@ -404,7 +439,10 @@
     return true;
   }
 
-  function normalizeChannelTitleIconState(channel = {}, targets = normalizeChannelTargets(channel)) {
+  function normalizeChannelTitleIconState(
+    channel = {},
+    targets = normalizeChannelTargets(channel)
+  ) {
     if (normalizeChannelTargetMode(channel) === CHANNEL_TARGET_MODES.focus) {
       return {
         showTargetIconInTitle: false,
@@ -413,12 +451,13 @@
     }
 
     const enabled = Boolean(channel.showTargetIconInTitle);
-    const requestedProcess = String(channel.titleIconTargetProcess || '').trim();
-    const resolvedProcess = (
-      targets.find((target) => target.process === requestedProcess)?.process
-      || targets[0]?.process
-      || ''
-    );
+    const requestedProcess = String(
+      channel.titleIconTargetProcess || ''
+    ).trim();
+    const resolvedProcess =
+      targets.find((target) => target.process === requestedProcess)?.process ||
+      targets[0]?.process ||
+      '';
 
     return {
       showTargetIconInTitle: enabled && Boolean(resolvedProcess),
@@ -440,7 +479,9 @@
 
     return {
       ...channel,
-      icon: CHANNEL_BUTTON_ICON_KEYS.includes(channel?.icon) ? channel.icon : '',
+      icon: CHANNEL_BUTTON_ICON_KEYS.includes(channel?.icon)
+        ? channel.icon
+        : '',
       targetMode,
       app: primaryTarget?.process || '',
       appName: primaryTarget?.name || '',

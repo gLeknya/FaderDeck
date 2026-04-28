@@ -44,10 +44,10 @@ const MEDIA_APP_COMMANDS = Object.freeze({
   MediaRewind: 50
 });
 const MEDIA_VIRTUAL_KEY_CODES = Object.freeze({
-  MediaNextTrack: 0xB0,
-  MediaPreviousTrack: 0xB1,
-  MediaStop: 0xB2,
-  MediaPlayPause: 0xB3
+  MediaNextTrack: 0xb0,
+  MediaPreviousTrack: 0xb1,
+  MediaStop: 0xb2,
+  MediaPlayPause: 0xb3
 });
 const MEDIA_COMMAND_DEBOUNCE_MS = 260;
 const mediaCommandRuntimeState = {
@@ -62,7 +62,8 @@ function shouldSuppressMediaCommand(commandKey = '') {
   }
 
   const now = Date.now();
-  const lastTimestamp = Number(mediaCommandRuntimeState.byKey.get(normalizedKey)) || 0;
+  const lastTimestamp =
+    Number(mediaCommandRuntimeState.byKey.get(normalizedKey)) || 0;
 
   if (now - lastTimestamp < MEDIA_COMMAND_DEBOUNCE_MS) {
     return true;
@@ -118,7 +119,8 @@ function normalizeKeyCommand(key = '') {
     return {
       kind: 'sendkeys',
       key: normalizedKey,
-      token: normalizedKey.length === 1 ? normalizedKey : normalizedKey.toUpperCase()
+      token:
+        normalizedKey.length === 1 ? normalizedKey : normalizedKey.toUpperCase()
     };
   }
 
@@ -221,12 +223,12 @@ Add-Type -AssemblyName System.Windows.Forms
           ...process.env,
           FADERDECK_SENDKEY: command.kind === 'sendkeys' ? command.token : '',
           FADERDECK_TARGET_HINT: String(targetHint ?? '').trim(),
-          FADERDECK_MEDIA_APPCOMMAND: command.kind === 'media'
-            ? String(command.appCommand)
-            : '',
-          FADERDECK_MEDIA_VK: command.kind === 'media' && Number.isInteger(command.virtualKey)
-            ? String(command.virtualKey)
-            : ''
+          FADERDECK_MEDIA_APPCOMMAND:
+            command.kind === 'media' ? String(command.appCommand) : '',
+          FADERDECK_MEDIA_VK:
+            command.kind === 'media' && Number.isInteger(command.virtualKey)
+              ? String(command.virtualKey)
+              : ''
         }
       },
       (error) => {

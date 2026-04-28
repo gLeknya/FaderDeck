@@ -20,9 +20,10 @@
 
     function setState(nextStateOrUpdater, meta = {}) {
       const previousState = state;
-      const nextState = typeof nextStateOrUpdater === 'function'
-        ? nextStateOrUpdater(previousState)
-        : nextStateOrUpdater;
+      const nextState =
+        typeof nextStateOrUpdater === 'function'
+          ? nextStateOrUpdater(previousState)
+          : nextStateOrUpdater;
 
       if (!nextState || nextState === previousState) {
         return previousState;

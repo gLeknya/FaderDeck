@@ -40,29 +40,30 @@ const appSessionState = {
   }
 };
 const sharedUiStateModel = window.rendererStateModel || {};
-const DEFAULT_UI_SETTINGS = sharedUiStateModel.DEFAULT_PERSISTED_UI_SETTINGS || {
-  advancedMode: false,
-  developerMode: false,
-  faderInterpolationEnabled: false,
-  softTakeoverEnabled: false,
-  softTakeoverThreshold: 5,
-  showFractionalNumbers: false,
-  showFractionalOnlyLow: false,
-  volumeCurveEnabled: false,
-  volumeCurveType: 'ease-in-out',
-  volumeCurveAmount: 0,
-  profileToolbarSwitcherEnabled: true,
-  volumeHudEnabled: true,
-  volumeHudPosition: 'bottom-center',
-  volumeHudOrientation: 'horizontal',
-  volumeHudShowIcon: true,
-  volumeHudShowTitle: true,
-  volumeHudShowSubtitle: true,
-  volumeHudShowPercent: true,
-  volumeHudShowMeter: true,
-  mediaControllerVisible: true,
-  closeToTrayEnabled: true
-};
+const DEFAULT_UI_SETTINGS =
+  sharedUiStateModel.DEFAULT_PERSISTED_UI_SETTINGS || {
+    advancedMode: false,
+    developerMode: false,
+    faderInterpolationEnabled: false,
+    softTakeoverEnabled: false,
+    softTakeoverThreshold: 5,
+    showFractionalNumbers: false,
+    showFractionalOnlyLow: false,
+    volumeCurveEnabled: false,
+    volumeCurveType: 'ease-in-out',
+    volumeCurveAmount: 0,
+    profileToolbarSwitcherEnabled: true,
+    volumeHudEnabled: true,
+    volumeHudPosition: 'bottom-center',
+    volumeHudOrientation: 'horizontal',
+    volumeHudShowIcon: true,
+    volumeHudShowTitle: true,
+    volumeHudShowSubtitle: true,
+    volumeHudShowPercent: true,
+    volumeHudShowMeter: true,
+    mediaControllerVisible: true,
+    closeToTrayEnabled: true
+  };
 const DEFAULT_UI_MENU = sharedUiStateModel.DEFAULT_SESSION_UI_MENU || {
   open: false,
   activeTab: null
@@ -111,7 +112,9 @@ function summarizeFrontendLogValue(value, depth = 0) {
   }
 
   if (Array.isArray(value)) {
-    const sample = value.slice(0, 6).map((entry) => summarizeFrontendLogValue(entry, depth + 1));
+    const sample = value
+      .slice(0, 6)
+      .map((entry) => summarizeFrontendLogValue(entry, depth + 1));
 
     if (value.length > sample.length) {
       sample.push(`...+${value.length - sample.length} more`);
@@ -144,10 +147,15 @@ function summarizeFrontendLogValue(value, depth = 0) {
 }
 
 function writeFrontendConsole(level, scope, payload) {
-  const consoleMethod = typeof console[level] === 'function' ? console[level] : console.log;
+  const consoleMethod =
+    typeof console[level] === 'function' ? console[level] : console.log;
 
   if (typeof payload === 'undefined') {
-    consoleMethod(`%c[FD:front]%c ${scope}`, FRONTEND_LOG_SCOPE_STYLE, FRONTEND_LOG_TEXT_STYLE);
+    consoleMethod(
+      `%c[FD:front]%c ${scope}`,
+      FRONTEND_LOG_SCOPE_STYLE,
+      FRONTEND_LOG_TEXT_STYLE
+    );
     return;
   }
 
@@ -202,12 +210,20 @@ function getApi() {
 }
 
 function ensureDynamicUiAugments() {
-  const visualSection = Array.from(document.querySelectorAll('.settings-section')).find((section) => (
+  const visualSection = Array.from(
+    document.querySelectorAll('.settings-section')
+  ).find((section) =>
     section.querySelector('[data-i18n="settings.sections.visual"]')
-  ));
-  const profileToolbarItem = document.getElementById('profileToolbarToggle')?.closest('.settings-item');
+  );
+  const profileToolbarItem = document
+    .getElementById('profileToolbarToggle')
+    ?.closest('.settings-item');
 
-  if (visualSection && profileToolbarItem && !document.getElementById('mediaControllerToggle')) {
+  if (
+    visualSection &&
+    profileToolbarItem &&
+    !document.getElementById('mediaControllerToggle')
+  ) {
     const mediaControllerItem = document.createElement('div');
     mediaControllerItem.className = 'settings-item';
     mediaControllerItem.innerHTML = `
@@ -217,16 +233,25 @@ function ensureDynamicUiAugments() {
     profileToolbarItem.insertAdjacentElement('afterend', mediaControllerItem);
   }
 
-  const mediaControllerItem = document.getElementById('mediaControllerToggle')?.closest('.settings-item');
+  const mediaControllerItem = document
+    .getElementById('mediaControllerToggle')
+    ?.closest('.settings-item');
 
-  if (visualSection && mediaControllerItem && !document.getElementById('mediaControllerTargetSettingsSelect')) {
+  if (
+    visualSection &&
+    mediaControllerItem &&
+    !document.getElementById('mediaControllerTargetSettingsSelect')
+  ) {
     const mediaControllerTargetItem = document.createElement('label');
     mediaControllerTargetItem.className = 'settings-item settings-item-nested';
     mediaControllerTargetItem.innerHTML = `
       <span id="mediaControllerTargetSettingsLabel"></span>
       <select id="mediaControllerTargetSettingsSelect" class="settings-select"></select>
     `;
-    mediaControllerItem.insertAdjacentElement('afterend', mediaControllerTargetItem);
+    mediaControllerItem.insertAdjacentElement(
+      'afterend',
+      mediaControllerTargetItem
+    );
     enhanceCustomSelects?.(mediaControllerTargetItem);
   }
 
@@ -248,7 +273,8 @@ function cacheDomElements() {
   dom.softTakeoverThresholdRange = $('softTakeoverThresholdRange');
   dom.softTakeoverThresholdValue = $('softTakeoverThresholdValue');
   dom.profileToolbarToggle = $('profileToolbarToggle');
-  dom.legacyVolumeHudGroup = $('volumeHudToggle')?.closest('.settings-group') || null;
+  dom.legacyVolumeHudGroup =
+    $('volumeHudToggle')?.closest('.settings-group') || null;
   dom.volumeHudToggle = $('volumeHudSettingsToggle');
   dom.volumeHudAdvanced = $('volumeHudSettingsAdvanced');
   dom.volumeHudPositionSelect = $('volumeHudSettingsPositionSelect');
@@ -275,8 +301,12 @@ function cacheDomElements() {
   dom.showFractionalOnlyLowToggle = $('showFractionalOnlyLowToggle');
   dom.mediaControllerToggle = $('mediaControllerToggle');
   dom.mediaControllerToggleLabel = $('mediaControllerToggleLabel');
-  dom.mediaControllerTargetSettingsLabel = $('mediaControllerTargetSettingsLabel');
-  dom.mediaControllerTargetSettingsSelect = $('mediaControllerTargetSettingsSelect');
+  dom.mediaControllerTargetSettingsLabel = $(
+    'mediaControllerTargetSettingsLabel'
+  );
+  dom.mediaControllerTargetSettingsSelect = $(
+    'mediaControllerTargetSettingsSelect'
+  );
   dom.mediaControllerShell = $('mediaControllerShell');
   dom.mediaController = $('mediaController');
   dom.fractionalNumbersAdvanced = $('fractionalNumbersAdvanced');
@@ -285,7 +315,9 @@ function cacheDomElements() {
   dom.volumeCurveRange = $('volumeCurveRange');
   dom.volumeCurvePath = $('volumeCurvePath');
   dom.volumeCurvePoint = $('volumeCurvePoint');
-  dom.volumeCurveModeButtons = Array.from(document.querySelectorAll('.curve-mode-button'));
+  dom.volumeCurveModeButtons = Array.from(
+    document.querySelectorAll('.curve-mode-button')
+  );
   dom.volumeCurveDemoTrack = $('volumeCurveDemoTrack');
   dom.volumeCurveDemoOutput = $('volumeCurveDemoOutput');
   dom.volumeCurveDemoFill = $('volumeCurveDemoFill');
@@ -298,7 +330,9 @@ function cacheDomElements() {
   dom.menuViews = Array.from(document.querySelectorAll('.menu-panel-view'));
   dom.languageSelect = $('languageSelect');
   dom.settingsContent = $('settingsContent');
-  dom.settingsSections = Array.from(document.querySelectorAll('.settings-section'));
+  dom.settingsSections = Array.from(
+    document.querySelectorAll('.settings-section')
+  );
   dom.settingsTooltipLayer = $('settingsTooltipLayer');
   dom.settingsTooltipBubble = $('settingsTooltipBubble');
   dom.mainContentViewport = $('mainContentViewport');
@@ -313,13 +347,15 @@ function getUiMenu() {
 }
 
 function getLayoutEditorSession() {
-  return getLayoutEditorSessionState?.() || {
-    enabled: false,
-    selectedItemId: null,
-    hoveredItemId: null,
-    dragItemId: null,
-    dropPreview: null
-  };
+  return (
+    getLayoutEditorSessionState?.() || {
+      enabled: false,
+      selectedItemId: null,
+      hoveredItemId: null,
+      dragItemId: null,
+      dropPreview: null
+    }
+  );
 }
 
 function isLayoutEditorParkedUi() {
@@ -347,7 +383,9 @@ function getCloseToTrayEnabled() {
 }
 
 function getShowFractionalNumbersEnabled() {
-  return getShowFractionalNumbersState?.() ?? getUiSettings().showFractionalNumbers;
+  return (
+    getShowFractionalNumbersState?.() ?? getUiSettings().showFractionalNumbers
+  );
 }
 
 function getSoftTakeoverEnabled() {
@@ -355,11 +393,15 @@ function getSoftTakeoverEnabled() {
 }
 
 function getSoftTakeoverThreshold() {
-  return getSoftTakeoverThresholdState?.() ?? getUiSettings().softTakeoverThreshold;
+  return (
+    getSoftTakeoverThresholdState?.() ?? getUiSettings().softTakeoverThreshold
+  );
 }
 
 function getShowFractionalOnlyLowEnabled() {
-  return getShowFractionalOnlyLowState?.() ?? getUiSettings().showFractionalOnlyLow;
+  return (
+    getShowFractionalOnlyLowState?.() ?? getUiSettings().showFractionalOnlyLow
+  );
 }
 
 function getVolumeHudEnabled() {
@@ -371,7 +413,9 @@ function getVolumeHudPosition() {
 }
 
 function getVolumeHudOrientation() {
-  return getVolumeHudOrientationState?.() ?? getUiSettings().volumeHudOrientation;
+  return (
+    getVolumeHudOrientationState?.() ?? getUiSettings().volumeHudOrientation
+  );
 }
 
 function getVolumeHudShowIcon() {
@@ -383,11 +427,15 @@ function getVolumeHudShowTitle() {
 }
 
 function getVolumeHudShowSubtitle() {
-  return getVolumeHudShowSubtitleState?.() ?? getUiSettings().volumeHudShowSubtitle;
+  return (
+    getVolumeHudShowSubtitleState?.() ?? getUiSettings().volumeHudShowSubtitle
+  );
 }
 
 function getVolumeHudShowPercent() {
-  return getVolumeHudShowPercentState?.() ?? getUiSettings().volumeHudShowPercent;
+  return (
+    getVolumeHudShowPercentState?.() ?? getUiSettings().volumeHudShowPercent
+  );
 }
 
 function getVolumeHudShowMeter() {
@@ -395,11 +443,17 @@ function getVolumeHudShowMeter() {
 }
 
 function getMediaControllerVisible() {
-  return getMediaControllerVisibleState?.() ?? getUiSettings().mediaControllerVisible;
+  return (
+    getMediaControllerVisibleState?.() ?? getUiSettings().mediaControllerVisible
+  );
 }
 
 function getMediaControllerTargetAppId() {
-  return String(window.getMediaControllerTargetAppIdState?.() ?? getUiSettings().mediaControllerTargetAppId ?? '').trim();
+  return String(
+    window.getMediaControllerTargetAppIdState?.() ??
+      getUiSettings().mediaControllerTargetAppId ??
+      ''
+  ).trim();
 }
 
 function getAvailableMediaControllerSessions() {
@@ -410,7 +464,9 @@ function buildMediaControllerTargetSettingsOptionsMarkup() {
   const selectedAppId = getMediaControllerTargetAppId();
   const availableSessions = getAvailableMediaControllerSessions();
   const hasSelectedSession = selectedAppId
-    ? availableSessions.some((session) => String(session?.appId || '').trim() === selectedAppId)
+    ? availableSessions.some(
+        (session) => String(session?.appId || '').trim() === selectedAppId
+      )
     : true;
   const autoLabel = t('mediaController.autoTarget');
   const unavailableLabel = t('mediaController.unavailableTarget');
@@ -419,7 +475,9 @@ function buildMediaControllerTargetSettingsOptionsMarkup() {
   ];
 
   if (selectedAppId && !hasSelectedSession) {
-    options.push(`<option value="${escapeOptionHtml(selectedAppId)}">${escapeOptionHtml(unavailableLabel)}</option>`);
+    options.push(
+      `<option value="${escapeOptionHtml(selectedAppId)}">${escapeOptionHtml(unavailableLabel)}</option>`
+    );
   }
 
   availableSessions.forEach((session) => {
@@ -430,7 +488,9 @@ function buildMediaControllerTargetSettingsOptionsMarkup() {
     }
 
     const label = String(session?.label || appId).trim();
-    options.push(`<option value="${escapeOptionHtml(appId)}">${escapeOptionHtml(label)}</option>`);
+    options.push(
+      `<option value="${escapeOptionHtml(appId)}">${escapeOptionHtml(label)}</option>`
+    );
   });
 
   return options.join('');
@@ -438,7 +498,9 @@ function buildMediaControllerTargetSettingsOptionsMarkup() {
 
 function syncMediaControllerTargetSettingsUi(options = {}) {
   if (dom.mediaControllerTargetSettingsLabel) {
-    dom.mediaControllerTargetSettingsLabel.textContent = t('mediaController.targetAppLabel');
+    dom.mediaControllerTargetSettingsLabel.textContent = t(
+      'mediaController.targetAppLabel'
+    );
   }
 
   if (!dom.mediaControllerTargetSettingsSelect) {
@@ -447,8 +509,11 @@ function syncMediaControllerTargetSettingsUi(options = {}) {
 
   const select = dom.mediaControllerTargetSettingsSelect;
   const optionsMarkup = buildMediaControllerTargetSettingsOptionsMarkup();
-  const selectedValue = getMediaControllerTargetAppId() || MEDIA_CONTROLLER_AUTO_TARGET_VALUE;
-  const customDropdown = select.nextElementSibling?.classList.contains('custom-select')
+  const selectedValue =
+    getMediaControllerTargetAppId() || MEDIA_CONTROLLER_AUTO_TARGET_VALUE;
+  const customDropdown = select.nextElementSibling?.classList.contains(
+    'custom-select'
+  )
     ? select.nextElementSibling
     : null;
   const isDropdownOpen = Boolean(customDropdown?.classList.contains('open'));
@@ -523,16 +588,16 @@ function syncLayoutEditModeUi() {
 
   dom.layoutEditModeToggle.classList.toggle('active', layoutEditModeEnabled);
   dom.layoutEditModeToggle.textContent = t(
-    layoutEditModeEnabled
-      ? 'layout.modeOn'
-      : 'layout.modeOff'
+    layoutEditModeEnabled ? 'layout.modeOn' : 'layout.modeOff'
   );
-  dom.layoutEditModeToggle.setAttribute('aria-pressed', String(layoutEditModeEnabled));
-  dom.layoutEditModeToggle.setAttribute('title', t(
-    layoutEditModeEnabled
-      ? 'layout.exitMode'
-      : 'layout.modeOff'
-  ));
+  dom.layoutEditModeToggle.setAttribute(
+    'aria-pressed',
+    String(layoutEditModeEnabled)
+  );
+  dom.layoutEditModeToggle.setAttribute(
+    'title',
+    t(layoutEditModeEnabled ? 'layout.exitMode' : 'layout.modeOff')
+  );
 }
 
 function clampPercent(value) {
@@ -548,21 +613,22 @@ function getDefaultChannelCustomSettings() {
   return typeof createDefaultChannelCustomSettingsState === 'function'
     ? createDefaultChannelCustomSettingsState()
     : {
-      faderInterpolationEnabled: false,
-      softTakeoverEnabled: false,
-      softTakeoverThreshold: 5,
-      volumeCurveEnabled: false,
-      volumeCurveType: 'ease-in-out',
-      volumeCurveAmount: 0,
-      showFractionalNumbers: false
-    };
+        faderInterpolationEnabled: false,
+        softTakeoverEnabled: false,
+        softTakeoverThreshold: 5,
+        volumeCurveEnabled: false,
+        volumeCurveType: 'ease-in-out',
+        volumeCurveAmount: 0,
+        showFractionalNumbers: false
+      };
 }
 
 function resolveChannelFaderSettings(channelOrId = null) {
   const globalSettings = getUiSettings();
-  const channel = typeof channelOrId === 'object' && channelOrId
-    ? channelOrId
-    : findChannelState?.(channelOrId);
+  const channel =
+    typeof channelOrId === 'object' && channelOrId
+      ? channelOrId
+      : findChannelState?.(channelOrId);
 
   if (!channel?.customSettingsEnabled) {
     return {
@@ -580,10 +646,14 @@ function resolveChannelFaderSettings(channelOrId = null) {
 
 function formatVolumeValue(value, options = {}) {
   const normalizedValue = normalizeVolumeValue(value);
-  const showFractionalNumbers = options.showFractionalNumbers ?? getShowFractionalNumbersEnabled();
-  const showFractionalOnlyLow = options.showFractionalOnlyLow ?? getShowFractionalOnlyLowEnabled();
-  const shouldShowFractions = showFractionalNumbers
-    && (!showFractionalOnlyLow || normalizedValue < LOW_FRACTIONAL_VOLUME_THRESHOLD);
+  const showFractionalNumbers =
+    options.showFractionalNumbers ?? getShowFractionalNumbersEnabled();
+  const showFractionalOnlyLow =
+    options.showFractionalOnlyLow ?? getShowFractionalOnlyLowEnabled();
+  const shouldShowFractions =
+    showFractionalNumbers &&
+    (!showFractionalOnlyLow ||
+      normalizedValue < LOW_FRACTIONAL_VOLUME_THRESHOLD);
   const formattedValue = shouldShowFractions
     ? normalizedValue.toFixed(1).replace(/\.0$/, '')
     : String(Math.round(normalizedValue));
@@ -592,24 +662,43 @@ function formatVolumeValue(value, options = {}) {
 }
 
 function getVolumeCurveAmount(options = {}) {
-  return options.volumeCurveAmount ?? (getVolumeCurveAmountState?.() ?? getUiSettings().volumeCurveAmount);
+  return (
+    options.volumeCurveAmount ??
+    getVolumeCurveAmountState?.() ??
+    getUiSettings().volumeCurveAmount
+  );
 }
 
 function getVolumeCurveEnabled(options = {}) {
-  return options.volumeCurveEnabled ?? (getVolumeCurveEnabledState?.() ?? getUiSettings().volumeCurveEnabled);
+  return (
+    options.volumeCurveEnabled ??
+    getVolumeCurveEnabledState?.() ??
+    getUiSettings().volumeCurveEnabled
+  );
 }
 
 function getVolumeCurveType(options = {}) {
-  return options.volumeCurveType ?? (getVolumeCurveTypeState?.() ?? getUiSettings().volumeCurveType);
+  return (
+    options.volumeCurveType ??
+    getVolumeCurveTypeState?.() ??
+    getUiSettings().volumeCurveType
+  );
 }
 
 function getFaderInterpolationEnabled(options = {}) {
-  return options.faderInterpolationEnabled
-    ?? (getFaderInterpolationEnabledState?.() ?? getUiSettings().faderInterpolationEnabled);
+  return (
+    options.faderInterpolationEnabled ??
+    getFaderInterpolationEnabledState?.() ??
+    getUiSettings().faderInterpolationEnabled
+  );
 }
 
 function getVolumeCurveExponent(options = {}) {
-  return 1 + (getVolumeCurveAmount(options) / VOLUME_CURVE_MAX) * VOLUME_CURVE_EXPONENT_RANGE;
+  return (
+    1 +
+    (getVolumeCurveAmount(options) / VOLUME_CURVE_MAX) *
+      VOLUME_CURVE_EXPONENT_RANGE
+  );
 }
 
 function applySelectedVolumeCurve(normalizedPosition, options = {}) {
@@ -624,14 +713,14 @@ function applySelectedVolumeCurve(normalizedPosition, options = {}) {
   }
 
   if (getVolumeCurveType(options) === 'ease-out') {
-    return 1 - ((1 - normalizedPosition) ** exponent);
+    return 1 - (1 - normalizedPosition) ** exponent;
   }
 
   if (normalizedPosition < 0.5) {
-    return 0.5 * ((normalizedPosition * 2) ** exponent);
+    return 0.5 * (normalizedPosition * 2) ** exponent;
   }
 
-  return 1 - 0.5 * (((1 - normalizedPosition) * 2) ** exponent);
+  return 1 - 0.5 * ((1 - normalizedPosition) * 2) ** exponent;
 }
 
 function mapFaderPositionToVolume(position, options = {}) {
@@ -674,11 +763,12 @@ function mapVolumeToFaderPosition(volume, options = {}) {
   if (getVolumeCurveType(options) === 'ease-in') {
     normalizedPosition = normalizedVolume ** (1 / exponent);
   } else if (getVolumeCurveType(options) === 'ease-out') {
-    normalizedPosition = 1 - ((1 - normalizedVolume) ** (1 / exponent));
+    normalizedPosition = 1 - (1 - normalizedVolume) ** (1 / exponent);
   } else if (normalizedVolume < 0.5) {
-    normalizedPosition = 0.5 * ((normalizedVolume * 2) ** (1 / exponent));
+    normalizedPosition = 0.5 * (normalizedVolume * 2) ** (1 / exponent);
   } else {
-    normalizedPosition = 1 - (0.5 * (((1 - normalizedVolume) * 2) ** (1 / exponent)));
+    normalizedPosition =
+      1 - 0.5 * ((1 - normalizedVolume) * 2) ** (1 / exponent);
   }
 
   return normalizeVolumeValue(normalizedPosition * 100);
@@ -718,7 +808,9 @@ function syncMenuPanelCardSize() {
   }
 
   const activeMenuTab = getActiveMenuTab();
-  const activeView = dom.menuViews?.find((view) => view.dataset.tab === activeMenuTab);
+  const activeView = dom.menuViews?.find(
+    (view) => view.dataset.tab === activeMenuTab
+  );
 
   if (!activeView || !activeMenuTab) {
     if (isMenuOpen()) {
@@ -729,27 +821,34 @@ function syncMenuPanelCardSize() {
   }
 
   const computedStyle = window.getComputedStyle(dom.menuPanelCard);
-  const horizontalPadding = (
-    Number.parseFloat(computedStyle.paddingLeft) + Number.parseFloat(computedStyle.paddingRight)
-  );
-  const verticalPadding = (
-    Number.parseFloat(computedStyle.paddingTop) + Number.parseFloat(computedStyle.paddingBottom)
-  );
-  const maxHeight = Number.parseFloat(computedStyle.maxHeight) || window.innerHeight;
+  const horizontalPadding =
+    Number.parseFloat(computedStyle.paddingLeft) +
+    Number.parseFloat(computedStyle.paddingRight);
+  const verticalPadding =
+    Number.parseFloat(computedStyle.paddingTop) +
+    Number.parseFloat(computedStyle.paddingBottom);
+  const maxHeight =
+    Number.parseFloat(computedStyle.maxHeight) || window.innerHeight;
   const maxWidth = Math.max(280, Math.min(420, window.innerWidth - 140));
-  const nextWidth = activeMenuTab === 'settings'
-    ? maxWidth
-    : Math.max(280, Math.min(maxWidth, Math.ceil(activeView.scrollWidth + horizontalPadding)));
+  const nextWidth =
+    activeMenuTab === 'settings'
+      ? maxWidth
+      : Math.max(
+          280,
+          Math.min(
+            maxWidth,
+            Math.ceil(activeView.scrollWidth + horizontalPadding)
+          )
+        );
   const nextContentWidth = Math.max(0, nextWidth - horizontalPadding);
-  const nextContentHeight = activeMenuTab === 'settings'
-    ? measureMenuViewContentHeight(activeView, nextContentWidth)
-    : activeView.scrollHeight;
-  const nextHeight = activeMenuTab === 'settings'
-    ? Math.round(maxHeight)
-    : Math.min(
-      maxHeight,
-      Math.ceil(nextContentHeight + verticalPadding)
-    );
+  const nextContentHeight =
+    activeMenuTab === 'settings'
+      ? measureMenuViewContentHeight(activeView, nextContentWidth)
+      : activeView.scrollHeight;
+  const nextHeight =
+    activeMenuTab === 'settings'
+      ? Math.round(maxHeight)
+      : Math.min(maxHeight, Math.ceil(nextContentHeight + verticalPadding));
 
   dom.menuPanelCard.style.width = `${nextWidth}px`;
   dom.menuPanelCard.style.height = `${nextHeight}px`;
@@ -838,7 +937,10 @@ function syncMenuShellUi() {
   const menuOpen = isMenuOpen();
   dom.menuRail?.classList.toggle('open', menuOpen);
   document.body.classList.toggle('menu-open', menuOpen);
-  dom.menuPanelOverlay?.classList.toggle('hidden', !menuOpen || !getActiveMenuTab());
+  dom.menuPanelOverlay?.classList.toggle(
+    'hidden',
+    !menuOpen || !getActiveMenuTab()
+  );
 }
 
 function openMainMenu() {
@@ -870,7 +972,9 @@ function syncAdvancedModeUi() {
 
   const advancedMode = getAdvancedModeEnabled();
   dom.advancedModeToggle.classList.toggle('on', advancedMode);
-  dom.advancedModeToggle.textContent = advancedMode ? t('settings.on') : t('settings.off');
+  dom.advancedModeToggle.textContent = advancedMode
+    ? t('settings.on')
+    : t('settings.off');
   scheduleMenuPanelCardSizeSync();
 }
 
@@ -881,7 +985,9 @@ function syncDeveloperModeUi() {
 
   const developerMode = getDeveloperModeEnabled();
   dom.developerModeToggle.classList.toggle('on', developerMode);
-  dom.developerModeToggle.textContent = developerMode ? t('settings.on') : t('settings.off');
+  dom.developerModeToggle.textContent = developerMode
+    ? t('settings.on')
+    : t('settings.off');
 }
 
 function syncCloseToTrayUi() {
@@ -891,23 +997,29 @@ function syncCloseToTrayUi() {
 
   const closeToTrayEnabled = getCloseToTrayEnabled();
   dom.closeToTrayToggle.classList.toggle('on', closeToTrayEnabled);
-  dom.closeToTrayToggle.textContent = closeToTrayEnabled ? t('settings.on') : t('settings.off');
+  dom.closeToTrayToggle.textContent = closeToTrayEnabled
+    ? t('settings.on')
+    : t('settings.off');
 }
 
 function syncMediaControllerUi() {
   const mediaControllerVisible = getMediaControllerVisible();
-  dom.mediaControllerShell = dom.mediaControllerShell || $('mediaControllerShell');
+  dom.mediaControllerShell =
+    dom.mediaControllerShell || $('mediaControllerShell');
   dom.mediaController = dom.mediaController || $('mediaController');
 
   if (dom.mediaControllerToggleLabel) {
-    dom.mediaControllerToggleLabel.textContent = getCurrentLanguage?.() === 'en'
-      ? 'Show multimedia controller'
-      : 'Показывать мультимедиа контроллер';
+    dom.mediaControllerToggleLabel.textContent =
+      getCurrentLanguage?.() === 'en'
+        ? 'Show multimedia controller'
+        : 'Показывать мультимедиа контроллер';
   }
 
   if (dom.mediaControllerToggle) {
     dom.mediaControllerToggle.classList.toggle('on', mediaControllerVisible);
-    dom.mediaControllerToggle.textContent = mediaControllerVisible ? t('settings.on') : t('settings.off');
+    dom.mediaControllerToggle.textContent = mediaControllerVisible
+      ? t('settings.on')
+      : t('settings.off');
   }
 
   syncMediaControllerTargetSettingsUi();
@@ -922,13 +1034,19 @@ function syncCloseToTrayRuntime() {
 function syncFaderInterpolationUi() {
   const faderInterpolationEnabled = getFaderInterpolationEnabled();
   if (dom.faderInterpolationToggle) {
-    dom.faderInterpolationToggle.classList.toggle('on', faderInterpolationEnabled);
+    dom.faderInterpolationToggle.classList.toggle(
+      'on',
+      faderInterpolationEnabled
+    );
     dom.faderInterpolationToggle.textContent = faderInterpolationEnabled
       ? t('settings.on')
       : t('settings.off');
   }
 
-  document.body.classList.toggle('fader-interpolation-enabled', faderInterpolationEnabled);
+  document.body.classList.toggle(
+    'fader-interpolation-enabled',
+    faderInterpolationEnabled
+  );
 }
 
 function syncSoftTakeoverUi() {
@@ -944,7 +1062,10 @@ function syncSoftTakeoverUi() {
 
   if (dom.softTakeoverAdvanced) {
     dom.softTakeoverAdvanced.classList.toggle('open', softTakeoverEnabled);
-    dom.softTakeoverAdvanced.setAttribute('aria-hidden', String(!softTakeoverEnabled));
+    dom.softTakeoverAdvanced.setAttribute(
+      'aria-hidden',
+      String(!softTakeoverEnabled)
+    );
   }
 
   if (dom.softTakeoverThresholdRange) {
@@ -961,7 +1082,10 @@ function syncSoftTakeoverUi() {
 }
 
 function isToolbarProfilePickerEnabled() {
-  return getProfileToolbarSwitcherEnabledState?.() ?? getUiSettings().profileToolbarSwitcherEnabled;
+  return (
+    getProfileToolbarSwitcherEnabledState?.() ??
+    getUiSettings().profileToolbarSwitcherEnabled
+  );
 }
 
 function syncProfileToolbarUi() {
@@ -970,7 +1094,10 @@ function syncProfileToolbarUi() {
   }
 
   const profileToolbarSwitcherEnabled = isToolbarProfilePickerEnabled();
-  dom.profileToolbarToggle.classList.toggle('on', profileToolbarSwitcherEnabled);
+  dom.profileToolbarToggle.classList.toggle(
+    'on',
+    profileToolbarSwitcherEnabled
+  );
   dom.profileToolbarToggle.textContent = profileToolbarSwitcherEnabled
     ? t('settings.on')
     : t('settings.off');
@@ -994,9 +1121,18 @@ function syncVolumeHudPreviewUi(settings = getVolumeHudPresentationSettings()) {
   const previewSubtitle = t('settings.volumeHudPreviewSubtitle');
   const subtitlePromoted = !settings.showTitle && settings.showSubtitle;
 
-  dom.volumeHudPreview.classList.toggle('settings-hud-preview--vertical', isVertical);
-  dom.volumeHudPreview.classList.toggle('settings-hud-preview--horizontal', !isVertical);
-  dom.volumeHudPreview.classList.toggle('settings-hud-preview--subtitle-promoted', subtitlePromoted);
+  dom.volumeHudPreview.classList.toggle(
+    'settings-hud-preview--vertical',
+    isVertical
+  );
+  dom.volumeHudPreview.classList.toggle(
+    'settings-hud-preview--horizontal',
+    !isVertical
+  );
+  dom.volumeHudPreview.classList.toggle(
+    'settings-hud-preview--subtitle-promoted',
+    subtitlePromoted
+  );
   dom.volumeHudPreviewAnchor?.classList.remove(
     'is-bottom-center',
     'is-bottom-left',
@@ -1013,7 +1149,10 @@ function syncVolumeHudPreviewUi(settings = getVolumeHudPresentationSettings()) {
 
   if (dom.volumeHudPreviewSubtitle) {
     dom.volumeHudPreviewSubtitle.textContent = previewSubtitle;
-    dom.volumeHudPreviewSubtitle.classList.toggle('hidden', !settings.showSubtitle);
+    dom.volumeHudPreviewSubtitle.classList.toggle(
+      'hidden',
+      !settings.showSubtitle
+    );
   }
 
   if (dom.volumeHudPreviewValue) {
@@ -1029,11 +1168,14 @@ function syncVolumeHudPreviewUi(settings = getVolumeHudPresentationSettings()) {
   );
   dom.volumeHudPreviewHeader?.classList.toggle(
     'hidden',
-    (!settings.showTitle && !settings.showSubtitle) && !settings.showPercent
+    !settings.showTitle && !settings.showSubtitle && !settings.showPercent
   );
   dom.volumeHudPreviewContent?.classList.toggle(
     'hidden',
-    ((!settings.showTitle && !settings.showSubtitle) && !settings.showPercent) && !settings.showMeter
+    !settings.showTitle &&
+      !settings.showSubtitle &&
+      !settings.showPercent &&
+      !settings.showMeter
   );
 
   if (dom.volumeHudPreviewMeterFill) {
@@ -1062,12 +1204,17 @@ function syncVolumeHudUi() {
 
   if (dom.volumeHudToggle) {
     dom.volumeHudToggle.classList.toggle('on', settings.enabled);
-    dom.volumeHudToggle.textContent = settings.enabled ? t('settings.on') : t('settings.off');
+    dom.volumeHudToggle.textContent = settings.enabled
+      ? t('settings.on')
+      : t('settings.off');
   }
 
   if (dom.volumeHudAdvanced) {
     dom.volumeHudAdvanced.classList.toggle('open', settings.enabled);
-    dom.volumeHudAdvanced.setAttribute('aria-hidden', String(!settings.enabled));
+    dom.volumeHudAdvanced.setAttribute(
+      'aria-hidden',
+      String(!settings.enabled)
+    );
   }
 
   if (dom.volumeHudPositionSelect) {
@@ -1077,12 +1224,16 @@ function syncVolumeHudUi() {
   }
 
   if (dom.volumeHudOrientationToggle) {
-    const orientationLabel = settings.orientation === 'vertical'
-      ? t('settings.volumeHudOrientations.vertical')
-      : t('settings.volumeHudOrientations.horizontal');
+    const orientationLabel =
+      settings.orientation === 'vertical'
+        ? t('settings.volumeHudOrientations.vertical')
+        : t('settings.volumeHudOrientations.horizontal');
 
     dom.volumeHudOrientationToggle.disabled = !settings.enabled;
-    dom.volumeHudOrientationToggle.classList.toggle('on', settings.orientation === 'vertical');
+    dom.volumeHudOrientationToggle.classList.toggle(
+      'on',
+      settings.orientation === 'vertical'
+    );
     dom.volumeHudOrientationToggle.textContent = orientationLabel;
   }
 
@@ -1110,22 +1261,34 @@ function syncFractionalNumberUi() {
   const showFractionalNumbers = getShowFractionalNumbersEnabled();
   const showFractionalOnlyLow = getShowFractionalOnlyLowEnabled();
   if (dom.showFractionalNumbersToggle) {
-    dom.showFractionalNumbersToggle.classList.toggle('on', showFractionalNumbers);
+    dom.showFractionalNumbersToggle.classList.toggle(
+      'on',
+      showFractionalNumbers
+    );
     dom.showFractionalNumbersToggle.textContent = showFractionalNumbers
       ? t('settings.on')
       : t('settings.off');
   }
 
   if (dom.showFractionalOnlyLowToggle) {
-    dom.showFractionalOnlyLowToggle.classList.toggle('on', showFractionalOnlyLow);
+    dom.showFractionalOnlyLowToggle.classList.toggle(
+      'on',
+      showFractionalOnlyLow
+    );
     dom.showFractionalOnlyLowToggle.textContent = showFractionalOnlyLow
       ? t('settings.on')
       : t('settings.off');
   }
 
   if (dom.fractionalNumbersAdvanced) {
-    dom.fractionalNumbersAdvanced.classList.toggle('open', showFractionalNumbers);
-    dom.fractionalNumbersAdvanced.setAttribute('aria-hidden', String(!showFractionalNumbers));
+    dom.fractionalNumbersAdvanced.classList.toggle(
+      'open',
+      showFractionalNumbers
+    );
+    dom.fractionalNumbersAdvanced.setAttribute(
+      'aria-hidden',
+      String(!showFractionalNumbers)
+    );
   }
 
   scheduleMenuPanelCardSizeSync();
@@ -1136,9 +1299,13 @@ function buildVolumeCurvePreviewPath() {
 
   for (let step = 0; step <= 24; step += 1) {
     const progress = step / 24;
-    const x = VOLUME_CURVE_GRAPH_MIN_X + progress * (VOLUME_CURVE_GRAPH_MAX_X - VOLUME_CURVE_GRAPH_MIN_X);
-    const y = VOLUME_CURVE_GRAPH_MAX_Y
-      - applySelectedVolumeCurve(progress) * (VOLUME_CURVE_GRAPH_MAX_Y - VOLUME_CURVE_GRAPH_MIN_Y);
+    const x =
+      VOLUME_CURVE_GRAPH_MIN_X +
+      progress * (VOLUME_CURVE_GRAPH_MAX_X - VOLUME_CURVE_GRAPH_MIN_X);
+    const y =
+      VOLUME_CURVE_GRAPH_MAX_Y -
+      applySelectedVolumeCurve(progress) *
+        (VOLUME_CURVE_GRAPH_MAX_Y - VOLUME_CURVE_GRAPH_MIN_Y);
     points.push(`${step === 0 ? 'M' : 'L'}${x.toFixed(1)} ${y.toFixed(1)}`);
   }
 
@@ -1153,10 +1320,13 @@ function getVolumeCurvePreviewPoint(position) {
   return {
     input: clampedPosition,
     output: mapFaderPositionToVolume(clampedPosition),
-    x: VOLUME_CURVE_GRAPH_MIN_X
-      + normalizedPosition * (VOLUME_CURVE_GRAPH_MAX_X - VOLUME_CURVE_GRAPH_MIN_X),
-    y: VOLUME_CURVE_GRAPH_MAX_Y
-      - curvedValue * (VOLUME_CURVE_GRAPH_MAX_Y - VOLUME_CURVE_GRAPH_MIN_Y)
+    x:
+      VOLUME_CURVE_GRAPH_MIN_X +
+      normalizedPosition *
+        (VOLUME_CURVE_GRAPH_MAX_X - VOLUME_CURVE_GRAPH_MIN_X),
+    y:
+      VOLUME_CURVE_GRAPH_MAX_Y -
+      curvedValue * (VOLUME_CURVE_GRAPH_MAX_Y - VOLUME_CURVE_GRAPH_MIN_Y)
   };
 }
 
@@ -1172,14 +1342,18 @@ function updateSettingsRangeFill(rangeElement) {
   const min = Number(rangeElement.min || 0);
   const max = Number(rangeElement.max || 100);
   const value = Number(rangeElement.value || 0);
-  const fillPercent = max === min
-    ? 0
-    : ((value - min) / (max - min)) * 100;
+  const fillPercent = max === min ? 0 : ((value - min) / (max - min)) * 100;
 
-  rangeElement.style.setProperty('--settings-range-fill', `${clampPercent(fillPercent)}%`);
+  rangeElement.style.setProperty(
+    '--settings-range-fill',
+    `${clampPercent(fillPercent)}%`
+  );
 }
 
-function updateVolumeCurveDemoUi(position = appSessionState.volumeCurveDemo.position, { showPoint = false } = {}) {
+function updateVolumeCurveDemoUi(
+  position = appSessionState.volumeCurveDemo.position,
+  { showPoint = false } = {}
+) {
   const previewPoint = getVolumeCurvePreviewPoint(position);
   const trackHeight = dom.volumeCurveDemoTrack?.clientHeight || 164;
   const thumbHeight = dom.volumeCurveDemoThumb?.offsetHeight || 44;
@@ -1205,7 +1379,9 @@ function updateVolumeCurveDemoUi(position = appSessionState.volumeCurveDemo.posi
   }
 
   if (dom.volumeCurveDemoValue) {
-    dom.volumeCurveDemoValue.textContent = formatVolumeValue(previewPoint.output);
+    dom.volumeCurveDemoValue.textContent = formatVolumeValue(
+      previewPoint.output
+    );
   }
 }
 
@@ -1229,10 +1405,13 @@ function easeInOutSine(progress) {
 }
 
 function interpolateValue(start, end, progress) {
-  return start + ((end - start) * progress);
+  return start + (end - start) * progress;
 }
 
-function getVolumeCurveDemoPosition(progress, startPosition = VOLUME_CURVE_DEMO_START_POSITION) {
+function getVolumeCurveDemoPosition(
+  progress,
+  startPosition = VOLUME_CURVE_DEMO_START_POSITION
+) {
   const splitPoint = 0.56;
 
   if (progress <= splitPoint) {
@@ -1253,7 +1432,11 @@ function getVolumeCurveDemoPosition(progress, startPosition = VOLUME_CURVE_DEMO_
 function startVolumeCurveDemo() {
   stopVolumeCurveDemo();
 
-  if (!getVolumeCurveEnabled() || appSessionState.volumeCurveDemo.dragging || !dom.volumeCurveDemoTrack) {
+  if (
+    !getVolumeCurveEnabled() ||
+    appSessionState.volumeCurveDemo.dragging ||
+    !dom.volumeCurveDemoTrack
+  ) {
     return;
   }
 
@@ -1270,10 +1453,16 @@ function startVolumeCurveDemo() {
       return;
     }
 
-    const progress = Math.min(1, (timestamp - startedAt) / VOLUME_CURVE_DEMO_DURATION_MS);
-    updateVolumeCurveDemoUi(getVolumeCurveDemoPosition(progress, startPosition), {
-      showPoint: true
-    });
+    const progress = Math.min(
+      1,
+      (timestamp - startedAt) / VOLUME_CURVE_DEMO_DURATION_MS
+    );
+    updateVolumeCurveDemoUi(
+      getVolumeCurveDemoPosition(progress, startPosition),
+      {
+        showPoint: true
+      }
+    );
 
     if (progress < 1) {
       appSessionState.volumeCurveDemo.frameId = requestAnimationFrame(tick);
@@ -1291,7 +1480,11 @@ function startVolumeCurveDemo() {
 function scheduleVolumeCurveDemo() {
   stopVolumeCurveDemo();
 
-  if (!getVolumeCurveEnabled() || appSessionState.volumeCurveDemo.dragging || !dom.volumeCurveDemoTrack) {
+  if (
+    !getVolumeCurveEnabled() ||
+    appSessionState.volumeCurveDemo.dragging ||
+    !dom.volumeCurveDemoTrack
+  ) {
     return;
   }
 
@@ -1359,12 +1552,17 @@ function syncVolumeCurveUi() {
   const volumeCurveAmount = getVolumeCurveAmount();
   if (dom.volumeCurveToggle) {
     dom.volumeCurveToggle.classList.toggle('on', volumeCurveEnabled);
-    dom.volumeCurveToggle.textContent = volumeCurveEnabled ? t('settings.on') : t('settings.off');
+    dom.volumeCurveToggle.textContent = volumeCurveEnabled
+      ? t('settings.on')
+      : t('settings.off');
   }
 
   if (dom.volumeCurveAdvanced) {
     dom.volumeCurveAdvanced.classList.toggle('open', volumeCurveEnabled);
-    dom.volumeCurveAdvanced.setAttribute('aria-hidden', String(!volumeCurveEnabled));
+    dom.volumeCurveAdvanced.setAttribute(
+      'aria-hidden',
+      String(!volumeCurveEnabled)
+    );
   }
 
   if (dom.volumeCurveRange) {
@@ -1374,7 +1572,10 @@ function syncVolumeCurveUi() {
   }
 
   dom.volumeCurveModeButtons?.forEach((button) => {
-    button.classList.toggle('active', button.dataset.curveType === volumeCurveType);
+    button.classList.toggle(
+      'active',
+      button.dataset.curveType === volumeCurveType
+    );
     button.disabled = !volumeCurveEnabled;
   });
 
@@ -1382,7 +1583,9 @@ function syncVolumeCurveUi() {
     dom.volumeCurvePath.setAttribute('d', buildVolumeCurvePreviewPath());
   }
 
-  updateVolumeCurveDemoUi(appSessionState.volumeCurveDemo.position, { showPoint: false });
+  updateVolumeCurveDemoUi(appSessionState.volumeCurveDemo.position, {
+    showPoint: false
+  });
 
   if (!volumeCurveEnabled) {
     stopVolumeCurveDemo();
@@ -1414,16 +1617,28 @@ function syncSettingsViewportUi() {
   const settingsTabActive = isMenuOpen() && getActiveMenuTab() === 'settings';
 
   if (!settingsScroller || !settingsTabActive) {
-    dom.settingsScrollShell?.classList.remove('has-overflow', 'at-top', 'at-bottom');
-    dom.menuPanelCard?.classList.remove('settings-fade-active', 'settings-at-top', 'settings-at-bottom');
+    dom.settingsScrollShell?.classList.remove(
+      'has-overflow',
+      'at-top',
+      'at-bottom'
+    );
+    dom.menuPanelCard?.classList.remove(
+      'settings-fade-active',
+      'settings-at-top',
+      'settings-at-bottom'
+    );
     resetSettingsSectionEffects();
     return;
   }
 
-  const maxScroll = Math.max(0, settingsScroller.scrollHeight - settingsScroller.clientHeight);
+  const maxScroll = Math.max(
+    0,
+    settingsScroller.scrollHeight - settingsScroller.clientHeight
+  );
   const shouldShowFade = maxScroll > 1;
   const isAtTop = settingsScroller.scrollTop <= 1;
-  const isAtBottom = !shouldShowFade || settingsScroller.scrollTop >= (maxScroll - 1);
+  const isAtBottom =
+    !shouldShowFade || settingsScroller.scrollTop >= maxScroll - 1;
 
   dom.settingsScrollShell?.classList.toggle('has-overflow', shouldShowFade);
   dom.settingsScrollShell?.classList.toggle('at-top', isAtTop);
@@ -1464,9 +1679,10 @@ function syncSettingsSectionEffects() {
     const sectionBottom = sectionTop + sectionHeight;
     const visibleHeight = Math.max(
       0,
-      Math.min(sectionBottom, viewportBottom) - Math.max(sectionTop, viewportTop)
+      Math.min(sectionBottom, viewportBottom) -
+        Math.max(sectionTop, viewportTop)
     );
-    const visibleRatio = sectionHeight > 0 ? (visibleHeight / sectionHeight) : 1;
+    const visibleRatio = sectionHeight > 0 ? visibleHeight / sectionHeight : 1;
 
     if (visibleRatio >= SETTINGS_SECTION_HIDE_THRESHOLD) {
       section.style.transform = 'translateY(0) scale(1)';
@@ -1479,20 +1695,27 @@ function syncSettingsSectionEffects() {
       0,
       Math.min(
         1,
-        (SETTINGS_SECTION_HIDE_THRESHOLD - visibleRatio) / SETTINGS_SECTION_HIDE_THRESHOLD
+        (SETTINGS_SECTION_HIDE_THRESHOLD - visibleRatio) /
+          SETTINGS_SECTION_HIDE_THRESHOLD
       )
     );
-    const scale = SETTINGS_SECTION_MIN_SCALE + ((1 - progress) * (1 - SETTINGS_SECTION_MIN_SCALE));
-    const opacity = 0.72 + ((1 - progress) * 0.28);
+    const scale =
+      SETTINGS_SECTION_MIN_SCALE +
+      (1 - progress) * (1 - SETTINGS_SECTION_MIN_SCALE);
+    const opacity = 0.72 + (1 - progress) * 0.28;
     const isLeavingTop = sectionTop < viewportTop;
     const isLeavingBottom = sectionBottom > viewportBottom;
     const shift = isLeavingTop
       ? -(SETTINGS_SECTION_MAX_SHIFT * progress)
-      : (isLeavingBottom ? (SETTINGS_SECTION_MAX_SHIFT * progress) : 0);
+      : isLeavingBottom
+        ? SETTINGS_SECTION_MAX_SHIFT * progress
+        : 0;
 
     section.style.transformOrigin = isLeavingTop
       ? 'center top'
-      : (isLeavingBottom ? 'center bottom' : 'center center');
+      : isLeavingBottom
+        ? 'center bottom'
+        : 'center center';
     section.style.transform = `translateY(${shift.toFixed(2)}px) scale(${scale.toFixed(4)})`;
     section.style.opacity = opacity.toFixed(4);
   });
@@ -1513,11 +1736,17 @@ function hideSettingsTooltip() {
 }
 
 function positionSettingsTooltip(target) {
-  if (!target || !dom.settingsTooltipLayer || !dom.settingsTooltipBubble || !dom.menuPanelOverlay) {
+  if (
+    !target ||
+    !dom.settingsTooltipLayer ||
+    !dom.settingsTooltipBubble ||
+    !dom.menuPanelOverlay
+  ) {
     return;
   }
 
-  const tooltipText = target.dataset.tooltip || target.getAttribute('aria-label') || '';
+  const tooltipText =
+    target.dataset.tooltip || target.getAttribute('aria-label') || '';
 
   if (!tooltipText) {
     hideSettingsTooltip();
@@ -1538,20 +1767,20 @@ function positionSettingsTooltip(target) {
     const targetRect = target.getBoundingClientRect();
     const bubbleRect = dom.settingsTooltipBubble.getBoundingClientRect();
     const horizontalPadding = 10;
-    const preferredLeft = (
-      targetRect.left
-      - overlayRect.left
-      + (targetRect.width / 2)
-      - (bubbleRect.width / 2)
+    const preferredLeft =
+      targetRect.left -
+      overlayRect.left +
+      targetRect.width / 2 -
+      bubbleRect.width / 2;
+    const maxLeft = Math.max(
+      horizontalPadding,
+      overlayRect.width - bubbleRect.width - horizontalPadding
     );
-    const maxLeft = Math.max(horizontalPadding, overlayRect.width - bubbleRect.width - horizontalPadding);
-    const clampedLeft = Math.max(horizontalPadding, Math.min(preferredLeft, maxLeft));
-    const top = (
-      targetRect.top
-      - overlayRect.top
-      - bubbleRect.height
-      - 14
+    const clampedLeft = Math.max(
+      horizontalPadding,
+      Math.min(preferredLeft, maxLeft)
     );
+    const top = targetRect.top - overlayRect.top - bubbleRect.height - 14;
 
     dom.settingsTooltipBubble.style.left = `${clampedLeft}px`;
     dom.settingsTooltipBubble.style.top = `${top}px`;
@@ -1564,7 +1793,10 @@ function scheduleContentMetricsUpdate() {
 }
 
 function flushDeferredMixerRender() {
-  if (!deferredMixerRenderPending || window.isChannelFaderDragActiveRuntime?.()) {
+  if (
+    !deferredMixerRenderPending ||
+    window.isChannelFaderDragActiveRuntime?.()
+  ) {
     return false;
   }
 
@@ -1586,22 +1818,34 @@ function requestDeferredMixerRender() {
   return true;
 }
 
-function notifyAudioRuntimeUi(audioApps = window.getAvailableAudioApps?.() || []) {
+function notifyAudioRuntimeUi(
+  audioApps = window.getAvailableAudioApps?.() || []
+) {
   requestDeferredMixerRender();
-  window.dispatchEvent(new CustomEvent('audio-apps-updated', {
-    detail: {
-      apps: audioApps
-    }
-  }));
+  window.dispatchEvent(
+    new CustomEvent('audio-apps-updated', {
+      detail: {
+        apps: audioApps
+      }
+    })
+  );
 }
 
 function initAudioRuntimeBridge() {
-  if (audioRuntimeBridgeInitialized || typeof window.subscribeAudioRuntime !== 'function') {
+  if (
+    audioRuntimeBridgeInitialized ||
+    typeof window.subscribeAudioRuntime !== 'function'
+  ) {
     return;
   }
 
   window.subscribeAudioRuntime((audioRuntimeState, meta = {}) => {
-    if (!['audio-runtime/apps-updated', 'audio-runtime/localization-refresh'].includes(meta.type)) {
+    if (
+      ![
+        'audio-runtime/apps-updated',
+        'audio-runtime/localization-refresh'
+      ].includes(meta.type)
+    ) {
       return;
     }
 
@@ -1658,7 +1902,10 @@ function setupSettings() {
   dom.softTakeoverThresholdRange?.addEventListener('input', (event) => {
     const sliderValue = Math.max(
       0,
-      Math.min(SOFT_TAKEOVER_MAX_THRESHOLD, Number.parseInt(event.target.value, 10) || 0)
+      Math.min(
+        SOFT_TAKEOVER_MAX_THRESHOLD,
+        Number.parseInt(event.target.value, 10) || 0
+      )
     );
 
     if (sliderValue === getSoftTakeoverThreshold()) {
@@ -1676,21 +1923,32 @@ function setupSettings() {
     window.uiActions?.toggleMediaControllerVisible({ source: 'ui' });
   });
 
-  dom.mediaControllerTargetSettingsSelect?.addEventListener('custom-select:will-open', () => {
-    refreshMediaControllerTargetSettingsOptions({ force: true });
-  });
+  dom.mediaControllerTargetSettingsSelect?.addEventListener(
+    'custom-select:will-open',
+    () => {
+      refreshMediaControllerTargetSettingsOptions({ force: true });
+    }
+  );
 
-  dom.mediaControllerTargetSettingsSelect?.addEventListener('change', (event) => {
-    const nextValue = String(event.target.value || '').trim();
-    const targetAppId = nextValue === MEDIA_CONTROLLER_AUTO_TARGET_VALUE ? '' : nextValue;
+  dom.mediaControllerTargetSettingsSelect?.addEventListener(
+    'change',
+    (event) => {
+      const nextValue = String(event.target.value || '').trim();
+      const targetAppId =
+        nextValue === MEDIA_CONTROLLER_AUTO_TARGET_VALUE ? '' : nextValue;
 
-    window.uiActions?.setMediaControllerTargetAppId?.(targetAppId, { source: 'ui' });
-    syncMediaControllerTargetSettingsUi({ force: true });
-    window.mediaControllerUi?.getRuntimeSnapshot?.({ force: true });
-  });
+      window.uiActions?.setMediaControllerTargetAppId?.(targetAppId, {
+        source: 'ui'
+      });
+      syncMediaControllerTargetSettingsUi({ force: true });
+      window.mediaControllerUi?.getRuntimeSnapshot?.({ force: true });
+    }
+  );
 
   dom.mediaControllerTargetSettingsSelect?.addEventListener('blur', () => {
-    if (dom.mediaControllerTargetSettingsSelect?.dataset.pendingSync === 'true') {
+    if (
+      dom.mediaControllerTargetSettingsSelect?.dataset.pendingSync === 'true'
+    ) {
       syncMediaControllerTargetSettingsUi({ force: true });
     }
   });
@@ -1700,7 +1958,9 @@ function setupSettings() {
   });
 
   dom.volumeHudPositionSelect?.addEventListener('change', (event) => {
-    window.uiActions?.setVolumeHudPosition(event.target.value, { source: 'ui' });
+    window.uiActions?.setVolumeHudPosition(event.target.value, {
+      source: 'ui'
+    });
   });
 
   dom.volumeHudOrientationToggle?.addEventListener('click', () => {
@@ -1745,7 +2005,9 @@ function setupSettings() {
         return;
       }
 
-      window.uiActions?.setVolumeCurveType(button.dataset.curveType, { source: 'ui' });
+      window.uiActions?.setVolumeCurveType(button.dataset.curveType, {
+        source: 'ui'
+      });
     });
   });
 
@@ -1766,11 +2028,18 @@ function setupSettings() {
     setLanguage(event.target.value);
   });
 
-  dom.volumeCurveDemoTrack?.addEventListener('pointerdown', startVolumeCurveDemoDrag);
-  dom.settingsContent?.addEventListener('scroll', () => {
-    hideSettingsTooltip();
-    syncSettingsViewportUi();
-  }, { passive: true });
+  dom.volumeCurveDemoTrack?.addEventListener(
+    'pointerdown',
+    startVolumeCurveDemoDrag
+  );
+  dom.settingsContent?.addEventListener(
+    'scroll',
+    () => {
+      hideSettingsTooltip();
+      syncSettingsViewportUi();
+    },
+    { passive: true }
+  );
 }
 
 function hideContextMenu(options = {}) {
@@ -1795,7 +2064,8 @@ function syncContextMenuUi(target = null) {
   const editItem = dom.contextMenu.querySelector('[data-action="edit"]');
   const selectItem = dom.contextMenu.querySelector('[data-action="select"]');
   const deleteItem = dom.contextMenu.querySelector('[data-action="delete"]');
-  const isMediaControllerTarget = String(target?.type || '') === 'media-controller';
+  const isMediaControllerTarget =
+    String(target?.type || '') === 'media-controller';
 
   if (editItem) {
     editItem.textContent = t('context.edit');
@@ -1806,17 +2076,28 @@ function syncContextMenuUi(target = null) {
   }
 
   if (deleteItem) {
-    deleteItem.textContent = isMediaControllerTarget ? t('context.hide') : t('context.delete');
-    deleteItem.classList.toggle('context-item--danger', !isMediaControllerTarget);
+    deleteItem.textContent = isMediaControllerTarget
+      ? t('context.hide')
+      : t('context.delete');
+    deleteItem.classList.toggle(
+      'context-item--danger',
+      !isMediaControllerTarget
+    );
   }
 }
 
 function onContextMenu(event) {
   const channelEl = event.target.closest('.channel-strip');
-  const buttonEl = event.target.closest('.control-button, .channel-side-button');
+  const buttonEl = event.target.closest(
+    '.control-button, .channel-side-button'
+  );
   const standaloneEl = event.target.closest('.standalone-button');
-  const mediaControllerButtonEl = event.target.closest('[data-media-controller-slot]');
-  const mediaControllerEl = event.target.closest('#mediaController, .media-controller, #mediaControllerShell, .media-controller-shell');
+  const mediaControllerButtonEl = event.target.closest(
+    '[data-media-controller-slot]'
+  );
+  const mediaControllerEl = event.target.closest(
+    '#mediaController, .media-controller, #mediaControllerShell, .media-controller-shell'
+  );
 
   if (!channelEl && !buttonEl && !standaloneEl && !mediaControllerEl) {
     return;
@@ -1827,13 +2108,21 @@ function onContextMenu(event) {
   if (mediaControllerEl) {
     appSessionState.contextMenu.target = {
       type: 'media-controller',
-      buttonId: Number.parseInt(mediaControllerButtonEl?.dataset.buttonId || '', 10),
-      slot: String(mediaControllerButtonEl?.dataset.mediaControllerSlot || '').trim()
+      buttonId: Number.parseInt(
+        mediaControllerButtonEl?.dataset.buttonId || '',
+        10
+      ),
+      slot: String(
+        mediaControllerButtonEl?.dataset.mediaControllerSlot || ''
+      ).trim()
     };
   } else if (buttonEl && buttonEl.dataset.buttonId) {
     appSessionState.contextMenu.target = {
       type: 'button',
-      channelId: Number.parseInt(buttonEl.closest('.channel-strip').dataset.channelId, 10),
+      channelId: Number.parseInt(
+        buttonEl.closest('.channel-strip').dataset.channelId,
+        10
+      ),
       buttonId: Number.parseInt(buttonEl.dataset.buttonId, 10)
     };
   } else if (standaloneEl) {
@@ -1909,7 +2198,9 @@ function handleContextAction(action, explicitTarget = null) {
 
     if (action === 'select') return;
     if (action === 'delete') {
-      window.channelActions?.removeChannelButton(channelId, buttonId, { source: 'context-menu' });
+      window.channelActions?.removeChannelButton(channelId, buttonId, {
+        source: 'context-menu'
+      });
     }
 
     if (action === 'remap') remapButton(channelId, buttonId);
@@ -1928,7 +2219,9 @@ function handleContextAction(action, explicitTarget = null) {
 
     if (action === 'select') return;
     if (action === 'delete') {
-      window.standaloneButtonActions?.removeStandaloneButton?.(buttonId, { source: 'context-menu' });
+      window.standaloneButtonActions?.removeStandaloneButton?.(buttonId, {
+        source: 'context-menu'
+      });
     }
 
     if (action === 'remap') remapStandaloneButton(buttonId);
@@ -1949,7 +2242,9 @@ function handleContextAction(action, explicitTarget = null) {
     }
 
     if (action === 'delete') {
-      window.uiActions?.setMediaControllerVisible?.(false, { source: 'context-menu' });
+      window.uiActions?.setMediaControllerVisible?.(false, {
+        source: 'context-menu'
+      });
       return;
     }
 
@@ -2000,60 +2295,83 @@ function initUiStateSync() {
       syncDeveloperModeUi();
     }
 
-    if (nextSettings.closeToTrayEnabled !== previousSettings.closeToTrayEnabled) {
+    if (
+      nextSettings.closeToTrayEnabled !== previousSettings.closeToTrayEnabled
+    ) {
       syncCloseToTrayUi();
       syncCloseToTrayRuntime();
     }
 
-    if (nextSettings.faderInterpolationEnabled !== previousSettings.faderInterpolationEnabled) {
+    if (
+      nextSettings.faderInterpolationEnabled !==
+      previousSettings.faderInterpolationEnabled
+    ) {
       syncFaderInterpolationUi();
     }
 
     if (
-      nextSettings.softTakeoverEnabled !== previousSettings.softTakeoverEnabled
-      || nextSettings.softTakeoverThreshold !== previousSettings.softTakeoverThreshold
+      nextSettings.softTakeoverEnabled !==
+        previousSettings.softTakeoverEnabled ||
+      nextSettings.softTakeoverThreshold !==
+        previousSettings.softTakeoverThreshold
     ) {
       syncSoftTakeoverUi();
     }
 
-    if (nextSettings.profileToolbarSwitcherEnabled !== previousSettings.profileToolbarSwitcherEnabled) {
+    if (
+      nextSettings.profileToolbarSwitcherEnabled !==
+      previousSettings.profileToolbarSwitcherEnabled
+    ) {
       syncProfileToolbarUi();
     }
 
     if (
-      nextSettings.volumeHudEnabled !== previousSettings.volumeHudEnabled
-      || nextSettings.volumeHudPosition !== previousSettings.volumeHudPosition
-      || nextSettings.volumeHudOrientation !== previousSettings.volumeHudOrientation
-      || nextSettings.volumeHudShowIcon !== previousSettings.volumeHudShowIcon
-      || nextSettings.volumeHudShowTitle !== previousSettings.volumeHudShowTitle
-      || nextSettings.volumeHudShowSubtitle !== previousSettings.volumeHudShowSubtitle
-      || nextSettings.volumeHudShowPercent !== previousSettings.volumeHudShowPercent
-      || nextSettings.volumeHudShowMeter !== previousSettings.volumeHudShowMeter
+      nextSettings.volumeHudEnabled !== previousSettings.volumeHudEnabled ||
+      nextSettings.volumeHudPosition !== previousSettings.volumeHudPosition ||
+      nextSettings.volumeHudOrientation !==
+        previousSettings.volumeHudOrientation ||
+      nextSettings.volumeHudShowIcon !== previousSettings.volumeHudShowIcon ||
+      nextSettings.volumeHudShowTitle !== previousSettings.volumeHudShowTitle ||
+      nextSettings.volumeHudShowSubtitle !==
+        previousSettings.volumeHudShowSubtitle ||
+      nextSettings.volumeHudShowPercent !==
+        previousSettings.volumeHudShowPercent ||
+      nextSettings.volumeHudShowMeter !== previousSettings.volumeHudShowMeter
     ) {
       syncVolumeHudUi();
     }
 
-    if (nextSettings.mediaControllerVisible !== previousSettings.mediaControllerVisible) {
+    if (
+      nextSettings.mediaControllerVisible !==
+      previousSettings.mediaControllerVisible
+    ) {
       syncMediaControllerUi();
     }
 
-    if (nextSettings.mediaControllerTargetAppId !== previousSettings.mediaControllerTargetAppId) {
+    if (
+      nextSettings.mediaControllerTargetAppId !==
+      previousSettings.mediaControllerTargetAppId
+    ) {
       syncMediaControllerTargetSettingsUi({ force: true });
     }
 
     if (
-      nextSettings.showFractionalNumbers !== previousSettings.showFractionalNumbers
-      || nextSettings.showFractionalOnlyLow !== previousSettings.showFractionalOnlyLow
+      nextSettings.showFractionalNumbers !==
+        previousSettings.showFractionalNumbers ||
+      nextSettings.showFractionalOnlyLow !==
+        previousSettings.showFractionalOnlyLow
     ) {
       syncFractionalNumberUi();
       refreshCurveDrivenUi();
-      updateVolumeCurveDemoUi(appSessionState.volumeCurveDemo.position, { showPoint: false });
+      updateVolumeCurveDemoUi(appSessionState.volumeCurveDemo.position, {
+        showPoint: false
+      });
     }
 
     if (
-      nextSettings.volumeCurveEnabled !== previousSettings.volumeCurveEnabled
-      || nextSettings.volumeCurveType !== previousSettings.volumeCurveType
-      || nextSettings.volumeCurveAmount !== previousSettings.volumeCurveAmount
+      nextSettings.volumeCurveEnabled !== previousSettings.volumeCurveEnabled ||
+      nextSettings.volumeCurveType !== previousSettings.volumeCurveType ||
+      nextSettings.volumeCurveAmount !== previousSettings.volumeCurveAmount
     ) {
       syncVolumeCurveUi();
       refreshCurveDrivenUi();
@@ -2077,9 +2395,9 @@ function initUiStateSync() {
 
 function initLayoutEditorUiSync() {
   if (
-    isLayoutEditorParkedUi()
-    || initLayoutEditorUiSync.initialized
-    || typeof subscribeLayoutEditorSessionState !== 'function'
+    isLayoutEditorParkedUi() ||
+    initLayoutEditorUiSync.initialized ||
+    typeof subscribeLayoutEditorSessionState !== 'function'
   ) {
     return;
   }
@@ -2139,9 +2457,9 @@ function bindGlobalUi() {
   if (!isLayoutEditorParkedUi()) {
     document.addEventListener('keydown', (event) => {
       if (
-        event.key === 'Escape'
-        && getLayoutEditModeEnabled()
-        && !window.getActiveModalId?.()
+        event.key === 'Escape' &&
+        getLayoutEditModeEnabled() &&
+        !window.getActiveModalId?.()
       ) {
         window.layoutActions?.exitLayoutEditMode({ source: 'ui' });
       }
@@ -2240,7 +2558,9 @@ function selectLayoutSurfaceItemShell(itemId) {
     return null;
   }
 
-  return window.layoutActions?.selectLayoutItem(itemId, { source: 'ui' }) || null;
+  return (
+    window.layoutActions?.selectLayoutItem(itemId, { source: 'ui' }) || null
+  );
 }
 
 function hoverLayoutSurfaceItemShell(itemId) {
@@ -2248,7 +2568,9 @@ function hoverLayoutSurfaceItemShell(itemId) {
     return null;
   }
 
-  return window.layoutActions?.hoverLayoutItem(itemId, { source: 'ui' }) || null;
+  return (
+    window.layoutActions?.hoverLayoutItem(itemId, { source: 'ui' }) || null
+  );
 }
 
 function clearLayoutSurfaceHoverShell() {
@@ -2272,7 +2594,9 @@ function removeLayoutSpacerShell(itemId) {
     return null;
   }
 
-  return window.layoutActions?.removeLayoutItem(itemId, { source: 'ui' }) || null;
+  return (
+    window.layoutActions?.removeLayoutItem(itemId, { source: 'ui' }) || null
+  );
 }
 
 function startLayoutSurfaceDragShell(event, itemId) {
@@ -2287,7 +2611,9 @@ function startLayoutSurfaceDragShell(event, itemId) {
     event.dataTransfer.setData('text/plain', itemId);
   }
 
-  return window.layoutActions?.beginLayoutItemDrag(itemId, { source: 'ui' }) || null;
+  return (
+    window.layoutActions?.beginLayoutItemDrag(itemId, { source: 'ui' }) || null
+  );
 }
 
 function previewLayoutSurfaceDropShell(event, zone, itemId) {
@@ -2305,21 +2631,31 @@ function previewLayoutSurfaceDropShell(event, zone, itemId) {
     return null;
   }
 
-  const position = zone === (window.LAYOUT_ZONES?.standalone || 'standalone')
-    ? (event.clientY <= (targetRect.top + (targetRect.height / 2)) ? 'before' : 'after')
-    : (event.clientX <= (targetRect.left + (targetRect.width / 2)) ? 'before' : 'after');
+  const position =
+    zone === (window.LAYOUT_ZONES?.standalone || 'standalone')
+      ? event.clientY <= targetRect.top + targetRect.height / 2
+        ? 'before'
+        : 'after'
+      : event.clientX <= targetRect.left + targetRect.width / 2
+        ? 'before'
+        : 'after';
 
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move';
   }
 
-  return window.layoutActions?.previewLayoutDrop({
-    zone,
-    itemId,
-    position
-  }, {
-    source: 'ui'
-  }) || null;
+  return (
+    window.layoutActions?.previewLayoutDrop(
+      {
+        zone,
+        itemId,
+        position
+      },
+      {
+        source: 'ui'
+      }
+    ) || null
+  );
 }
 
 function dropLayoutSurfaceItemShell(event, zone, itemId) {

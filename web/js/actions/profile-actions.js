@@ -5,19 +5,20 @@
     return typeof window.createEmptyPersistedRendererPayload === 'function'
       ? window.createEmptyPersistedRendererPayload()
       : {
-        channels: [],
-        standaloneButtons: [],
-        settings: {
-          midiInputId: null,
-          midiInputName: ''
-        }
-      };
+          channels: [],
+          standaloneButtons: [],
+          settings: {
+            midiInputId: null,
+            midiInputName: ''
+          }
+        };
   }
 
   function saveRendererProfileToLocal() {
-    const profile = typeof window.serializeRendererState === 'function'
-      ? window.serializeRendererState()
-      : createFallbackRendererProfile();
+    const profile =
+      typeof window.serializeRendererState === 'function'
+        ? window.serializeRendererState()
+        : createFallbackRendererProfile();
 
     return profileStorage?.saveRendererProfileSnapshot(profile) || profile;
   }
@@ -27,7 +28,9 @@
 
     if (!savedProfile) {
       const fallbackProfile = createFallbackRendererProfile();
-      window.hydrateRendererState?.(fallbackProfile, { source: 'local-storage' });
+      window.hydrateRendererState?.(fallbackProfile, {
+        source: 'local-storage'
+      });
       return fallbackProfile;
     }
 
@@ -37,7 +40,9 @@
     } catch (error) {
       console.error('loadProfile error', error);
       const fallbackProfile = createFallbackRendererProfile();
-      window.hydrateRendererState?.(fallbackProfile, { source: 'local-storage' });
+      window.hydrateRendererState?.(fallbackProfile, {
+        source: 'local-storage'
+      });
       return fallbackProfile;
     }
   }

@@ -48,32 +48,40 @@
   }
 
   function isWindowsSystemPath(applicationPath = '') {
-    const normalizedPath = String(applicationPath || '').trim().toLowerCase();
-    return normalizedPath.includes('\\windows\\system32\\')
-      || normalizedPath.includes('\\windows\\syswow64\\')
-      || normalizedPath.includes('\\windows\\winsxs\\');
+    const normalizedPath = String(applicationPath || '')
+      .trim()
+      .toLowerCase();
+    return (
+      normalizedPath.includes('\\windows\\system32\\') ||
+      normalizedPath.includes('\\windows\\syswow64\\') ||
+      normalizedPath.includes('\\windows\\winsxs\\')
+    );
   }
 
-  function isMeaningfulAudioAppIcon(application = {}, iconDataUrl = application?.iconDataUrl || '') {
+  function isMeaningfulAudioAppIcon(
+    application = {},
+    iconDataUrl = application?.iconDataUrl || ''
+  ) {
     const normalizedDataUrl = String(iconDataUrl || '').trim();
 
     if (!normalizedDataUrl) {
       return false;
     }
 
-    const processName = String(application?.process || '').trim().toLowerCase();
-    const applicationPath = String(application?.path || '').trim().toLowerCase();
+    const processName = String(application?.process || '')
+      .trim()
+      .toLowerCase();
+    const applicationPath = String(application?.path || '')
+      .trim()
+      .toLowerCase();
 
     if (SYSTEM_ICON_PLACEHOLDER_PROCESSES.has(processName)) {
       return false;
     }
 
     if (
-      normalizedDataUrl.length < 900
-      && (
-        isWindowsSystemPath(applicationPath)
-        || processName.endsWith('host.exe')
-      )
+      normalizedDataUrl.length < 900 &&
+      (isWindowsSystemPath(applicationPath) || processName.endsWith('host.exe'))
     ) {
       return false;
     }
@@ -103,15 +111,21 @@
       iconDataUrl: ''
     };
     const externalApps = Array.isArray(applications)
-      ? applications.filter((app) => app.process !== 'master').map(cloneAudioApp)
+      ? applications
+          .filter((app) => app.process !== 'master')
+          .map(cloneAudioApp)
       : [];
     return [localizedMaster, ...externalApps];
   }
 
   function getAudioAppIconCacheKeys(application = {}) {
     const cacheKeys = [];
-    const pathKey = String(application?.path || '').trim().toLowerCase();
-    const processKey = String(application?.process || '').trim().toLowerCase();
+    const pathKey = String(application?.path || '')
+      .trim()
+      .toLowerCase();
+    const processKey = String(application?.process || '')
+      .trim()
+      .toLowerCase();
 
     if (pathKey) {
       cacheKeys.push(pathKey);
@@ -128,7 +142,9 @@
     const cacheKeys = getAudioAppIconCacheKeys(application);
 
     for (const cacheKey of cacheKeys) {
-      const cachedIconDataUrl = String(audioAppIconCache.get(cacheKey) || '').trim();
+      const cachedIconDataUrl = String(
+        audioAppIconCache.get(cacheKey) || ''
+      ).trim();
 
       if (isMeaningfulAudioAppIcon(application, cachedIconDataUrl)) {
         return cachedIconDataUrl;
@@ -140,7 +156,10 @@
 
   function cacheAudioAppIconDataUrl(application = {}, iconDataUrl = '') {
     const normalizedIconDataUrl = String(iconDataUrl || '').trim();
-    const resolvedIconDataUrl = isMeaningfulAudioAppIcon(application, normalizedIconDataUrl)
+    const resolvedIconDataUrl = isMeaningfulAudioAppIcon(
+      application,
+      normalizedIconDataUrl
+    )
       ? normalizedIconDataUrl
       : getCachedAudioAppIconDataUrl(application);
     const cacheKeys = getAudioAppIconCacheKeys(application);
@@ -192,17 +211,24 @@
     return nextApplications.every((application, index) => {
       const previousApplication = previousApplications[index] || {};
       return (
-        String(application?.name || '') === String(previousApplication?.name || '')
-        && String(application?.process || '') === String(previousApplication?.process || '')
-        && String(application?.path || '') === String(previousApplication?.path || '')
-        && String(application?.iconDataUrl || '') === String(previousApplication?.iconDataUrl || '')
+        String(application?.name || '') ===
+          String(previousApplication?.name || '') &&
+        String(application?.process || '') ===
+          String(previousApplication?.process || '') &&
+        String(application?.path || '') ===
+          String(previousApplication?.path || '') &&
+        String(application?.iconDataUrl || '') ===
+          String(previousApplication?.iconDataUrl || '')
       );
     });
   }
 
   function applyCachedAudioAppIcons(applications = []) {
     return applications.map((application) => {
-      const resolvedIconDataUrl = isMeaningfulAudioAppIcon(application, application?.iconDataUrl)
+      const resolvedIconDataUrl = isMeaningfulAudioAppIcon(
+        application,
+        application?.iconDataUrl
+      )
         ? String(application?.iconDataUrl || '').trim()
         : getCachedAudioAppIconDataUrl(application);
 
@@ -234,12 +260,20 @@
       return audioAppIconRequests.get(requestKey);
     }
 
-    const requestPromise = Promise.resolve(api.get_application_icons([applicationPath]))
+    const requestPromise = Promise.resolve(
+      api.get_application_icons([applicationPath])
+    )
       .then((response) => {
-        const iconMap = response?.success && response?.icons && typeof response.icons === 'object'
-          ? response.icons
-          : {};
-        const nextIconDataUrl = cacheAudioAppIconDataUrl(resolvedApplication, iconMap[applicationPath]);
+        const iconMap =
+          response?.success &&
+          response?.icons &&
+          typeof response.icons === 'object'
+            ? response.icons
+            : {};
+        const nextIconDataUrl = cacheAudioAppIconDataUrl(
+          resolvedApplication,
+          iconMap[applicationPath]
+        );
 
         if (nextIconDataUrl && options?.syncRuntime !== false) {
           syncRuntimeAppsWithIconCache({
@@ -264,7 +298,11 @@
   async function enrichAudioAppsWithIcons(applications = []) {
     const api = getAudioApi();
 
-    if (!api?.get_application_icons || !Array.isArray(applications) || !applications.length) {
+    if (
+      !api?.get_application_icons ||
+      !Array.isArray(applications) ||
+      !applications.length
+    ) {
       return applyCachedAudioAppIcons(applications);
     }
 
@@ -282,10 +320,15 @@
 
     if (uncachedPaths.length > 0) {
       try {
-        const response = await api.get_application_icons([...new Set(uncachedPaths)]);
-        const iconMap = response?.success && response?.icons && typeof response.icons === 'object'
-          ? response.icons
-          : {};
+        const response = await api.get_application_icons([
+          ...new Set(uncachedPaths)
+        ]);
+        const iconMap =
+          response?.success &&
+          response?.icons &&
+          typeof response.icons === 'object'
+            ? response.icons
+            : {};
 
         applications.forEach((application) => {
           const applicationPath = String(application?.path || '').trim();
@@ -324,7 +367,10 @@
     const normalizedApplications = Array.isArray(nextApplications)
       ? nextApplications.map(cloneAudioApp)
       : [];
-    const hasChanged = !areAudioAppsEqual(normalizedApplications, runtimeState.apps);
+    const hasChanged = !areAudioAppsEqual(
+      normalizedApplications,
+      runtimeState.apps
+    );
 
     runtimeState.apps = normalizedApplications;
 
@@ -353,7 +399,11 @@
       return audioAppsRefreshInFlight;
     }
 
-    if (!force && runtimeState.apps.length && (now - runtimeState.lastRefreshAt) < AUDIO_APPS_REFRESH_MIN_INTERVAL_MS) {
+    if (
+      !force &&
+      runtimeState.apps.length &&
+      now - runtimeState.lastRefreshAt < AUDIO_APPS_REFRESH_MIN_INTERVAL_MS
+    ) {
       return getAvailableAudioApps();
     }
 
@@ -377,7 +427,9 @@
 
         const response = await api.get_audio_applications();
         nextApplications = buildAudioAppsList(
-          response?.applications?.length ? response.applications : FALLBACK_AUDIO_APPS
+          response?.applications?.length
+            ? response.applications
+            : FALLBACK_AUDIO_APPS
         );
       } catch (error) {
         console.error(error);
@@ -392,7 +444,8 @@
         markRefreshed: false
       });
 
-      const enrichedApplications = await enrichAudioAppsWithIcons(nextApplications);
+      const enrichedApplications =
+        await enrichAudioAppsWithIcons(nextApplications);
       setAudioRuntimeApps(enrichedApplications, {
         source: 'audio-runtime',
         reason: options?.reason || 'runtime'
@@ -433,7 +486,9 @@
   }
 
   function refreshAudioRuntimeLocalization(meta = {}) {
-    const refreshedApplications = applyCachedAudioAppIcons(buildAudioAppsList(runtimeState.apps));
+    const refreshedApplications = applyCachedAudioAppIcons(
+      buildAudioAppsList(runtimeState.apps)
+    );
     setAudioRuntimeApps(refreshedApplications, {
       type: 'audio-runtime/localization-refresh',
       source: 'audio-runtime',

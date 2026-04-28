@@ -1,13 +1,17 @@
 (function initChannelTargeting(window) {
-  const TARGET_MODES = window.CHANNEL_TARGET_MODES || Object.freeze({
-    apps: 'apps',
-    devices: 'devices',
-    focus: 'focus'
-  });
-  const DEVICE_TARGET_FLOWS = window.CHANNEL_DEVICE_TARGET_FLOWS || Object.freeze({
-    output: 'output',
-    input: 'input'
-  });
+  const TARGET_MODES =
+    window.CHANNEL_TARGET_MODES ||
+    Object.freeze({
+      apps: 'apps',
+      devices: 'devices',
+      focus: 'focus'
+    });
+  const DEVICE_TARGET_FLOWS =
+    window.CHANNEL_DEVICE_TARGET_FLOWS ||
+    Object.freeze({
+      output: 'output',
+      input: 'input'
+    });
   const DEVICE_CACHE_TTL_MS = 30000;
   const DEVICE_LIVE_CACHE_TTL_MS = 45;
   const FOCUS_CACHE_TTL_MS = 900;
@@ -39,9 +43,8 @@
     }
 
     const isVisible = document.visibilityState === 'visible';
-    const hasFocus = typeof document.hasFocus === 'function'
-      ? document.hasFocus()
-      : true;
+    const hasFocus =
+      typeof document.hasFocus === 'function' ? document.hasFocus() : true;
 
     return isVisible && hasFocus;
   }
@@ -53,12 +56,14 @@
   }
 
   function normalizeProcessList(processNames = []) {
-    return [...new Set(
-      (Array.isArray(processNames) ? processNames : [])
-        .map((processName) => String(processName || '').trim())
-        .filter(Boolean)
-        .map((processName) => processName.toLowerCase())
-    )];
+    return [
+      ...new Set(
+        (Array.isArray(processNames) ? processNames : [])
+          .map((processName) => String(processName || '').trim())
+          .filter(Boolean)
+          .map((processName) => processName.toLowerCase())
+      )
+    ];
   }
 
   function getCachedProcessAudioStateMap(processNames = [], options = {}) {
@@ -84,13 +89,16 @@
         return true;
       }
 
-      return (now - cachedEntry.fetchedAt) >= AUDIO_STATE_CACHE_TTL_MS;
+      return now - cachedEntry.fetchedAt >= AUDIO_STATE_CACHE_TTL_MS;
     });
 
     const stateMap = new Map(
       normalizedProcesses
         .filter((processName) => audioStateCache.entries.has(processName))
-        .map((processName) => [processName, audioStateCache.entries.get(processName).value])
+        .map((processName) => [
+          processName,
+          audioStateCache.entries.get(processName).value
+        ])
     );
 
     return {
@@ -115,17 +123,23 @@
     }
 
     if (
-      !options?.force
-      && audioStateCache.inFlight
-      && cached.missingProcesses.every((processName) => audioStateCache.inFlightProcesses.has(processName))
+      !options?.force &&
+      audioStateCache.inFlight &&
+      cached.missingProcesses.every((processName) =>
+        audioStateCache.inFlightProcesses.has(processName)
+      )
     ) {
       await audioStateCache.inFlight;
-      return getCachedProcessAudioStateMap(normalizedProcesses, { force: false }).stateMap;
+      return getCachedProcessAudioStateMap(normalizedProcesses, {
+        force: false
+      }).stateMap;
     }
 
     const requestProcesses = normalizedProcesses.slice();
     audioStateCache.inFlightProcesses = new Set(requestProcesses);
-    audioStateCache.inFlight = Promise.resolve(api.get_audio_states(requestProcesses))
+    audioStateCache.inFlight = Promise.resolve(
+      api.get_audio_states(requestProcesses)
+    )
       .then((response) => {
         const nextTimestamp = Date.now();
         const applications = Array.isArray(response?.applications)
@@ -133,7 +147,9 @@
           : [];
         const responseMap = new Map(
           applications.map((entry) => [
-            String(entry?.process || '').trim().toLowerCase(),
+            String(entry?.process || '')
+              .trim()
+              .toLowerCase(),
             entry
           ])
         );
@@ -162,18 +178,23 @@
       });
 
     await audioStateCache.inFlight;
-    return getCachedProcessAudioStateMap(normalizedProcesses, { force: false }).stateMap;
+    return getCachedProcessAudioStateMap(normalizedProcesses, { force: false })
+      .stateMap;
   }
 
   function normalizeTargetMode(value) {
-    const normalizedValue = String(value || '').trim().toLowerCase();
+    const normalizedValue = String(value || '')
+      .trim()
+      .toLowerCase();
     return Object.values(TARGET_MODES).includes(normalizedValue)
       ? normalizedValue
       : TARGET_MODES.apps;
   }
 
   function normalizeDeviceTargetFlow(value) {
-    const normalizedValue = String(value || '').trim().toLowerCase();
+    const normalizedValue = String(value || '')
+      .trim()
+      .toLowerCase();
     return normalizedValue === DEVICE_TARGET_FLOWS.input
       ? DEVICE_TARGET_FLOWS.input
       : DEVICE_TARGET_FLOWS.output;
@@ -186,22 +207,34 @@
       return null;
     }
 
-    const availableApp = getAvailableApps().find((entry) => (
-      String(entry?.process || '').trim().toLowerCase() === process.toLowerCase()
-    ));
-    const resolvedPath = String(target?.path || availableApp?.path || '').trim();
-    const cachedIconDataUrl = typeof window.getCachedAudioAppIconDataUrl === 'function'
-      ? window.getCachedAudioAppIconDataUrl({
-        process,
-        path: resolvedPath
-      })
-      : '';
+    const availableApp = getAvailableApps().find(
+      (entry) =>
+        String(entry?.process || '')
+          .trim()
+          .toLowerCase() === process.toLowerCase()
+    );
+    const resolvedPath = String(
+      target?.path || availableApp?.path || ''
+    ).trim();
+    const cachedIconDataUrl =
+      typeof window.getCachedAudioAppIconDataUrl === 'function'
+        ? window.getCachedAudioAppIconDataUrl({
+            process,
+            path: resolvedPath
+          })
+        : '';
 
     return {
       process,
-      name: String(target?.name || availableApp?.name || process).trim() || process,
+      name:
+        String(target?.name || availableApp?.name || process).trim() || process,
       path: resolvedPath,
-      iconDataUrl: String(target?.iconDataUrl || availableApp?.iconDataUrl || cachedIconDataUrl || '').trim()
+      iconDataUrl: String(
+        target?.iconDataUrl ||
+          availableApp?.iconDataUrl ||
+          cachedIconDataUrl ||
+          ''
+      ).trim()
     };
   }
 
@@ -222,11 +255,20 @@
   }
 
   function shouldIgnoreAppTarget(target = {}) {
-    const processName = String(target?.process || '').trim().toLowerCase();
-    const displayName = String(target?.name || '').trim().toLowerCase();
-    const applicationPath = String(target?.path || '').trim().toLowerCase();
-    const matchesFaderDeck = [processName, displayName, applicationPath].some((value) => value.includes('faderdeck'));
-    const matchesDevElectron = processName === 'electron.exe' && displayName.includes('faderdeck');
+    const processName = String(target?.process || '')
+      .trim()
+      .toLowerCase();
+    const displayName = String(target?.name || '')
+      .trim()
+      .toLowerCase();
+    const applicationPath = String(target?.path || '')
+      .trim()
+      .toLowerCase();
+    const matchesFaderDeck = [processName, displayName, applicationPath].some(
+      (value) => value.includes('faderdeck')
+    );
+    const matchesDevElectron =
+      processName === 'electron.exe' && displayName.includes('faderdeck');
 
     return matchesFaderDeck || matchesDevElectron;
   }
@@ -260,20 +302,32 @@
 
   function getChannelDeviceTargets(channel = {}, flow = null) {
     const rawTargets = channel?.deviceTargets;
-    const requestedFlow = String(flow ?? '').trim().toLowerCase();
+    const requestedFlow = String(flow ?? '')
+      .trim()
+      .toLowerCase();
 
     if (!requestedFlow || requestedFlow === 'all') {
       if (Array.isArray(rawTargets)) {
         return rawTargets
-          .map((target) => createDeviceTarget(target, DEVICE_TARGET_FLOWS.output))
+          .map((target) =>
+            createDeviceTarget(target, DEVICE_TARGET_FLOWS.output)
+          )
           .filter(Boolean);
       }
 
       const outputTargets = Array.isArray(rawTargets?.output)
-        ? rawTargets.output.map((target) => createDeviceTarget(target, DEVICE_TARGET_FLOWS.output)).filter(Boolean)
+        ? rawTargets.output
+            .map((target) =>
+              createDeviceTarget(target, DEVICE_TARGET_FLOWS.output)
+            )
+            .filter(Boolean)
         : [];
       const inputTargets = Array.isArray(rawTargets?.input)
-        ? rawTargets.input.map((target) => createDeviceTarget(target, DEVICE_TARGET_FLOWS.input)).filter(Boolean)
+        ? rawTargets.input
+            .map((target) =>
+              createDeviceTarget(target, DEVICE_TARGET_FLOWS.input)
+            )
+            .filter(Boolean)
         : [];
 
       return [...outputTargets, ...inputTargets];
@@ -282,9 +336,9 @@
     const normalizedFlow = normalizeDeviceTargetFlow(requestedFlow);
     const candidates = Array.isArray(rawTargets)
       ? rawTargets
-      : (rawTargets && typeof rawTargets === 'object'
+      : rawTargets && typeof rawTargets === 'object'
         ? rawTargets[normalizedFlow]
-        : []);
+        : [];
 
     return (Array.isArray(candidates) ? candidates : [])
       .map((target) => createDeviceTarget(target, normalizedFlow))
@@ -292,7 +346,11 @@
   }
 
   function getChannelFocusExclusions(channel = {}) {
-    return (Array.isArray(channel?.focusExcludedTargets) ? channel.focusExcludedTargets : [])
+    return (
+      Array.isArray(channel?.focusExcludedTargets)
+        ? channel.focusExcludedTargets
+        : []
+    )
       .map(createAppTarget)
       .filter(Boolean);
   }
@@ -311,14 +369,19 @@
   }
 
   function invalidateAudioDeviceCache(flow = 'all') {
-    const normalizedFlow = String(flow || 'all').trim().toLowerCase();
+    const normalizedFlow = String(flow || 'all')
+      .trim()
+      .toLowerCase();
 
     if (normalizedFlow === 'all') {
-      Object.values(DEVICE_TARGET_FLOWS).forEach((entryFlow) => invalidateAudioDeviceCache(entryFlow));
+      Object.values(DEVICE_TARGET_FLOWS).forEach((entryFlow) =>
+        invalidateAudioDeviceCache(entryFlow)
+      );
       return;
     }
 
-    const cacheEntry = deviceCatalogState[normalizeDeviceTargetFlow(normalizedFlow)];
+    const cacheEntry =
+      deviceCatalogState[normalizeDeviceTargetFlow(normalizedFlow)];
 
     if (!cacheEntry) {
       return;
@@ -329,7 +392,11 @@
     cacheEntry.inFlight = null;
   }
 
-  function updateCachedAudioDeviceState(deviceId = '', flow = DEVICE_TARGET_FLOWS.output, patch = {}) {
+  function updateCachedAudioDeviceState(
+    deviceId = '',
+    flow = DEVICE_TARGET_FLOWS.output,
+    patch = {}
+  ) {
     const normalizedId = String(deviceId || '').trim();
     const normalizedFlow = normalizeDeviceTargetFlow(flow);
     const cacheEntry = deviceCatalogState[normalizedFlow];
@@ -356,14 +423,23 @@
     }
   }
 
-  async function listAudioDevices(flow = DEVICE_TARGET_FLOWS.output, options = {}) {
+  async function listAudioDevices(
+    flow = DEVICE_TARGET_FLOWS.output,
+    options = {}
+  ) {
     const normalizedFlow = normalizeDeviceTargetFlow(flow);
     const force = Boolean(options?.force);
     const cacheEntry = deviceCatalogState[normalizedFlow];
     const now = Date.now();
-    const cacheTtl = options?.live ? DEVICE_LIVE_CACHE_TTL_MS : DEVICE_CACHE_TTL_MS;
+    const cacheTtl = options?.live
+      ? DEVICE_LIVE_CACHE_TTL_MS
+      : DEVICE_CACHE_TTL_MS;
 
-    if (!force && cacheEntry.items.length && (now - cacheEntry.fetchedAt) < cacheTtl) {
+    if (
+      !force &&
+      cacheEntry.items.length &&
+      now - cacheEntry.fetchedAt < cacheTtl
+    ) {
       return cacheEntry.items.slice();
     }
 
@@ -379,18 +455,27 @@
       return [];
     }
 
-    cacheEntry.inFlight = Promise.resolve(api.list_audio_devices(normalizedFlow))
+    cacheEntry.inFlight = Promise.resolve(
+      api.list_audio_devices(normalizedFlow)
+    )
       .then((response) => {
-        cacheEntry.items = (Array.isArray(response?.devices) ? response.devices : [])
+        cacheEntry.items = (
+          Array.isArray(response?.devices) ? response.devices : []
+        )
           .map((device) => ({
             id: String(device?.id || '').trim(),
-            name: String(device?.name || device?.id || '').trim() || String(device?.id || '').trim(),
+            name:
+              String(device?.name || device?.id || '').trim() ||
+              String(device?.id || '').trim(),
             flow: normalizeDeviceTargetFlow(device?.flow || normalizedFlow),
             isDefault: Boolean(device?.isDefault),
             volume: Math.max(0, Math.min(100, Number(device?.volume) || 0)),
             muted: Boolean(device?.muted),
             peak: Math.max(0, Math.min(1, Number(device?.peak) || 0)),
-            peakLevel: Math.max(0, Math.min(1, Number(device?.peakLevel ?? device?.peak) || 0))
+            peakLevel: Math.max(
+              0,
+              Math.min(1, Number(device?.peakLevel ?? device?.peak) || 0)
+            )
           }))
           .filter((device) => device.id);
         cacheEntry.fetchedAt = Date.now();
@@ -409,7 +494,11 @@
     return cacheEntry.inFlight;
   }
 
-  async function getAudioDeviceStateMap(deviceTargets = [], flow = DEVICE_TARGET_FLOWS.output, options = {}) {
+  async function getAudioDeviceStateMap(
+    deviceTargets = [],
+    flow = DEVICE_TARGET_FLOWS.output,
+    options = {}
+  ) {
     const ids = new Set(
       (Array.isArray(deviceTargets) ? deviceTargets : [])
         .map((target) => String(target?.id || target || '').trim())
@@ -428,7 +517,11 @@
     );
   }
 
-  async function setAudioDeviceVolume(deviceId = '', volume = 0, flow = DEVICE_TARGET_FLOWS.output) {
+  async function setAudioDeviceVolume(
+    deviceId = '',
+    volume = 0,
+    flow = DEVICE_TARGET_FLOWS.output
+  ) {
     const normalizedId = String(deviceId || '').trim();
     const api = getApi();
 
@@ -443,14 +536,21 @@
     );
     if (response?.success !== false) {
       updateCachedAudioDeviceState(normalizedId, flow, {
-        volume: Math.max(0, Math.min(100, Number(response?.volume ?? volume) || 0)),
+        volume: Math.max(
+          0,
+          Math.min(100, Number(response?.volume ?? volume) || 0)
+        ),
         muted: Boolean(response?.muted)
       });
     }
     return response || { success: false };
   }
 
-  async function setAudioDeviceMute(deviceId = '', muted = false, flow = DEVICE_TARGET_FLOWS.output) {
+  async function setAudioDeviceMute(
+    deviceId = '',
+    muted = false,
+    flow = DEVICE_TARGET_FLOWS.output
+  ) {
     const normalizedId = String(deviceId || '').trim();
     const api = getApi();
 
@@ -481,7 +581,11 @@
       return null;
     }
 
-    if (!force && focusState.value && (now - focusState.fetchedAt) < FOCUS_CACHE_TTL_MS) {
+    if (
+      !force &&
+      focusState.value &&
+      now - focusState.fetchedAt < FOCUS_CACHE_TTL_MS
+    ) {
       return focusState.value;
     }
 
@@ -502,13 +606,16 @@
         let application = createAppTarget(response?.application || null);
 
         if (
-          application
-          && !application.iconDataUrl
-          && typeof window.ensureAudioAppIconDataUrl === 'function'
+          application &&
+          !application.iconDataUrl &&
+          typeof window.ensureAudioAppIconDataUrl === 'function'
         ) {
-          const iconDataUrl = await window.ensureAudioAppIconDataUrl(application, {
-            reason: 'focus-target'
-          });
+          const iconDataUrl = await window.ensureAudioAppIconDataUrl(
+            application,
+            {
+              reason: 'focus-target'
+            }
+          );
 
           if (iconDataUrl) {
             application = {
@@ -518,9 +625,10 @@
           }
         }
 
-        focusState.value = application && !shouldIgnoreAppTarget(application)
-          ? application
-          : null;
+        focusState.value =
+          application && !shouldIgnoreAppTarget(application)
+            ? application
+            : null;
         focusState.fetchedAt = Date.now();
         return focusState.value;
       })
@@ -544,12 +652,23 @@
     if (mode === TARGET_MODES.focus) {
       const focusTarget = await getFocusedApplication(options);
       const excludedProcesses = new Set(
-        focusExclusions.map((target) => String(target?.process || '').trim().toLowerCase()).filter(Boolean)
+        focusExclusions
+          .map((target) =>
+            String(target?.process || '')
+              .trim()
+              .toLowerCase()
+          )
+          .filter(Boolean)
       );
-      const resolvedFocusTarget = focusTarget
-        && !excludedProcesses.has(String(focusTarget.process || '').trim().toLowerCase())
-        ? focusTarget
-        : null;
+      const resolvedFocusTarget =
+        focusTarget &&
+        !excludedProcesses.has(
+          String(focusTarget.process || '')
+            .trim()
+            .toLowerCase()
+        )
+          ? focusTarget
+          : null;
 
       return {
         mode,
@@ -578,12 +697,28 @@
   }
 
   async function readBindingState(binding = {}, options = {}) {
-    const appTargets = Array.isArray(binding?.appTargets) ? binding.appTargets : [];
-    const deviceTargets = Array.isArray(binding?.deviceTargets) ? binding.deviceTargets : [];
-    const processNames = [...new Set(appTargets.map((target) => String(target?.process || '').trim()).filter(Boolean))];
+    const appTargets = Array.isArray(binding?.appTargets)
+      ? binding.appTargets
+      : [];
+    const deviceTargets = Array.isArray(binding?.deviceTargets)
+      ? binding.deviceTargets
+      : [];
+    const processNames = [
+      ...new Set(
+        appTargets
+          .map((target) => String(target?.process || '').trim())
+          .filter(Boolean)
+      )
+    ];
     const deviceTargetsByFlow = {
-      output: deviceTargets.filter((target) => normalizeDeviceTargetFlow(target?.flow) === DEVICE_TARGET_FLOWS.output),
-      input: deviceTargets.filter((target) => normalizeDeviceTargetFlow(target?.flow) === DEVICE_TARGET_FLOWS.input)
+      output: deviceTargets.filter(
+        (target) =>
+          normalizeDeviceTargetFlow(target?.flow) === DEVICE_TARGET_FLOWS.output
+      ),
+      input: deviceTargets.filter(
+        (target) =>
+          normalizeDeviceTargetFlow(target?.flow) === DEVICE_TARGET_FLOWS.input
+      )
     };
     const [appStateMap, deviceStateMap] = await Promise.all([
       options?.appStateMap instanceof Map
@@ -591,24 +726,41 @@
         : getProcessAudioStateMap(processNames, options),
       options?.deviceStateMap instanceof Map
         ? Promise.resolve(options.deviceStateMap)
-        : (deviceTargets.length
-        ? Promise.all([
-          deviceTargetsByFlow.output.length
-            ? getAudioDeviceStateMap(deviceTargetsByFlow.output, DEVICE_TARGET_FLOWS.output, options)
-            : Promise.resolve(new Map()),
-          deviceTargetsByFlow.input.length
-            ? getAudioDeviceStateMap(deviceTargetsByFlow.input, DEVICE_TARGET_FLOWS.input, options)
-            : Promise.resolve(new Map())
-        ]).then(([outputMap, inputMap]) => new Map([
-          ...Array.from(outputMap.entries()),
-          ...Array.from(inputMap.entries())
-        ]))
-        : Promise.resolve(new Map()))
+        : deviceTargets.length
+          ? Promise.all([
+              deviceTargetsByFlow.output.length
+                ? getAudioDeviceStateMap(
+                    deviceTargetsByFlow.output,
+                    DEVICE_TARGET_FLOWS.output,
+                    options
+                  )
+                : Promise.resolve(new Map()),
+              deviceTargetsByFlow.input.length
+                ? getAudioDeviceStateMap(
+                    deviceTargetsByFlow.input,
+                    DEVICE_TARGET_FLOWS.input,
+                    options
+                  )
+                : Promise.resolve(new Map())
+            ]).then(
+              ([outputMap, inputMap]) =>
+                new Map([
+                  ...Array.from(outputMap.entries()),
+                  ...Array.from(inputMap.entries())
+                ])
+            )
+          : Promise.resolve(new Map())
     ]);
 
     const resolvedStates = [
       ...appTargets
-        .map((target) => appStateMap.get(String(target?.process || '').trim().toLowerCase()))
+        .map((target) =>
+          appStateMap.get(
+            String(target?.process || '')
+              .trim()
+              .toLowerCase()
+          )
+        )
         .filter(Boolean)
         .map((state) => ({
           kind: 'app',
@@ -618,13 +770,17 @@
           peakLevel: Boolean(state?.muted)
             ? 0
             : Math.max(
-              0,
-              Math.min(
-                1,
-                (Math.max(0, Math.min(1, Number(state?.peakLevel ?? state?.peak) || 0)))
-                  * (Math.max(0, Math.min(100, Number(state?.volume) || 0)) / 100)
+                0,
+                Math.min(
+                  1,
+                  Math.max(
+                    0,
+                    Math.min(1, Number(state?.peakLevel ?? state?.peak) || 0)
+                  ) *
+                    (Math.max(0, Math.min(100, Number(state?.volume) || 0)) /
+                      100)
+                )
               )
-            )
         })),
       ...deviceTargets
         .map((target) => deviceStateMap.get(String(target?.id || '').trim()))
@@ -637,12 +793,9 @@
           peakLevel: Boolean(state?.muted)
             ? 0
             : Math.max(
-              0,
-              Math.min(
-                1,
-                Number(state?.peakLevel ?? state?.peak) || 0
+                0,
+                Math.min(1, Number(state?.peakLevel ?? state?.peak) || 0)
               )
-            )
         }))
     ];
 
@@ -657,14 +810,16 @@
       };
     }
 
-    const volume = resolvedStates.reduce((sum, entry) => sum + (Number(entry.volume) || 0), 0) / resolvedStates.length;
+    const volume =
+      resolvedStates.reduce(
+        (sum, entry) => sum + (Number(entry.volume) || 0),
+        0
+      ) / resolvedStates.length;
     const muted = resolvedStates.every((entry) => Boolean(entry.muted));
     const appPeakLevels = resolvedStates
       .filter((entry) => entry.kind === 'app' || entry.kind === 'device')
       .map((entry) => Math.max(0, Math.min(1, Number(entry.peakLevel) || 0)));
-    const peakLevel = appPeakLevels.length
-      ? Math.max(...appPeakLevels)
-      : 0;
+    const peakLevel = appPeakLevels.length ? Math.max(...appPeakLevels) : 0;
 
     return {
       hasTargets: true,
@@ -679,9 +834,19 @@
   async function setBindingVolume(binding = {}, volume = 0) {
     const api = getApi();
     const normalizedVolume = Math.max(0, Math.min(100, Number(volume) || 0));
-    const appTargets = Array.isArray(binding?.appTargets) ? binding.appTargets : [];
-    const deviceTargets = Array.isArray(binding?.deviceTargets) ? binding.deviceTargets : [];
-    const processNames = [...new Set(appTargets.map((target) => String(target?.process || '').trim()).filter(Boolean))];
+    const appTargets = Array.isArray(binding?.appTargets)
+      ? binding.appTargets
+      : [];
+    const deviceTargets = Array.isArray(binding?.deviceTargets)
+      ? binding.deviceTargets
+      : [];
+    const processNames = [
+      ...new Set(
+        appTargets
+          .map((target) => String(target?.process || '').trim())
+          .filter(Boolean)
+      )
+    ];
     const tasks = [];
 
     if (api?.set_app_volume) {
@@ -691,7 +856,13 @@
     }
 
     deviceTargets.forEach((target) => {
-      tasks.push(setAudioDeviceVolume(target.id, normalizedVolume, target?.flow || binding?.deviceFlow));
+      tasks.push(
+        setAudioDeviceVolume(
+          target.id,
+          normalizedVolume,
+          target?.flow || binding?.deviceFlow
+        )
+      );
     });
 
     return Promise.all(tasks);
@@ -699,9 +870,19 @@
 
   async function setBindingMuted(binding = {}, muted = false) {
     const api = getApi();
-    const appTargets = Array.isArray(binding?.appTargets) ? binding.appTargets : [];
-    const deviceTargets = Array.isArray(binding?.deviceTargets) ? binding.deviceTargets : [];
-    const processNames = [...new Set(appTargets.map((target) => String(target?.process || '').trim()).filter(Boolean))];
+    const appTargets = Array.isArray(binding?.appTargets)
+      ? binding.appTargets
+      : [];
+    const deviceTargets = Array.isArray(binding?.deviceTargets)
+      ? binding.deviceTargets
+      : [];
+    const processNames = [
+      ...new Set(
+        appTargets
+          .map((target) => String(target?.process || '').trim())
+          .filter(Boolean)
+      )
+    ];
     const tasks = [];
 
     if (api?.set_app_mute) {
@@ -711,33 +892,50 @@
     }
 
     deviceTargets.forEach((target) => {
-      tasks.push(setAudioDeviceMute(target.id, Boolean(muted), target?.flow || binding?.deviceFlow));
+      tasks.push(
+        setAudioDeviceMute(
+          target.id,
+          Boolean(muted),
+          target?.flow || binding?.deviceFlow
+        )
+      );
     });
 
     return Promise.all(tasks);
   }
 
   function createBindingSnapshot(binding = {}, state = {}) {
-    const appStateMap = state?.appStateMap instanceof Map ? state.appStateMap : new Map();
-    const deviceStateMap = state?.deviceStateMap instanceof Map ? state.deviceStateMap : new Map();
+    const appStateMap =
+      state?.appStateMap instanceof Map ? state.appStateMap : new Map();
+    const deviceStateMap =
+      state?.deviceStateMap instanceof Map ? state.deviceStateMap : new Map();
     const snapshot = [];
 
-    (Array.isArray(binding?.appTargets) ? binding.appTargets : []).forEach((target) => {
-      const entry = appStateMap.get(String(target?.process || '').trim().toLowerCase());
+    (Array.isArray(binding?.appTargets) ? binding.appTargets : []).forEach(
+      (target) => {
+        const entry = appStateMap.get(
+          String(target?.process || '')
+            .trim()
+            .toLowerCase()
+        );
 
-      if (!entry) {
-        return;
+        if (!entry) {
+          return;
+        }
+
+        snapshot.push({
+          kind: 'app',
+          process: String(entry?.process || target?.process || '').trim(),
+          volume: Math.max(0, Math.min(100, Number(entry?.volume) || 0)),
+          muted: Boolean(entry?.muted)
+        });
       }
+    );
 
-      snapshot.push({
-        kind: 'app',
-        process: String(entry?.process || target?.process || '').trim(),
-        volume: Math.max(0, Math.min(100, Number(entry?.volume) || 0)),
-        muted: Boolean(entry?.muted)
-      });
-    });
-
-    (Array.isArray(binding?.deviceTargets) ? binding.deviceTargets : []).forEach((target) => {
+    (Array.isArray(binding?.deviceTargets)
+      ? binding.deviceTargets
+      : []
+    ).forEach((target) => {
       const entry = deviceStateMap.get(String(target?.id || '').trim());
 
       if (!entry) {
@@ -781,7 +979,12 @@
         return;
       }
 
-      tasks.push(api.set_app_volume(processName, Math.max(0, Math.min(100, Number(entry?.volume) || 0))));
+      tasks.push(
+        api.set_app_volume(
+          processName,
+          Math.max(0, Math.min(100, Number(entry?.volume) || 0))
+        )
+      );
       tasks.push(api.set_app_mute(processName, Boolean(entry?.muted)));
     });
 
@@ -809,7 +1012,9 @@
   }
 
   function getBindingExecutablePath(binding = {}) {
-    const firstAppTarget = Array.isArray(binding?.appTargets) ? binding.appTargets[0] : null;
+    const firstAppTarget = Array.isArray(binding?.appTargets)
+      ? binding.appTargets[0]
+      : null;
 
     if (!firstAppTarget) {
       return '';

@@ -46,7 +46,7 @@ body {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
   background: var(--color-bg);
   color: var(--color-text);
   overflow: hidden;
@@ -84,7 +84,7 @@ body.modal-open {
 }
 
 .toolbar::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 0;
   bottom: -1px;
@@ -150,7 +150,10 @@ body.menu-open .toolbar::after {
   border-radius: 8px;
   cursor: pointer;
   font-size: 13px;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -204,7 +207,9 @@ body.menu-open .toolbar::after {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.18s ease, color 0.18s ease;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
 }
 
 .window-btn svg {
@@ -260,7 +265,11 @@ select {
   justify-content: space-between;
   gap: 10px;
   cursor: pointer;
-  transition: border-color 0.22s ease, background 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
+  transition:
+    border-color 0.22s ease,
+    background 0.22s ease,
+    transform 0.22s ease,
+    box-shadow 0.22s ease;
 }
 
 .custom-select-trigger:hover {
@@ -310,7 +319,9 @@ select {
   border-bottom: 2px solid currentColor;
   transform: rotate(45deg) translateY(-1px);
   color: rgba(255, 255, 255, 0.52);
-  transition: transform 0.18s ease, color 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    color 0.18s ease;
   flex: 0 0 auto;
 }
 
@@ -344,7 +355,9 @@ select {
   transform: translateY(-3px) scaleY(0.94);
   transform-origin: top;
   pointer-events: none;
-  transition: opacity 0.24s ease, transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
+  transition:
+    opacity 0.24s ease,
+    transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
   max-height: var(--custom-select-panel-max-height, 240px);
   overflow-y: auto;
   overscroll-behavior: contain;
@@ -423,7 +436,10 @@ select {
   align-items: center;
   text-align: left;
   cursor: pointer;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .custom-select-option:hover:not(:disabled) {
@@ -528,7 +544,7 @@ select {
 }
 
 .menu-rail::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 0;
   right: 0;
@@ -558,7 +574,9 @@ select {
   opacity: 0;
   transform: translateY(-10px);
   transform-origin: top;
-  transition: opacity 0.18s ease, transform 0.22s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s ease;
 }
 
 .menu-rail.open .menu-rail-inner {
@@ -588,7 +606,10 @@ select {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: background 0.2s, border-color 0.2s, color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s;
 }
 
 .menu-icon-tab:hover {
@@ -618,7 +639,9 @@ select {
   max-width: min(380px, calc(100% - 120px));
   opacity: 1;
   transform: translateX(0);
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
   pointer-events: none;
 }
 
@@ -649,14 +672,16 @@ select {
   padding: 18px 20px;
   backdrop-filter: blur(10px);
   display: grid;
-  transition: width 0.22s ease, height 0.24s ease;
+  transition:
+    width 0.22s ease,
+    height 0.24s ease;
   will-change: width, height;
   pointer-events: auto;
 }
 
 .menu-panel-card::before,
 .menu-panel-card::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 20px;
   right: 20px;
@@ -702,7 +727,9 @@ select {
   opacity: 0;
   transform: translateX(10px);
   pointer-events: none;
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
   align-self: start;
 }
 
@@ -710,8 +737,8 @@ select {
   display: none !important;
 }
 
-.menu-panel-view[data-tab="settings"],
-.menu-panel-view[data-tab="profiles"] {
+.menu-panel-view[data-tab='settings'],
+.menu-panel-view[data-tab='profiles'] {
   bottom: 18px;
   width: calc(100% - 40px);
   min-height: 0;
@@ -796,12 +823,13 @@ select {
   height: 164px;
   border-radius: 999px;
   transform: translateY(-50%);
-  background:
-    radial-gradient(circle at center,
-      rgba(255, 255, 255, 0.30) 0%,
-      rgba(255, 255, 255, 0.18) 26%,
-      rgba(255, 255, 255, 0.06) 54%,
-      rgba(255, 255, 255, 0) 78%);
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 255, 255, 0.3) 0%,
+    rgba(255, 255, 255, 0.18) 26%,
+    rgba(255, 255, 255, 0.06) 54%,
+    rgba(255, 255, 255, 0) 78%
+  );
   filter: blur(17px);
   opacity: 0.48;
   pointer-events: none;
@@ -818,7 +846,8 @@ select {
 }
 
 @keyframes coming-soon-glow-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 0.34;
     transform: translateY(-50%) scale(0.94);
   }
@@ -942,7 +971,10 @@ select {
   padding: 10px;
   cursor: pointer;
   z-index: 3;
-  transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .surface-layout-item--standalone .layout-edit-overlay {
@@ -991,7 +1023,9 @@ select {
   font-size: 16px;
   line-height: 1;
   cursor: pointer;
-  transition: border-color 0.2s ease, background 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
 }
 
 .layout-item-mini-action:hover {
@@ -1020,15 +1054,15 @@ select {
   border-radius: 16px;
 }
 
-.layout-spacer[data-layout-spacer-size="2"] {
+.layout-spacer[data-layout-spacer-size='2'] {
   --layout-spacer-size: 2;
 }
 
-.layout-spacer[data-layout-spacer-size="3"] {
+.layout-spacer[data-layout-spacer-size='3'] {
   --layout-spacer-size: 3;
 }
 
-.layout-spacer[data-layout-spacer-size="4"] {
+.layout-spacer[data-layout-spacer-size='4'] {
   --layout-spacer-size: 4;
 }
 
@@ -1044,7 +1078,10 @@ select {
   gap: 6px;
   text-align: center;
   padding: 10px;
-  transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    color 0.2s ease;
 }
 
 .layout-zone-insert:hover {
@@ -1100,7 +1137,9 @@ select {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  transition: border-color 0.2s, transform 0.2s;
+  transition:
+    border-color 0.2s,
+    transform 0.2s;
 }
 
 .channel-strip--none,
@@ -1144,7 +1183,9 @@ select {
 
   40% {
     border-color: rgba(255, 255, 255, 0.36);
-    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 0 28px rgba(255, 255, 255, 0.12);
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.08),
+      0 0 28px rgba(255, 255, 255, 0.12);
     transform: translateY(-2px) scale(1.01);
   }
 
@@ -1244,7 +1285,7 @@ select {
 }
 
 .fader-thumb::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 7px 10px;
   border-radius: 3px;
@@ -1368,7 +1409,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  transition: background 0.2s, border-color 0.2s, color 0.2s, box-shadow 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    color 0.2s,
+    box-shadow 0.2s;
 }
 
 .channel-side-button {
@@ -1398,14 +1443,22 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .channel-side-button--indicator-meter::after,
 .standalone-button.channel-side-button--indicator-meter::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: -8px;
   border-radius: inherit;
-  background:
-    radial-gradient(circle at 50% 74%, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.34) 20%, rgba(255, 255, 255, 0.16) 42%, rgba(255, 255, 255, 0) 72%);
+  background: radial-gradient(
+    circle at 50% 74%,
+    rgba(255, 255, 255, 0.88) 0%,
+    rgba(255, 255, 255, 0.34) 20%,
+    rgba(255, 255, 255, 0.16) 42%,
+    rgba(255, 255, 255, 0) 72%
+  );
   transform: scale(calc(0.9 + (var(--button-meter-level, 0) * 0.18)));
-  transition: transform 55ms linear, opacity 55ms linear, filter 55ms linear;
+  transition:
+    transform 55ms linear,
+    opacity 55ms linear,
+    filter 55ms linear;
   opacity: calc(var(--button-meter-glow-opacity, 0) * 1.1);
   filter: blur(12px);
   z-index: 0;
@@ -1414,16 +1467,32 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .channel-side-button.channel-side-button--indicator-meter.active,
 .standalone-button.channel-side-button--indicator-meter.active {
-  background: rgba(245, 245, 245, calc(0.2 + (var(--button-meter-fill-opacity, 0) * 0.8)));
-  color: rgba(17, 17, 17, calc(0.28 + (var(--button-meter-fill-opacity, 0) * 0.72)));
-  border-color: rgba(255, 255, 255, calc(0.22 + (var(--button-meter-border-opacity, 0) * 1.18)));
+  background: rgba(
+    245,
+    245,
+    245,
+    calc(0.2 + (var(--button-meter-fill-opacity, 0) * 0.8))
+  );
+  color: rgba(
+    17,
+    17,
+    17,
+    calc(0.28 + (var(--button-meter-fill-opacity, 0) * 0.72))
+  );
+  border-color: rgba(
+    255,
+    255,
+    255,
+    calc(0.22 + (var(--button-meter-border-opacity, 0) * 1.18))
+  );
 }
 
 .channel-side-button--indicator-meter.active,
 .standalone-button.channel-side-button--indicator-meter.active {
   box-shadow:
     0 8px 22px rgba(0, 0, 0, 0.22),
-    0 0 18px rgba(255, 255, 255, calc(var(--button-meter-glow-opacity, 0) * 0.24));
+    0 0 18px
+      rgba(255, 255, 255, calc(var(--button-meter-glow-opacity, 0) * 0.24));
 }
 
 .channel-side-button-add {
@@ -1455,7 +1524,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .channel-side-button.is-pressed-indicator,
 .standalone-button.is-pressed-indicator {
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12), 0 0 20px rgba(255, 255, 255, 0.08);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.12),
+    0 0 20px rgba(255, 255, 255, 0.08);
 }
 
 .channel-side-button .button-icon,
@@ -1559,7 +1630,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .channel-configure-shell.is-entering {
-  animation: channel-configure-shell-enter 0.42s cubic-bezier(0.22, 0.78, 0.2, 1) both;
+  animation: channel-configure-shell-enter 0.42s
+    cubic-bezier(0.22, 0.78, 0.2, 1) both;
 }
 
 .channel-configure-button {
@@ -1570,7 +1642,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .channel-configure-shell.is-entering .channel-configure-button {
-  animation: channel-configure-button-enter 0.42s cubic-bezier(0.22, 0.78, 0.2, 1) both;
+  animation: channel-configure-button-enter 0.42s
+    cubic-bezier(0.22, 0.78, 0.2, 1) both;
 }
 
 @keyframes channel-configure-shell-enter {
@@ -1663,8 +1736,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   pointer-events: none;
   overflow: visible;
   transform: translate(-50%, 0);
-  transition:
-    transform 0.46s cubic-bezier(0.22, 0.78, 0.2, 1);
+  transition: transform 0.46s cubic-bezier(0.22, 0.78, 0.2, 1);
   isolation: isolate;
 }
 
@@ -1675,14 +1747,15 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .media-controller-shell::before,
 .media-controller-shell::after {
-  content: "";
+  content: '';
   position: absolute;
   left: calc(-1 * var(--media-controller-tail-width));
   right: calc(-1 * var(--media-controller-tail-width));
   bottom: 0;
   height: var(--media-controller-shape-height);
   pointer-events: none;
-  -webkit-mask: var(--media-controller-shape-mask) center bottom / 100% 100% no-repeat;
+  -webkit-mask: var(--media-controller-shape-mask) center bottom / 100% 100%
+    no-repeat;
   mask: var(--media-controller-shape-mask) center bottom / 100% 100% no-repeat;
   will-change: height, transform, opacity;
 }
@@ -1708,7 +1781,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   bottom: 1px;
   height: calc(var(--media-controller-shape-height) - 1px);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0.02) 100%),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.045) 0%,
+      rgba(255, 255, 255, 0.02) 100%
+    ),
     rgba(25, 25, 25, 0.96);
   filter: url(#media-controller-round-filter);
   transform: translateY(0);
@@ -1789,7 +1866,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   background: transparent;
   box-shadow: none;
   color: rgba(255, 255, 255, 0.78);
-  transition: color 0.18s ease, filter 0.18s ease, opacity 0.18s ease;
+  transition:
+    color 0.18s ease,
+    filter 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .media-controller__button.media-controller__button--play-stop {
@@ -1801,7 +1881,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 .media-controller__button .button-icon {
   width: 17px;
   height: 17px;
-  transition: filter 0.18s ease, opacity 0.18s ease;
+  transition:
+    filter 0.18s ease,
+    opacity 0.18s ease;
 }
 
 .media-controller__button--play-stop .button-icon {
@@ -1810,7 +1892,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .media-controller__button.is-unbound::after {
-  content: "";
+  content: '';
   position: absolute;
   top: 2px;
   right: -1px;
@@ -1865,7 +1947,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .media-controller__button.is-repeat-track .channel-button-face::after {
-  content: "1";
+  content: '1';
   position: absolute;
   right: -3px;
   bottom: -2px;
@@ -2028,7 +2110,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   justify-content: center;
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    color 0.2s,
+    background 0.2s;
 }
 
 .add-channel-strip--empty {
@@ -2097,7 +2182,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .status-dot.connected {
-  background: #00FF00;
+  background: #00ff00;
   animation: pulse 2s infinite;
 }
 
@@ -2178,7 +2263,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   opacity: 0;
   background: rgba(6, 6, 6, 0.46);
   backdrop-filter: blur(0);
-  transition: opacity 0.22s ease, background 0.22s ease, backdrop-filter 0.24s ease;
+  transition:
+    opacity 0.22s ease,
+    background 0.22s ease,
+    backdrop-filter 0.24s ease;
 }
 
 .modal--entity-editor.active {
@@ -2202,13 +2290,20 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   gap: 26px;
   opacity: 0;
   transform: translateY(14px) scale(0.985);
-  transition: opacity 0.22s ease, transform 0.24s ease, width 0.24s ease, gap 0.24s ease;
+  transition:
+    opacity 0.22s ease,
+    transform 0.24s ease,
+    width 0.24s ease,
+    gap 0.24s ease;
 }
 
 .entity-edit-shell.is-preview-entering {
   opacity: 1;
   transform: none;
-  transition: opacity 0.18s ease, width 0.24s ease, gap 0.24s ease;
+  transition:
+    opacity 0.18s ease,
+    width 0.24s ease,
+    gap 0.24s ease;
 }
 
 .entity-edit-shell.entity-edit-side-open {
@@ -2233,7 +2328,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .entity-edit-dialog-window {
   transform: translateX(0);
-  transition: box-shadow 0.24s ease, transform 0.24s ease;
+  transition:
+    box-shadow 0.24s ease,
+    transform 0.24s ease;
 }
 
 .entity-edit-shell.entity-edit-side-open .entity-edit-dialog-window {
@@ -2317,7 +2414,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .entity-edit-preview-channel {
-  transition: border-color 0.24s ease, box-shadow 0.24s ease;
+  transition:
+    border-color 0.24s ease,
+    box-shadow 0.24s ease;
 }
 
 .entity-edit-preview-channel.is-layout-animating {
@@ -2328,7 +2427,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
     border-color 0.22s ease,
     box-shadow 0.22s ease;
   border-color: rgba(255, 255, 255, 0.18);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.04), 0 12px 28px rgba(255, 255, 255, 0.05);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 12px 28px rgba(255, 255, 255, 0.05);
 }
 
 .entity-edit-preview-button-ghost {
@@ -2368,7 +2469,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border-radius: 28px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.06), transparent 34%),
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(255, 255, 255, 0.06),
+      transparent 34%
+    ),
     rgba(28, 28, 28, 0.96);
   box-shadow: 0 32px 64px rgba(0, 0, 0, 0.42);
   overflow: visible;
@@ -2440,7 +2545,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   justify-content: center;
   font-size: 18px;
   line-height: 1;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .entity-edit-close:hover,
@@ -2601,7 +2710,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
 }
 
 .entity-edit-add-action:hover {
@@ -2627,7 +2739,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   color: rgba(255, 255, 255, 0.58);
   font-size: 13px;
   cursor: pointer;
-  transition: border-color 0.16s ease, color 0.16s ease, background 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    color 0.16s ease,
+    background 0.16s ease;
 }
 
 .entity-edit-target-placeholder:hover {
@@ -2694,7 +2809,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .entity-edit-target-chip.is-entering {
-  animation: entity-edit-target-chip-under 0.28s cubic-bezier(0.22, 0.78, 0.2, 1) both;
+  animation: entity-edit-target-chip-under 0.28s
+    cubic-bezier(0.22, 0.78, 0.2, 1) both;
 }
 
 .entity-edit-target-chip.is-exiting,
@@ -2720,7 +2836,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 .entity-edit-channel-button-chip {
   width: 100%;
   text-align: left;
-  transition: border-color 0.16s ease, background 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
   grid-template-columns: 28px minmax(0, 1fr) auto;
 }
 
@@ -2730,7 +2848,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .entity-edit-channel-button-chip.is-entering {
-  animation: entity-edit-target-chip-under 0.28s cubic-bezier(0.22, 0.78, 0.2, 1) both;
+  animation: entity-edit-target-chip-under 0.28s
+    cubic-bezier(0.22, 0.78, 0.2, 1) both;
 }
 
 .entity-edit-channel-button-ghost {
@@ -2804,7 +2923,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   justify-content: center;
   cursor: pointer;
   font-size: 16px;
-  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .entity-edit-channel-button-remove:hover {
@@ -2871,7 +2993,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
 }
 
 .entity-edit-channel-button-placement-option:hover {
@@ -2932,7 +3057,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
 }
 
 .entity-edit-target-action:hover,
@@ -2960,7 +3088,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   align-items: center;
   justify-content: center;
   font-size: 18px;
-  transition: background 0.16s ease, color 0.16s ease;
+  transition:
+    background 0.16s ease,
+    color 0.16s ease;
 }
 
 .entity-edit-target-remove:hover {
@@ -2992,7 +3122,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   opacity: 1;
   transform: translateY(0);
   overflow: hidden;
-  transition: opacity 0.18s ease, transform 0.22s ease, max-height 0.24s ease, margin-bottom 0.24s ease;
+  transition:
+    opacity 0.18s ease,
+    transform 0.22s ease,
+    max-height 0.24s ease,
+    margin-bottom 0.24s ease;
 }
 
 .entity-edit-global-hint.is-hidden {
@@ -3007,7 +3141,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   opacity: 0;
   overflow: hidden;
   transform: translateY(-10px);
-  transition: max-height 0.3s ease, opacity 0.18s ease, transform 0.24s ease, margin-top 0.24s ease;
+  transition:
+    max-height 0.3s ease,
+    opacity 0.18s ease,
+    transform 0.24s ease,
+    margin-top 0.24s ease;
   margin-top: 0;
 }
 
@@ -3083,11 +3221,17 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border-radius: 24px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.06), transparent 34%),
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(255, 255, 255, 0.06),
+      transparent 34%
+    ),
     rgba(28, 28, 28, 0.97);
   box-shadow: 0 26px 56px rgba(0, 0, 0, 0.36);
   overflow: visible;
-  transition: opacity 0.22s ease, transform 0.24s ease;
+  transition:
+    opacity 0.22s ease,
+    transform 0.24s ease;
 }
 
 .entity-edit-side-panel.is-open {
@@ -3135,7 +3279,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  transition: border-color 0.16s ease, background 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease;
 }
 
 .entity-edit-side-header-pill:hover {
@@ -3151,7 +3297,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   align-items: center;
   justify-content: center;
   flex: 0 0 auto;
-  transition: transform 0.16s ease, background 0.16s ease;
+  transition:
+    transform 0.16s ease,
+    background 0.16s ease;
 }
 
 .entity-edit-side-header-pill:hover .entity-edit-side-header-pill-arrow {
@@ -3172,7 +3320,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   gap: 10px;
   font-size: 14px;
   font-weight: 700;
-  transition: color 0.16s ease, transform 0.16s ease;
+  transition:
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .entity-edit-side-back:hover {
@@ -3208,7 +3358,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 
 .entity-edit-side-back-arrow,
 .entity-edit-side-header-pill-arrow::before {
-  content: "";
+  content: '';
   width: 8px;
   height: 8px;
   border-left: 2px solid currentColor;
@@ -3280,7 +3430,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   align-items: center;
   gap: 10px;
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    transform 0.16s ease;
 }
 
 .entity-edit-side-option.has-icon {
@@ -3413,7 +3566,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   max-height: none;
 }
 
-.entity-edit-button-settings-card.is-disabled .entity-edit-button-side-card-body {
+.entity-edit-button-settings-card.is-disabled
+  .entity-edit-button-side-card-body {
   max-height: 0;
   opacity: 0;
   transform: translateY(-8px);
@@ -3544,7 +3698,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   background: rgba(255, 255, 255, 0.03);
   color: var(--color-text-secondary);
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .entity-edit-button-icon-option:hover {
@@ -3576,7 +3734,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
 }
 
 .entity-edit-button-icon-more:hover {
@@ -3751,7 +3912,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .entity-edit-button-select-shell::after {
-  content: "";
+  content: '';
   position: absolute;
   right: 14px;
   top: 50%;
@@ -3862,7 +4023,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease,
+    transform 0.16s ease;
 }
 
 .entity-edit-button-channel-chip:hover {
@@ -3913,7 +4078,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   background: rgba(255, 255, 255, 0.03);
   isolation: isolate;
   overflow: hidden;
-  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.22s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.22s ease;
 }
 
 .entity-edit-choice-rail--compact {
@@ -3926,12 +4094,18 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   top: 3px;
   bottom: 3px;
   left: 3px;
-  width: calc((100% - 6px - ((var(--choice-count) - 1) * var(--choice-rail-gap))) / var(--choice-count));
+  width: calc(
+    (100% - 6px - ((var(--choice-count) - 1) * var(--choice-rail-gap))) /
+      var(--choice-count)
+  );
   border-radius: 999px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.12);
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
-  transform: translateX(calc(var(--choice-index) * (100% + var(--choice-rail-gap)))) scale(var(--choice-rail-scale, 1));
+  transform: translateX(
+      calc(var(--choice-index) * (100% + var(--choice-rail-gap)))
+    )
+    scale(var(--choice-rail-scale, 1));
   will-change: transform, opacity;
   transition:
     transform 0.32s cubic-bezier(0.16, 1, 0.3, 1),
@@ -3941,7 +4115,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   z-index: 0;
 }
 
-.entity-edit-choice-rail:not(.has-selection) .entity-edit-choice-rail__highlight {
+.entity-edit-choice-rail:not(.has-selection)
+  .entity-edit-choice-rail__highlight {
   opacity: 0;
   --choice-rail-scale: 0.88;
 }
@@ -3960,7 +4135,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: color 0.16s ease, transform 0.18s ease, background 0.16s ease;
+  transition:
+    color 0.16s ease,
+    transform 0.18s ease,
+    background 0.16s ease;
 }
 
 .entity-edit-choice-rail__option:hover {
@@ -3989,8 +4167,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   pointer-events: none;
 }
 
-.entity-edit-choice-rail.is-animating-selection .entity-edit-choice-rail__option:hover,
-.entity-edit-choice-grid.is-animating-selection .entity-edit-choice-grid__option:hover {
+.entity-edit-choice-rail.is-animating-selection
+  .entity-edit-choice-rail__option:hover,
+.entity-edit-choice-grid.is-animating-selection
+  .entity-edit-choice-grid__option:hover {
   background: transparent;
 }
 
@@ -4018,7 +4198,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   background: rgba(255, 255, 255, 0.03);
   isolation: isolate;
   overflow: hidden;
-  transition: border-color 0.18s ease, background 0.18s ease, box-shadow 0.22s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.22s ease;
 }
 
 .entity-edit-choice-grid__highlight {
@@ -4031,9 +4214,15 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: rgba(255, 255, 255, 0.12);
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.16);
-  transform:
-    translateX(calc(var(--choice-grid-column) * (100% + var(--choice-grid-gap))))
-    translateY(calc(var(--choice-grid-row) * (var(--choice-grid-cell-height) + var(--choice-grid-gap))))
+  transform: translateX(
+      calc(var(--choice-grid-column) * (100% + var(--choice-grid-gap)))
+    )
+    translateY(
+      calc(
+        var(--choice-grid-row) *
+          (var(--choice-grid-cell-height) + var(--choice-grid-gap))
+      )
+    )
     scale(var(--choice-grid-scale, 1));
   will-change: transform, opacity;
   transition:
@@ -4044,7 +4233,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   z-index: 0;
 }
 
-.entity-edit-choice-grid:not(.has-selection) .entity-edit-choice-grid__highlight {
+.entity-edit-choice-grid:not(.has-selection)
+  .entity-edit-choice-grid__highlight {
   opacity: 0;
   --choice-grid-scale: 0.82;
 }
@@ -4125,7 +4315,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.18s ease;
 }
 
 .entity-edit-button-key-capture:hover {
@@ -4147,7 +4341,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   width: 100%;
 }
 
-.entity-edit-button-indicator-mode-shell.is-linked-passive .entity-edit-choice-rail {
+.entity-edit-button-indicator-mode-shell.is-linked-passive
+  .entity-edit-choice-rail {
   pointer-events: none;
 }
 
@@ -4217,7 +4412,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-size: 11px;
   font-weight: 700;
   cursor: pointer;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
 }
 
 .entity-edit-button-option:hover {
@@ -4271,8 +4469,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   height: 12px;
   border-radius: 999px;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.04)
+  );
   box-shadow:
     inset 0 1px 1px rgba(255, 255, 255, 0.04),
     inset 0 0 0 1px rgba(255, 255, 255, 0.04);
@@ -4284,7 +4485,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   width: 100%;
   transform-origin: left center;
   background: linear-gradient(90deg, #55d68f 0%, #ffd667 58%, #ff846f 100%);
-  transition: transform 60ms linear, opacity 60ms linear;
+  transition:
+    transform 60ms linear,
+    opacity 60ms linear;
 }
 
 .entity-edit-button-live-meter-threshold {
@@ -4416,7 +4619,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.5);
   transform: translateY(-20px);
   opacity: 0;
-  transition: opacity 0.2s, transform 0.2s, background 0.2s, border-color 0.2s;
+  transition:
+    opacity 0.2s,
+    transform 0.2s,
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .toast-icon {
@@ -4464,7 +4671,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: border-color 0.16s ease, background 0.16s ease, color 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    color 0.16s ease;
 }
 
 .toast-action:hover {
@@ -4528,7 +4738,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-size: 13px;
   cursor: pointer;
   border-radius: 8px;
-  transition: background 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  transition:
+    background 0.2s ease,
+    color 0.2s ease,
+    transform 0.2s ease;
 }
 
 .context-item:hover {
@@ -4538,7 +4751,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .context-item--danger:hover,
-.context-item[data-action="delete"]:hover {
+.context-item[data-action='delete']:hover {
   background: rgba(255, 88, 88, 0.16);
   color: #ffb0b0;
 }
@@ -4572,7 +4785,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
   transform-origin: center center;
-  transition: transform 0.18s ease, opacity 0.18s ease;
+  transition:
+    transform 0.18s ease,
+    opacity 0.18s ease;
   will-change: transform, opacity;
 }
 
@@ -4706,7 +4921,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .settings-tooltip-bubble::after {
-  content: "";
+  content: '';
   position: absolute;
   left: 50%;
   top: 100%;
@@ -4810,7 +5025,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   opacity: 0;
   transform: translateY(-6px);
   pointer-events: none;
-  transition: max-height 0.22s ease, opacity 0.18s ease, transform 0.22s ease, margin-top 0.22s ease;
+  transition:
+    max-height 0.22s ease,
+    opacity 0.18s ease,
+    transform 0.22s ease,
+    margin-top 0.22s ease;
 }
 
 .settings-expandable.open {
@@ -4845,7 +5064,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.04), transparent 34%),
+    radial-gradient(
+      circle at top left,
+      rgba(255, 255, 255, 0.04),
+      transparent 34%
+    ),
     rgba(255, 255, 255, 0.02);
   overflow: hidden;
 }
@@ -4887,12 +5110,19 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border-radius: 18px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   background:
-    radial-gradient(circle at top left, rgba(255, 255, 255, 0.08), transparent 38%),
+    radial-gradient(
+      circle at top left,
+      rgba(255, 255, 255, 0.08),
+      transparent 38%
+    ),
     linear-gradient(180deg, rgba(36, 36, 36, 0.88), rgba(18, 18, 18, 0.9));
   box-shadow:
     0 12px 24px rgba(0, 0, 0, 0.24),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  transition: transform 0.22s ease, width 0.22s ease, height 0.22s ease;
+  transition:
+    transform 0.22s ease,
+    width 0.22s ease,
+    height 0.22s ease;
 }
 
 .settings-hud-preview--horizontal {
@@ -5047,7 +5277,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   width: 0;
   border-radius: inherit;
   background: linear-gradient(90deg, rgba(255, 255, 255, 0.9), #ffffff);
-  transition: width 0.18s ease, height 0.18s ease;
+  transition:
+    width 0.18s ease,
+    height 0.18s ease;
 }
 
 .settings-hud-preview--vertical .settings-hud-preview__meter-fill {
@@ -5067,7 +5299,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   background: #ffffff;
   box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.1);
   transform: translate(-50%, -50%);
-  transition: left 0.18s ease, bottom 0.18s ease;
+  transition:
+    left 0.18s ease,
+    bottom 0.18s ease;
 }
 
 .settings-hud-preview--vertical .settings-hud-preview__meter-thumb {
@@ -5163,7 +5397,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease,
+    transform 0.16s ease;
 }
 
 .curve-mode-button svg {
@@ -5340,7 +5578,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .volume-curve-demo-thumb::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 6px 8px;
   border-radius: 4px;
@@ -5363,7 +5601,6 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   letter-spacing: 0.01em;
   color: #fff;
 }
-
 
 .toolbar-profile-picker select,
 #toolbarProfileSelect {
@@ -5448,7 +5685,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.02);
-  transition: border-color 0.16s ease, background 0.16s ease, transform 0.16s ease;
+  transition:
+    border-color 0.16s ease,
+    background 0.16s ease,
+    transform 0.16s ease;
 }
 
 .profile-row:hover {
@@ -5510,7 +5750,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   border-radius: 4px;
   border: 1px solid rgba(255, 255, 255, 0.18);
   background: rgba(255, 255, 255, 0.03);
-  transition: background 0.16s ease, border-color 0.16s ease;
+  transition:
+    background 0.16s ease,
+    border-color 0.16s ease;
   position: relative;
 }
 
@@ -5520,7 +5762,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .profile-toolbar-visibility input:checked + span::after {
-  content: "";
+  content: '';
   position: absolute;
   inset: 3px;
   border-radius: 2px;
@@ -5572,7 +5814,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.14s ease, transform 0.14s ease;
+  transition:
+    opacity 0.14s ease,
+    transform 0.14s ease;
 }
 
 .profile-row:hover .profile-actions,
@@ -5594,7 +5838,10 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: color 0.16s ease, border-color 0.16s ease, background 0.16s ease;
+  transition:
+    color 0.16s ease,
+    border-color 0.16s ease,
+    background 0.16s ease;
 }
 
 .profile-action-button:hover,

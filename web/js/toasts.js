@@ -26,25 +26,37 @@ function addToastPulseClass(toast, type) {
   }
 
   setTimeout(() => {
-    toast.classList.remove('toast-error-start', 'toast-success-start', 'toast-warn-start');
+    toast.classList.remove(
+      'toast-error-start',
+      'toast-success-start',
+      'toast-warn-start'
+    );
   }, 300);
 }
 
 function buildToastMarkup(type, text, options = {}) {
   const config = TOAST_TYPES[type] || TOAST_TYPES.success;
-  const actions = Array.isArray(options.actions) ? options.actions.filter(Boolean) : [];
-  const closeable = options.closeable !== false && (actions.length > 0 || (type !== 'success' && type !== 'pending'));
+  const actions = Array.isArray(options.actions)
+    ? options.actions.filter(Boolean)
+    : [];
+  const closeable =
+    options.closeable !== false &&
+    (actions.length > 0 || (type !== 'success' && type !== 'pending'));
   const iconMarkup = escapeToastText(options.icon || config.icon);
   const actionsMarkup = actions.length
     ? `
       <div class="toast-actions">
-        ${actions.map((action, index) => `
+        ${actions
+          .map(
+            (action, index) => `
           <button
             type="button"
             class="toast-action${action?.primary ? ' is-primary' : ''}"
             data-toast-action-index="${index}"
           >${escapeToastText(action?.label || action?.value || '')}</button>
-        `).join('')}
+        `
+          )
+          .join('')}
       </div>
     `
     : '';
@@ -55,17 +67,22 @@ function buildToastMarkup(type, text, options = {}) {
       <div class="toast-text">${escapeToastText(text)}</div>
       ${actionsMarkup}
     </div>
-    ${closeable
-      ? '<button type="button" class="toast-close" aria-label="Close">×</button>'
-      : ''}
+    ${
+      closeable
+        ? '<button type="button" class="toast-close" aria-label="Close">×</button>'
+        : ''
+    }
   `;
 }
 
 function bindToastEvents(toast, options = {}) {
-  const actions = Array.isArray(options.actions) ? options.actions.filter(Boolean) : [];
+  const actions = Array.isArray(options.actions)
+    ? options.actions.filter(Boolean)
+    : [];
   const closeElement = toast.querySelector('.toast-close');
 
-  toast.__toastCloseHandler = typeof options.onClose === 'function' ? options.onClose : null;
+  toast.__toastCloseHandler =
+    typeof options.onClose === 'function' ? options.onClose : null;
 
   if (closeElement) {
     closeElement.onclick = () => hideToast(toast, 'close');
@@ -92,7 +109,9 @@ function bindToastEvents(toast, options = {}) {
 
 function renderToast(toast, type, text, options = {}) {
   const config = TOAST_TYPES[type] || TOAST_TYPES.success;
-  const actions = Array.isArray(options.actions) ? options.actions.filter(Boolean) : [];
+  const actions = Array.isArray(options.actions)
+    ? options.actions.filter(Boolean)
+    : [];
 
   toast.className = `toast ${config.baseClass}${actions.length ? ' toast--has-actions' : ''}`;
   toast.innerHTML = buildToastMarkup(type, text, options);
@@ -105,9 +124,12 @@ function updateToast(toast, type, text, options = {}) {
   toast.dataset.pendingChain = 'true';
   activePendingId = toast.id;
 
-  const timeout = typeof options.timeout === 'number'
-    ? options.timeout
-    : (type === 'pending' ? 0 : 2500);
+  const timeout =
+    typeof options.timeout === 'number'
+      ? options.timeout
+      : type === 'pending'
+        ? 0
+        : 2500;
 
   if (timeout) {
     autoHideToast(toast, timeout);
@@ -137,9 +159,12 @@ function showToast(type, text, options = {}) {
   }
 
   const id = options.id || `toast_${Date.now()}`;
-  const timeout = typeof options.timeout === 'number'
-    ? options.timeout
-    : (type === 'pending' ? 0 : 2500);
+  const timeout =
+    typeof options.timeout === 'number'
+      ? options.timeout
+      : type === 'pending'
+        ? 0
+        : 2500;
 
   if (options.updatePending && activePendingId) {
     const existingToast = document.getElementById(activePendingId);
@@ -180,16 +205,18 @@ function showChoiceToast(type, text, options = {}) {
       resolve(value);
     }
 
-    const actions = (Array.isArray(options.actions) ? options.actions : []).map((action) => ({
-      ...action,
-      onClick: (toast, actionConfig) => {
-        try {
-          action?.onClick?.(toast, actionConfig);
-        } finally {
-          settle(action?.value);
+    const actions = (Array.isArray(options.actions) ? options.actions : []).map(
+      (action) => ({
+        ...action,
+        onClick: (toast, actionConfig) => {
+          try {
+            action?.onClick?.(toast, actionConfig);
+          } finally {
+            settle(action?.value);
+          }
         }
-      }
-    }));
+      })
+    );
 
     showToast(type, text, {
       ...options,

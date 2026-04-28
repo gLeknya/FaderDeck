@@ -67,7 +67,9 @@ function updateMidiStatusText(inputs = getMidiRuntimeInputs()) {
 
   updateMidiStatus(
     inputs.length > 0,
-    inputs.length > 0 ? t('status.devices', { count: inputs.length }) : t('status.notConnected')
+    inputs.length > 0
+      ? t('status.devices', { count: inputs.length })
+      : t('status.notConnected')
   );
 }
 
@@ -79,10 +81,10 @@ function buildMidiOptions(inputs) {
     : [];
 
   if (
-    selectedMidiInputId
-    && !isMidiDisabledSelection()
-    && selectedMidiInputName
-    && !items.some((input) => input.id === selectedMidiInputId)
+    selectedMidiInputId &&
+    !isMidiDisabledSelection() &&
+    selectedMidiInputName &&
+    !items.some((input) => input.id === selectedMidiInputId)
   ) {
     items.unshift({
       id: selectedMidiInputId,
@@ -108,10 +110,13 @@ function populateMidiInputs() {
   };
   const selectedMidiInputId = getSelectedMidiInputId();
   const optionItems = buildMidiOptions(serviceState.inputs);
-  const disabledOptionValue = midiService?.getDisabledOptionValue?.() || '__disabled__';
+  const disabledOptionValue =
+    midiService?.getDisabledOptionValue?.() || '__disabled__';
   const selectedValue = isMidiDisabledSelection()
     ? disabledOptionValue
-    : (optionItems.some((input) => input.id === selectedMidiInputId) ? selectedMidiInputId : '');
+    : optionItems.some((input) => input.id === selectedMidiInputId)
+      ? selectedMidiInputId
+      : '';
 
   select.innerHTML = `
     <option value="">${t('toolbar.selectMidi')}</option>
@@ -162,7 +167,8 @@ function handleMidiSelectChange(event) {
   const midiService = getMidiService();
   const nextValue = event.target.value || '';
   const selectedOption = event.target.options[event.target.selectedIndex];
-  const disabledOptionValue = midiService?.getDisabledOptionValue?.() || '__disabled__';
+  const disabledOptionValue =
+    midiService?.getDisabledOptionValue?.() || '__disabled__';
 
   if (nextValue === disabledOptionValue) {
     window.midiActions?.disableMidiInputSelection?.({ source: 'midi-ui' });
@@ -217,7 +223,9 @@ function initWebMIDI() {
 
 async function startBindFader(event, channelId) {
   event.stopPropagation();
-  await window.midiActions?.learnChannelFaderMapping?.(channelId, { source: 'midi-ui' });
+  await window.midiActions?.learnChannelFaderMapping?.(channelId, {
+    source: 'midi-ui'
+  });
 }
 
 async function remapChannelFader(channelId) {

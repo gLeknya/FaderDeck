@@ -2,20 +2,20 @@
   function getProfileApi() {
     return typeof window.getApi === 'function'
       ? window.getApi()
-      : window.getNativeApi?.() ?? null;
+      : (window.getNativeApi?.() ?? null);
   }
 
   function captureProfileSnapshot(profileName = '') {
     return typeof window.serializeRendererState === 'function'
       ? window.serializeRendererState(profileName)
       : {
-        meta: {
-          name: profileName
-        },
-        channels: [],
-        standaloneButtons: [],
-        settings: {}
-      };
+          meta: {
+            name: profileName
+          },
+          channels: [],
+          standaloneButtons: [],
+          settings: {}
+        };
   }
 
   function applyProfileData(profileName, profileData) {
@@ -36,11 +36,11 @@
   function normalizeProfilesResponse(profiles) {
     return Array.isArray(profiles)
       ? profiles.map((profile) => ({
-        name: profile.name,
-        path: profile.path,
-        modified: profile.modified || 0,
-        meta: profile.meta || {}
-      }))
+          name: profile.name,
+          path: profile.path,
+          modified: profile.modified || 0,
+          meta: profile.meta || {}
+        }))
       : [];
   }
 
@@ -58,14 +58,16 @@
     }
 
     const normalizedProfiles = normalizeProfilesResponse(response.profiles);
-    const syncedPreferences = window.syncProfilePreferenceState?.(
-      normalizedProfiles.map((profile) => profile.name),
-      { source: 'profile-service' }
-    ) || window.getProfilePreferencesState?.();
-    const sortedProfiles = window.sortProfilesByPreferences?.(
-      normalizedProfiles,
-      syncedPreferences
-    ) || normalizedProfiles;
+    const syncedPreferences =
+      window.syncProfilePreferenceState?.(
+        normalizedProfiles.map((profile) => profile.name),
+        { source: 'profile-service' }
+      ) || window.getProfilePreferencesState?.();
+    const sortedProfiles =
+      window.sortProfilesByPreferences?.(
+        normalizedProfiles,
+        syncedPreferences
+      ) || normalizedProfiles;
 
     window.setProfilesListState?.(sortedProfiles, {
       source: 'profile-service',
@@ -75,8 +77,8 @@
     const currentProfileName = window.getCurrentProfileNameRuntime?.() || '';
 
     if (
-      currentProfileName
-      && !sortedProfiles.some((profile) => profile.name === currentProfileName)
+      currentProfileName &&
+      !sortedProfiles.some((profile) => profile.name === currentProfileName)
     ) {
       window.setCurrentProfileNameRuntime?.('', {
         source: 'profile-service',
@@ -111,19 +113,26 @@
       return null;
     }
 
-    const response = await api.save_profile(profileName, captureProfileSnapshot(profileName));
+    const response = await api.save_profile(
+      profileName,
+      captureProfileSnapshot(profileName)
+    );
 
     if (!response?.success) {
       throw new Error(response?.error || 'save_profile_failed');
     }
 
     const resolvedName = response.name || profileName;
-    window.ensureProfileOrderState?.(resolvedName, {
-      prepend: true,
-      visibleInToolbar: true
-    }, {
-      source: 'profile-service'
-    });
+    window.ensureProfileOrderState?.(
+      resolvedName,
+      {
+        prepend: true,
+        visibleInToolbar: true
+      },
+      {
+        source: 'profile-service'
+      }
+    );
     await refreshProfilesData();
     window.setCurrentProfileNameRuntime?.(resolvedName, {
       source: 'profile-service',
@@ -237,12 +246,16 @@
       throw new Error(response?.error || 'import_profile_failed');
     }
 
-    window.ensureProfileOrderState?.(response.name, {
-      prepend: true,
-      visibleInToolbar: true
-    }, {
-      source: 'profile-service'
-    });
+    window.ensureProfileOrderState?.(
+      response.name,
+      {
+        prepend: true,
+        visibleInToolbar: true
+      },
+      {
+        source: 'profile-service'
+      }
+    );
     await refreshProfilesData();
     return {
       canceled: false,

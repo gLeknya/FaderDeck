@@ -1,592 +1,1342 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ru">
-<head>
-  <meta charset="UTF-8">
-  <title>FaderDeck</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';">
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <svg width="0" height="0" aria-hidden="true" focusable="false" class="shape-filter-defs">
-    <filter id="media-controller-round-filter" color-interpolation-filters="sRGB">
-      <feGaussianBlur in="SourceGraphic" stdDeviation="0.45" result="blur"></feGaussianBlur>
-      <feComponentTransfer in="blur" result="rounded">
-        <feFuncA type="table" tableValues="0 0.15 1 1"></feFuncA>
-      </feComponentTransfer>
-      <feBlend in="SourceGraphic" in2="rounded" mode="normal"></feBlend>
-    </filter>
-  </svg>
+  <head>
+    <meta charset="UTF-8" />
+    <title>FaderDeck</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self';"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <svg
+      width="0"
+      height="0"
+      aria-hidden="true"
+      focusable="false"
+      class="shape-filter-defs"
+    >
+      <filter
+        id="media-controller-round-filter"
+        color-interpolation-filters="sRGB"
+      >
+        <feGaussianBlur
+          in="SourceGraphic"
+          stdDeviation="0.45"
+          result="blur"
+        ></feGaussianBlur>
+        <feComponentTransfer in="blur" result="rounded">
+          <feFuncA type="table" tableValues="0 0.15 1 1"></feFuncA>
+        </feComponentTransfer>
+        <feBlend in="SourceGraphic" in2="rounded" mode="normal"></feBlend>
+      </filter>
+    </svg>
 
-  <div class="toolbar">
-    <div class="toolbar-section toolbar-left">
-      <button class="btn icon-btn" onclick="toggleMainMenu()" data-i18n="toolbar.menu">Меню</button>
+    <div class="toolbar">
+      <div class="toolbar-section toolbar-left">
+        <button
+          class="btn icon-btn"
+          onclick="toggleMainMenu()"
+          data-i18n="toolbar.menu"
+        >
+          Меню
+        </button>
 
-      <select id="midiInput">
-        <option value="" data-i18n="toolbar.selectMidi">Выберите MIDI-устройство</option>
-      </select>
-
-      <div class="status-indicator">
-        <div class="status-dot" id="statusDot"></div>
-        <span id="statusText" data-i18n="status.notConnected">не подключено</span>
-      </div>
-    </div>
-
-    <div class="toolbar-section toolbar-center">
-      <img src="../assets/FaderDeckIcon256x256.png" class="toolbar-icon" alt="FaderDeck">
-      <span class="toolbar-title">FaderDeck</span>
-    </div>
-
-    <div class="toolbar-section toolbar-right">
-      <div class="toolbar-profile-picker">
-        <select id="toolbarProfileSelect" data-i18n-title="profiles.toolbarTitle">
-          <option value="" data-i18n="profiles.toolbarPlaceholder">Профили</option>
+        <select id="midiInput">
+          <option value="" data-i18n="toolbar.selectMidi">
+            Выберите MIDI-устройство
+          </option>
         </select>
+
+        <div class="status-indicator">
+          <div class="status-dot" id="statusDot"></div>
+          <span id="statusText" data-i18n="status.notConnected"
+            >не подключено</span
+          >
+        </div>
       </div>
 
-      <!-- Layout editor foundation is intentionally parked for now.
+      <div class="toolbar-section toolbar-center">
+        <img
+          src="../assets/FaderDeckIcon256x256.png"
+          class="toolbar-icon"
+          alt="FaderDeck"
+        />
+        <span class="toolbar-title">FaderDeck</span>
+      </div>
+
+      <div class="toolbar-section toolbar-right">
+        <div class="toolbar-profile-picker">
+          <select
+            id="toolbarProfileSelect"
+            data-i18n-title="profiles.toolbarTitle"
+          >
+            <option value="" data-i18n="profiles.toolbarPlaceholder">
+              Профили
+            </option>
+          </select>
+        </div>
+
+        <!-- Layout editor foundation is intentionally parked for now.
            Re-enable this control when the dormant layout editing UI is resumed. -->
 
-      <div class="window-controls">
-        <button class="window-btn" data-action="minimize" aria-label="Minimize">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 12.5H18V14.5H6V12.5Z"></path>
-          </svg>
-        </button>
-        <button class="window-btn" data-action="maximize" aria-label="Maximize">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 6H18V18H6V6ZM8 8V16H16V8H8Z"></path>
-          </svg>
-        </button>
-        <button class="window-btn window-btn-close" data-action="close" aria-label="Close">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M7.4 6L12 10.6L16.6 6L18 7.4L13.4 12L18 16.6L16.6 18L12 13.4L7.4 18L6 16.6L10.6 12L6 7.4L7.4 6Z"></path>
-          </svg>
-        </button>
+        <div class="window-controls">
+          <button
+            class="window-btn"
+            data-action="minimize"
+            aria-label="Minimize"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 12.5H18V14.5H6V12.5Z"></path>
+            </svg>
+          </button>
+          <button
+            class="window-btn"
+            data-action="maximize"
+            aria-label="Maximize"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 6H18V18H6V6ZM8 8V16H16V8H8Z"></path>
+            </svg>
+          </button>
+          <button
+            class="window-btn window-btn-close"
+            data-action="close"
+            aria-label="Close"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M7.4 6L12 10.6L16.6 6L18 7.4L13.4 12L18 16.6L16.6 18L12 13.4L7.4 18L6 16.6L10.6 12L6 7.4L7.4 6Z"
+              ></path>
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="app-shell" id="appShell">
-    <aside class="menu-rail" id="menuRail">
-      <div class="menu-rail-inner">
-        <div class="menu-tab-group">
-          <button class="menu-icon-tab" data-tab="profiles" data-i18n-title="menu.tabs.profiles">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M6 4H18A2 2 0 0 1 20 6V8A2 2 0 0 1 18 10H6A2 2 0 0 1 4 8V6A2 2 0 0 1 6 4ZM6 14H18A2 2 0 0 1 20 16V18A2 2 0 0 1 18 20H6A2 2 0 0 1 4 18V16A2 2 0 0 1 6 14ZM7.5 6.5H9.5V7.5H7.5V6.5ZM7.5 16.5H9.5V17.5H7.5V16.5Z" />
-            </svg>
-          </button>
+    <div class="app-shell" id="appShell">
+      <aside class="menu-rail" id="menuRail">
+        <div class="menu-rail-inner">
+          <div class="menu-tab-group">
+            <button
+              class="menu-icon-tab"
+              data-tab="profiles"
+              data-i18n-title="menu.tabs.profiles"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M6 4H18A2 2 0 0 1 20 6V8A2 2 0 0 1 18 10H6A2 2 0 0 1 4 8V6A2 2 0 0 1 6 4ZM6 14H18A2 2 0 0 1 20 16V18A2 2 0 0 1 18 20H6A2 2 0 0 1 4 18V16A2 2 0 0 1 6 14ZM7.5 6.5H9.5V7.5H7.5V6.5ZM7.5 16.5H9.5V17.5H7.5V16.5Z"
+                />
+              </svg>
+            </button>
 
-          <button class="menu-icon-tab" data-tab="settings" data-i18n-title="menu.tabs.settings">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 8.8A3.2 3.2 0 1 0 12 15.2A3.2 3.2 0 0 0 12 8.8ZM20 13.2V10.8L17.9 10.2C17.7 9.5 17.4 8.9 17 8.3L18.1 6.4L16.4 4.7L14.5 5.8C13.9 5.4 13.3 5.1 12.6 4.9L12 2.8H9.6L9 4.9C8.3 5.1 7.7 5.4 7.1 5.8L5.2 4.7L3.5 6.4L4.6 8.3C4.2 8.9 3.9 9.5 3.7 10.2L1.6 10.8V13.2L3.7 13.8C3.9 14.5 4.2 15.1 4.6 15.7L3.5 17.6L5.2 19.3L7.1 18.2C7.7 18.6 8.3 18.9 9 19.1L9.6 21.2H12L12.6 19.1C13.3 18.9 13.9 18.6 14.5 18.2L16.4 19.3L18.1 17.6L17 15.7C17.4 15.1 17.7 14.5 17.9 13.8L20 13.2Z" />
-            </svg>
-          </button>
+            <button
+              class="menu-icon-tab"
+              data-tab="settings"
+              data-i18n-title="menu.tabs.settings"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 8.8A3.2 3.2 0 1 0 12 15.2A3.2 3.2 0 0 0 12 8.8ZM20 13.2V10.8L17.9 10.2C17.7 9.5 17.4 8.9 17 8.3L18.1 6.4L16.4 4.7L14.5 5.8C13.9 5.4 13.3 5.1 12.6 4.9L12 2.8H9.6L9 4.9C8.3 5.1 7.7 5.4 7.1 5.8L5.2 4.7L3.5 6.4L4.6 8.3C4.2 8.9 3.9 9.5 3.7 10.2L1.6 10.8V13.2L3.7 13.8C3.9 14.5 4.2 15.1 4.6 15.7L3.5 17.6L5.2 19.3L7.1 18.2C7.7 18.6 8.3 18.9 9 19.1L9.6 21.2H12L12.6 19.1C13.3 18.9 13.9 18.6 14.5 18.2L16.4 19.3L18.1 17.6L17 15.7C17.4 15.1 17.7 14.5 17.9 13.8L20 13.2Z"
+                />
+              </svg>
+            </button>
 
-          <button class="menu-icon-tab" data-tab="plugins" data-i18n-title="menu.tabs.plugins">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M8 3H16V8H21V16H16V21H8V16H3V8H8V3ZM10 5V10H5V14H10V19H14V14H19V10H14V5H10Z" />
-            </svg>
-          </button>
+            <button
+              class="menu-icon-tab"
+              data-tab="plugins"
+              data-i18n-title="menu.tabs.plugins"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M8 3H16V8H21V16H16V21H8V16H3V8H8V3ZM10 5V10H5V14H10V19H14V14H19V10H14V5H10Z"
+                />
+              </svg>
+            </button>
+          </div>
+
+          <div class="menu-tab-group menu-tab-group-bottom">
+            <button
+              class="menu-icon-tab"
+              data-tab="account"
+              data-i18n-title="menu.tabs.account"
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 12.5A4.25 4.25 0 1 0 12 4A4.25 4.25 0 0 0 12 12.5ZM4 20C4.8 16.9 7.8 14.75 12 14.75C16.2 14.75 19.2 16.9 20 20H4Z"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
+      </aside>
 
-        <div class="menu-tab-group menu-tab-group-bottom">
-          <button class="menu-icon-tab" data-tab="account" data-i18n-title="menu.tabs.account">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 12.5A4.25 4.25 0 1 0 12 4A4.25 4.25 0 0 0 12 12.5ZM4 20C4.8 16.9 7.8 14.75 12 14.75C16.2 14.75 19.2 16.9 20 20H4Z" />
-            </svg>
-          </button>
-        </div>
-      </div>
-    </aside>
-
-    <div class="menu-panel-overlay hidden" id="menuPanelOverlay">
-      <div class="menu-panel-card">
-        <section class="menu-panel-view" data-tab="profiles" hidden>
-          <div class="profiles-panel">
-            <button class="btn btn-primary profile-save-button" id="saveCurrentProfileButton" type="button" data-i18n="profiles.saveCurrent">Сохранить свой профиль</button>
-
-            <div class="profile-list-shell">
-              <div class="profile-list" id="profileList"></div>
-            </div>
-
-            <div class="profile-footer">
-              <button class="profile-footer-button" id="openProfilesFolderButton" type="button" data-i18n-title="profiles.openFolder">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M3 6.5A2.5 2.5 0 0 1 5.5 4H9L11 6H18.5A2.5 2.5 0 0 1 21 8.5V16.5A2.5 2.5 0 0 1 18.5 19H5.5A2.5 2.5 0 0 1 3 16.5V6.5Z" />
-                </svg>
+      <div class="menu-panel-overlay hidden" id="menuPanelOverlay">
+        <div class="menu-panel-card">
+          <section class="menu-panel-view" data-tab="profiles" hidden>
+            <div class="profiles-panel">
+              <button
+                class="btn btn-primary profile-save-button"
+                id="saveCurrentProfileButton"
+                type="button"
+                data-i18n="profiles.saveCurrent"
+              >
+                Сохранить свой профиль
               </button>
 
-              <div class="profile-import-wrap">
-                <button class="profile-footer-button" id="profileImportToggle" type="button" data-i18n-title="profiles.importMenu">
+              <div class="profile-list-shell">
+                <div class="profile-list" id="profileList"></div>
+              </div>
+
+              <div class="profile-footer">
+                <button
+                  class="profile-footer-button"
+                  id="openProfilesFolderButton"
+                  type="button"
+                  data-i18n-title="profiles.openFolder"
+                >
                   <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M11 5H13V11H19V13H13V19H11V13H5V11H11V5Z" />
+                    <path
+                      d="M3 6.5A2.5 2.5 0 0 1 5.5 4H9L11 6H18.5A2.5 2.5 0 0 1 21 8.5V16.5A2.5 2.5 0 0 1 18.5 19H5.5A2.5 2.5 0 0 1 3 16.5V6.5Z"
+                    />
                   </svg>
                 </button>
 
-                <div class="profile-import-menu hidden" id="profileImportMenu">
-                  <button class="profile-import-option" type="button" data-profile-import-action="file" data-i18n="profiles.importFromFile">Файлом</button>
-                  <button class="profile-import-option" type="button" data-profile-import-action="site" data-i18n="profiles.importFromSite">С сайта</button>
+                <div class="profile-import-wrap">
+                  <button
+                    class="profile-footer-button"
+                    id="profileImportToggle"
+                    type="button"
+                    data-i18n-title="profiles.importMenu"
+                  >
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                      <path d="M11 5H13V11H19V13H13V19H11V13H5V11H11V5Z" />
+                    </svg>
+                  </button>
+
+                  <div
+                    class="profile-import-menu hidden"
+                    id="profileImportMenu"
+                  >
+                    <button
+                      class="profile-import-option"
+                      type="button"
+                      data-profile-import-action="file"
+                      data-i18n="profiles.importFromFile"
+                    >
+                      Файлом
+                    </button>
+                    <button
+                      class="profile-import-option"
+                      type="button"
+                      data-profile-import-action="site"
+                      data-i18n="profiles.importFromSite"
+                    >
+                      С сайта
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section class="menu-panel-view" data-tab="settings" hidden>
-          <div class="settings-scroll-shell">
-            <div class="settings-content" id="settingsContent">
-              <section class="settings-section">
-              <div class="settings-section-title" data-i18n="settings.sections.faders">Faders</div>
-
-              <div class="settings-item">
-                <span class="settings-label-line">
-                  <span data-i18n="settings.faderInterpolation">Интерполяция фейдеров</span>
-                  <button class="settings-help" type="button" data-i18n-tooltip="settings.faderInterpolationHelp" aria-label="Help">?</button>
-                </span>
-                <button class="settings-toggle" id="faderInterpolationToggle" type="button" data-i18n="settings.off">Выкл</button>
-              </div>
-
-              <div class="settings-group">
-                <div class="settings-item">
-                  <span data-i18n="settings.volumeHudEnabled">Volume HUD</span>
-                  <button class="settings-toggle" id="volumeHudToggle" type="button" data-i18n="settings.on">Вкл</button>
-                </div>
-
-                <div class="settings-expandable" id="volumeHudAdvanced" aria-hidden="true">
-                  <label class="settings-item settings-item-nested">
-                    <span data-i18n="settings.volumeHudPosition">Положение HUD</span>
-                    <select id="volumeHudPositionSelect" class="settings-select">
-                      <option value="bottom-center" data-i18n="settings.volumeHudPositions.bottomCenter">Снизу по центру</option>
-                      <option value="bottom-left" data-i18n="settings.volumeHudPositions.bottomLeft">Снизу слева</option>
-                      <option value="bottom-right" data-i18n="settings.volumeHudPositions.bottomRight">Снизу справа</option>
-                      <option value="top-center" data-i18n="settings.volumeHudPositions.topCenter">Сверху по центру</option>
-                      <option value="top-left" data-i18n="settings.volumeHudPositions.topLeft">Сверху слева</option>
-                      <option value="top-right" data-i18n="settings.volumeHudPositions.topRight">Сверху справа</option>
-                    </select>
-                  </label>
-
-                  <label class="settings-item settings-item-nested">
-                    <span data-i18n="settings.volumeHudOrientation">Ориентация HUD</span>
-                    <select id="volumeHudOrientationSelect" class="settings-select">
-                      <option value="horizontal" data-i18n="settings.volumeHudOrientations.horizontal">Горизонтально</option>
-                      <option value="vertical" data-i18n="settings.volumeHudOrientations.vertical">Вертикально</option>
-                    </select>
-                  </label>
-
-                  <div class="settings-subsection-title" data-i18n="settings.volumeHudVisibleElements">Видимые элементы</div>
-
-                  <div class="settings-item settings-item-nested">
-                    <span data-i18n="settings.volumeHudShowIcon">Иконка приложения</span>
-                    <button class="settings-toggle" id="volumeHudShowIconToggle" type="button" data-i18n="settings.on">Вкл</button>
+          <section class="menu-panel-view" data-tab="settings" hidden>
+            <div class="settings-scroll-shell">
+              <div class="settings-content" id="settingsContent">
+                <section class="settings-section">
+                  <div
+                    class="settings-section-title"
+                    data-i18n="settings.sections.faders"
+                  >
+                    Faders
                   </div>
 
-                  <div class="settings-item settings-item-nested">
-                    <span data-i18n="settings.volumeHudShowTitle">Название цели</span>
-                    <button class="settings-toggle" id="volumeHudShowTitleToggle" type="button" data-i18n="settings.on">Вкл</button>
+                  <div class="settings-item">
+                    <span class="settings-label-line">
+                      <span data-i18n="settings.faderInterpolation"
+                        >Интерполяция фейдеров</span
+                      >
+                      <button
+                        class="settings-help"
+                        type="button"
+                        data-i18n-tooltip="settings.faderInterpolationHelp"
+                        aria-label="Help"
+                      >
+                        ?
+                      </button>
+                    </span>
+                    <button
+                      class="settings-toggle"
+                      id="faderInterpolationToggle"
+                      type="button"
+                      data-i18n="settings.off"
+                    >
+                      Выкл
+                    </button>
                   </div>
 
-                  <div class="settings-item settings-item-nested">
-                    <span data-i18n="settings.volumeHudShowSubtitle">Подпись канала</span>
-                    <button class="settings-toggle" id="volumeHudShowSubtitleToggle" type="button" data-i18n="settings.on">Вкл</button>
-                  </div>
-
-                  <div class="settings-item settings-item-nested">
-                    <span data-i18n="settings.volumeHudShowPercent">Процент громкости</span>
-                    <button class="settings-toggle" id="volumeHudShowPercentToggle" type="button" data-i18n="settings.on">Вкл</button>
-                  </div>
-
-                  <div class="settings-item settings-item-nested">
-                    <span data-i18n="settings.volumeHudShowMeter">Индикатор громкости</span>
-                    <button class="settings-toggle" id="volumeHudShowMeterToggle" type="button" data-i18n="settings.on">Вкл</button>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-group">
-                <div class="settings-item">
-                  <span class="settings-label-line">
-                    <span data-i18n="settings.softTakeover">Soft takeover</span>
-                    <button class="settings-help" type="button" data-i18n-tooltip="settings.softTakeoverHelp" aria-label="Help">?</button>
-                  </span>
-                  <button class="settings-toggle" id="softTakeoverToggle" type="button" data-i18n="settings.off">Выкл</button>
-                </div>
-
-                <div class="settings-expandable" id="softTakeoverAdvanced" aria-hidden="true">
-                  <div class="settings-item settings-item-stack settings-item-nested">
-                    <div class="settings-label-group">
-                      <span data-i18n="settings.softTakeoverThreshold">Pickup threshold</span>
-                    </div>
-                    <div class="settings-range-row">
-                      <input id="softTakeoverThresholdRange" class="settings-range" type="range" min="0" max="15" step="1" value="5">
-                      <div class="settings-range-value" id="softTakeoverThresholdValue">5%</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div class="settings-group">
-                <div class="settings-item">
-                  <span class="settings-label-line">
-                    <span data-i18n="settings.volumeCurve">Кривая громкости</span>
-                    <button class="settings-help" type="button" data-i18n-tooltip="settings.volumeCurveHelp" aria-label="Help">?</button>
-                  </span>
-                  <button class="settings-toggle" id="volumeCurveToggle" type="button" data-i18n="settings.off">Выкл</button>
-                </div>
-
-                <div class="settings-expandable" id="volumeCurveAdvanced" aria-hidden="true">
-                  <div class="volume-curve-layout">
-                    <div class="volume-curve-main">
-                      <div class="volume-curve-preview">
-                        <svg class="volume-curve-graph" viewBox="0 0 220 140" aria-hidden="true">
-                          <path class="volume-curve-axis" d="M20 20 V120 H200"></path>
-                          <path class="volume-curve-axis volume-curve-axis-soft" d="M20 70 H200"></path>
-                          <path class="volume-curve-axis volume-curve-axis-soft" d="M110 20 V120"></path>
-                          <path class="volume-curve-path" id="volumeCurvePath" d="M20 120 C80 120 140 40 200 20"></path>
-                          <circle class="volume-curve-point" id="volumeCurvePoint" cx="20" cy="120" r="4.5"></circle>
-                        </svg>
-                      </div>
-
-                      <div class="curve-mode-group" id="volumeCurveModeGroup">
-                        <button class="curve-mode-button" type="button" data-curve-type="ease-in" data-i18n-title="settings.curveEaseIn">
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M4 18C8 18 10 18 13 14C15.5 10.5 17 6 20 6"></path>
-                          </svg>
-                        </button>
-                        <button class="curve-mode-button" type="button" data-curve-type="ease-out" data-i18n-title="settings.curveEaseOut">
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M4 18C7 18 8.5 13.5 11 10C14 6 16 6 20 6"></path>
-                          </svg>
-                        </button>
-                        <button class="curve-mode-button" type="button" data-curve-type="ease-in-out" data-i18n-title="settings.curveEaseInOut">
-                          <svg viewBox="0 0 24 24" aria-hidden="true">
-                            <path d="M4 18C8 18 9 14 12 12C15 10 16 6 20 6"></path>
-                          </svg>
-                        </button>
-                      </div>
-
-                      <div class="settings-range-group volume-curve-range-group">
-                        <input id="volumeCurveRange" class="settings-range" type="range" min="0" max="100" step="1" value="0">
-                      </div>
+                  <div class="settings-group">
+                    <div class="settings-item">
+                      <span data-i18n="settings.volumeHudEnabled"
+                        >Volume HUD</span
+                      >
+                      <button
+                        class="settings-toggle"
+                        id="volumeHudToggle"
+                        type="button"
+                        data-i18n="settings.on"
+                      >
+                        Вкл
+                      </button>
                     </div>
 
-                    <div class="volume-curve-demo">
-                      <div class="volume-curve-demo-meter">
-                        <div class="volume-curve-demo-track" id="volumeCurveDemoTrack">
-                          <div class="volume-curve-demo-rail"></div>
-                          <div class="volume-curve-demo-thumb" id="volumeCurveDemoThumb"></div>
-                        </div>
-
-                        <div class="volume-curve-demo-output" id="volumeCurveDemoOutput" aria-hidden="true">
-                          <div class="volume-curve-demo-output-rail"></div>
-                          <div class="volume-curve-demo-output-fill" id="volumeCurveDemoFill"></div>
-                        </div>
-                      </div>
-
-                      <div class="volume-curve-demo-value" id="volumeCurveDemoValue">0%</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              </section>
-
-              <section class="settings-section">
-              <div class="settings-section-title" data-i18n="settings.sections.visual">Visual</div>
-
-              <div class="settings-item">
-                <span data-i18n="settings.profileToolbarSwitcher">Смена профилей на toolbar</span>
-                <button class="settings-toggle" id="profileToolbarToggle" type="button" data-i18n="settings.on">Вкл</button>
-              </div>
-
-              <div class="settings-group">
-                <div class="settings-item">
-                  <span data-i18n="settings.showFractionalNumbers">Показывать дробные числа</span>
-                  <button class="settings-toggle" id="showFractionalNumbersToggle" type="button" data-i18n="settings.off">Выкл</button>
-                </div>
-
-                <div class="settings-expandable" id="fractionalNumbersAdvanced" aria-hidden="true">
-                  <div class="settings-item settings-item-nested">
-                    <span data-i18n="settings.showFractionalOnlyLow">Только при малых числах</span>
-                    <button class="settings-toggle" id="showFractionalOnlyLowToggle" type="button" data-i18n="settings.off">Выкл</button>
-                  </div>
-                </div>
-              </div>
-              </section>
-
-              <section class="settings-section settings-section--volume-hud">
-              <div class="settings-section-title" data-i18n="settings.sections.volumeHud">Volume HUD</div>
-
-              <div class="settings-item">
-                <span data-i18n="settings.volumeHudEnabled">Volume HUD</span>
-                <button class="settings-toggle" id="volumeHudSettingsToggle" type="button" data-i18n="settings.on">Вкл</button>
-              </div>
-
-              <div class="settings-expandable" id="volumeHudSettingsAdvanced" aria-hidden="true">
-                <label class="settings-item settings-item-nested">
-                  <span data-i18n="settings.volumeHudPosition">Положение HUD</span>
-                  <select id="volumeHudSettingsPositionSelect" class="settings-select">
-                    <option value="bottom-center" data-i18n="settings.volumeHudPositions.bottomCenter">Снизу по центру</option>
-                    <option value="bottom-left" data-i18n="settings.volumeHudPositions.bottomLeft">Снизу слева</option>
-                    <option value="bottom-right" data-i18n="settings.volumeHudPositions.bottomRight">Снизу справа</option>
-                    <option value="top-center" data-i18n="settings.volumeHudPositions.topCenter">Сверху по центру</option>
-                    <option value="top-left" data-i18n="settings.volumeHudPositions.topLeft">Сверху слева</option>
-                    <option value="top-right" data-i18n="settings.volumeHudPositions.topRight">Сверху справа</option>
-                  </select>
-                </label>
-
-                <div class="settings-item settings-item-nested">
-                  <span data-i18n="settings.volumeHudOrientation">Ориентация HUD</span>
-                  <button class="settings-toggle settings-toggle-mode" id="volumeHudOrientationToggle" type="button">Horizontal</button>
-                </div>
-
-                <div class="settings-subsection-title" data-i18n="settings.volumeHudVisibleElements">Видимые элементы</div>
-
-                <div class="settings-item settings-item-nested">
-                  <span data-i18n="settings.volumeHudShowIcon">Иконка приложения</span>
-                  <button class="settings-toggle" id="volumeHudSettingsShowIconToggle" type="button" data-i18n="settings.on">Вкл</button>
-                </div>
-
-                <div class="settings-item settings-item-nested">
-                  <span data-i18n="settings.volumeHudShowTitle">Название цели</span>
-                  <button class="settings-toggle" id="volumeHudSettingsShowTitleToggle" type="button" data-i18n="settings.on">Вкл</button>
-                </div>
-
-                <div class="settings-item settings-item-nested">
-                  <span data-i18n="settings.volumeHudShowSubtitle">Подпись канала</span>
-                  <button class="settings-toggle" id="volumeHudSettingsShowSubtitleToggle" type="button" data-i18n="settings.on">Вкл</button>
-                </div>
-
-                <div class="settings-item settings-item-nested">
-                  <span data-i18n="settings.volumeHudShowPercent">Процент громкости</span>
-                  <button class="settings-toggle" id="volumeHudSettingsShowPercentToggle" type="button" data-i18n="settings.on">Вкл</button>
-                </div>
-
-                <div class="settings-item settings-item-nested">
-                  <span data-i18n="settings.volumeHudShowMeter">Индикатор громкости</span>
-                  <button class="settings-toggle" id="volumeHudSettingsShowMeterToggle" type="button" data-i18n="settings.on">Вкл</button>
-                </div>
-
-                <div class="settings-subsection-title" data-i18n="settings.volumeHudPreview">Предпросмотр</div>
-
-                <div class="settings-hud-preview-stage" id="volumeHudPreviewStage">
-                  <div class="settings-hud-preview-anchor" id="volumeHudPreviewAnchor">
-                    <div class="settings-hud-preview settings-hud-preview--horizontal" id="volumeHudPreview">
-                      <div class="settings-hud-preview__icon-shell" id="volumeHudPreviewIconShell" aria-hidden="true">
-                        <img
-                          class="settings-hud-preview__icon-image"
-                          id="volumeHudPreviewIcon"
-                          src="../assets/favicon.png"
-                          alt="FaderDeck"
+                    <div
+                      class="settings-expandable"
+                      id="volumeHudAdvanced"
+                      aria-hidden="true"
+                    >
+                      <label class="settings-item settings-item-nested">
+                        <span data-i18n="settings.volumeHudPosition"
+                          >Положение HUD</span
                         >
+                        <select
+                          id="volumeHudPositionSelect"
+                          class="settings-select"
+                        >
+                          <option
+                            value="bottom-center"
+                            data-i18n="settings.volumeHudPositions.bottomCenter"
+                          >
+                            Снизу по центру
+                          </option>
+                          <option
+                            value="bottom-left"
+                            data-i18n="settings.volumeHudPositions.bottomLeft"
+                          >
+                            Снизу слева
+                          </option>
+                          <option
+                            value="bottom-right"
+                            data-i18n="settings.volumeHudPositions.bottomRight"
+                          >
+                            Снизу справа
+                          </option>
+                          <option
+                            value="top-center"
+                            data-i18n="settings.volumeHudPositions.topCenter"
+                          >
+                            Сверху по центру
+                          </option>
+                          <option
+                            value="top-left"
+                            data-i18n="settings.volumeHudPositions.topLeft"
+                          >
+                            Сверху слева
+                          </option>
+                          <option
+                            value="top-right"
+                            data-i18n="settings.volumeHudPositions.topRight"
+                          >
+                            Сверху справа
+                          </option>
+                        </select>
+                      </label>
+
+                      <label class="settings-item settings-item-nested">
+                        <span data-i18n="settings.volumeHudOrientation"
+                          >Ориентация HUD</span
+                        >
+                        <select
+                          id="volumeHudOrientationSelect"
+                          class="settings-select"
+                        >
+                          <option
+                            value="horizontal"
+                            data-i18n="settings.volumeHudOrientations.horizontal"
+                          >
+                            Горизонтально
+                          </option>
+                          <option
+                            value="vertical"
+                            data-i18n="settings.volumeHudOrientations.vertical"
+                          >
+                            Вертикально
+                          </option>
+                        </select>
+                      </label>
+
+                      <div
+                        class="settings-subsection-title"
+                        data-i18n="settings.volumeHudVisibleElements"
+                      >
+                        Видимые элементы
                       </div>
 
-                      <div class="settings-hud-preview__content" id="volumeHudPreviewContent">
-                        <div class="settings-hud-preview__header" id="volumeHudPreviewHeader">
-                          <div class="settings-hud-preview__titles" id="volumeHudPreviewTitles">
-                            <div class="settings-hud-preview__title" id="volumeHudPreviewTitle">FaderDeck</div>
-                            <div class="settings-hud-preview__subtitle" id="volumeHudPreviewSubtitle">Channel 1</div>
-                          </div>
-                          <div class="settings-hud-preview__value" id="volumeHudPreviewValue">42%</div>
-                        </div>
+                      <div class="settings-item settings-item-nested">
+                        <span data-i18n="settings.volumeHudShowIcon"
+                          >Иконка приложения</span
+                        >
+                        <button
+                          class="settings-toggle"
+                          id="volumeHudShowIconToggle"
+                          type="button"
+                          data-i18n="settings.on"
+                        >
+                          Вкл
+                        </button>
+                      </div>
 
-                        <div class="settings-hud-preview__meter" id="volumeHudPreviewMeter">
-                          <div class="settings-hud-preview__meter-fill" id="volumeHudPreviewMeterFill"></div>
-                          <div class="settings-hud-preview__meter-thumb" id="volumeHudPreviewMeterThumb"></div>
+                      <div class="settings-item settings-item-nested">
+                        <span data-i18n="settings.volumeHudShowTitle"
+                          >Название цели</span
+                        >
+                        <button
+                          class="settings-toggle"
+                          id="volumeHudShowTitleToggle"
+                          type="button"
+                          data-i18n="settings.on"
+                        >
+                          Вкл
+                        </button>
+                      </div>
+
+                      <div class="settings-item settings-item-nested">
+                        <span data-i18n="settings.volumeHudShowSubtitle"
+                          >Подпись канала</span
+                        >
+                        <button
+                          class="settings-toggle"
+                          id="volumeHudShowSubtitleToggle"
+                          type="button"
+                          data-i18n="settings.on"
+                        >
+                          Вкл
+                        </button>
+                      </div>
+
+                      <div class="settings-item settings-item-nested">
+                        <span data-i18n="settings.volumeHudShowPercent"
+                          >Процент громкости</span
+                        >
+                        <button
+                          class="settings-toggle"
+                          id="volumeHudShowPercentToggle"
+                          type="button"
+                          data-i18n="settings.on"
+                        >
+                          Вкл
+                        </button>
+                      </div>
+
+                      <div class="settings-item settings-item-nested">
+                        <span data-i18n="settings.volumeHudShowMeter"
+                          >Индикатор громкости</span
+                        >
+                        <button
+                          class="settings-toggle"
+                          id="volumeHudShowMeterToggle"
+                          type="button"
+                          data-i18n="settings.on"
+                        >
+                          Вкл
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="settings-group">
+                    <div class="settings-item">
+                      <span class="settings-label-line">
+                        <span data-i18n="settings.softTakeover"
+                          >Soft takeover</span
+                        >
+                        <button
+                          class="settings-help"
+                          type="button"
+                          data-i18n-tooltip="settings.softTakeoverHelp"
+                          aria-label="Help"
+                        >
+                          ?
+                        </button>
+                      </span>
+                      <button
+                        class="settings-toggle"
+                        id="softTakeoverToggle"
+                        type="button"
+                        data-i18n="settings.off"
+                      >
+                        Выкл
+                      </button>
+                    </div>
+
+                    <div
+                      class="settings-expandable"
+                      id="softTakeoverAdvanced"
+                      aria-hidden="true"
+                    >
+                      <div
+                        class="settings-item settings-item-stack settings-item-nested"
+                      >
+                        <div class="settings-label-group">
+                          <span data-i18n="settings.softTakeoverThreshold"
+                            >Pickup threshold</span
+                          >
+                        </div>
+                        <div class="settings-range-row">
+                          <input
+                            id="softTakeoverThresholdRange"
+                            class="settings-range"
+                            type="range"
+                            min="0"
+                            max="15"
+                            step="1"
+                            value="5"
+                          />
+                          <div
+                            class="settings-range-value"
+                            id="softTakeoverThresholdValue"
+                          >
+                            5%
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
+
+                  <div class="settings-group">
+                    <div class="settings-item">
+                      <span class="settings-label-line">
+                        <span data-i18n="settings.volumeCurve"
+                          >Кривая громкости</span
+                        >
+                        <button
+                          class="settings-help"
+                          type="button"
+                          data-i18n-tooltip="settings.volumeCurveHelp"
+                          aria-label="Help"
+                        >
+                          ?
+                        </button>
+                      </span>
+                      <button
+                        class="settings-toggle"
+                        id="volumeCurveToggle"
+                        type="button"
+                        data-i18n="settings.off"
+                      >
+                        Выкл
+                      </button>
+                    </div>
+
+                    <div
+                      class="settings-expandable"
+                      id="volumeCurveAdvanced"
+                      aria-hidden="true"
+                    >
+                      <div class="volume-curve-layout">
+                        <div class="volume-curve-main">
+                          <div class="volume-curve-preview">
+                            <svg
+                              class="volume-curve-graph"
+                              viewBox="0 0 220 140"
+                              aria-hidden="true"
+                            >
+                              <path
+                                class="volume-curve-axis"
+                                d="M20 20 V120 H200"
+                              ></path>
+                              <path
+                                class="volume-curve-axis volume-curve-axis-soft"
+                                d="M20 70 H200"
+                              ></path>
+                              <path
+                                class="volume-curve-axis volume-curve-axis-soft"
+                                d="M110 20 V120"
+                              ></path>
+                              <path
+                                class="volume-curve-path"
+                                id="volumeCurvePath"
+                                d="M20 120 C80 120 140 40 200 20"
+                              ></path>
+                              <circle
+                                class="volume-curve-point"
+                                id="volumeCurvePoint"
+                                cx="20"
+                                cy="120"
+                                r="4.5"
+                              ></circle>
+                            </svg>
+                          </div>
+
+                          <div
+                            class="curve-mode-group"
+                            id="volumeCurveModeGroup"
+                          >
+                            <button
+                              class="curve-mode-button"
+                              type="button"
+                              data-curve-type="ease-in"
+                              data-i18n-title="settings.curveEaseIn"
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path
+                                  d="M4 18C8 18 10 18 13 14C15.5 10.5 17 6 20 6"
+                                ></path>
+                              </svg>
+                            </button>
+                            <button
+                              class="curve-mode-button"
+                              type="button"
+                              data-curve-type="ease-out"
+                              data-i18n-title="settings.curveEaseOut"
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path
+                                  d="M4 18C7 18 8.5 13.5 11 10C14 6 16 6 20 6"
+                                ></path>
+                              </svg>
+                            </button>
+                            <button
+                              class="curve-mode-button"
+                              type="button"
+                              data-curve-type="ease-in-out"
+                              data-i18n-title="settings.curveEaseInOut"
+                            >
+                              <svg viewBox="0 0 24 24" aria-hidden="true">
+                                <path
+                                  d="M4 18C8 18 9 14 12 12C15 10 16 6 20 6"
+                                ></path>
+                              </svg>
+                            </button>
+                          </div>
+
+                          <div
+                            class="settings-range-group volume-curve-range-group"
+                          >
+                            <input
+                              id="volumeCurveRange"
+                              class="settings-range"
+                              type="range"
+                              min="0"
+                              max="100"
+                              step="1"
+                              value="0"
+                            />
+                          </div>
+                        </div>
+
+                        <div class="volume-curve-demo">
+                          <div class="volume-curve-demo-meter">
+                            <div
+                              class="volume-curve-demo-track"
+                              id="volumeCurveDemoTrack"
+                            >
+                              <div class="volume-curve-demo-rail"></div>
+                              <div
+                                class="volume-curve-demo-thumb"
+                                id="volumeCurveDemoThumb"
+                              ></div>
+                            </div>
+
+                            <div
+                              class="volume-curve-demo-output"
+                              id="volumeCurveDemoOutput"
+                              aria-hidden="true"
+                            >
+                              <div class="volume-curve-demo-output-rail"></div>
+                              <div
+                                class="volume-curve-demo-output-fill"
+                                id="volumeCurveDemoFill"
+                              ></div>
+                            </div>
+                          </div>
+
+                          <div
+                            class="volume-curve-demo-value"
+                            id="volumeCurveDemoValue"
+                          >
+                            0%
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="settings-section">
+                  <div
+                    class="settings-section-title"
+                    data-i18n="settings.sections.visual"
+                  >
+                    Visual
+                  </div>
+
+                  <div class="settings-item">
+                    <span data-i18n="settings.profileToolbarSwitcher"
+                      >Смена профилей на toolbar</span
+                    >
+                    <button
+                      class="settings-toggle"
+                      id="profileToolbarToggle"
+                      type="button"
+                      data-i18n="settings.on"
+                    >
+                      Вкл
+                    </button>
+                  </div>
+
+                  <div class="settings-group">
+                    <div class="settings-item">
+                      <span data-i18n="settings.showFractionalNumbers"
+                        >Показывать дробные числа</span
+                      >
+                      <button
+                        class="settings-toggle"
+                        id="showFractionalNumbersToggle"
+                        type="button"
+                        data-i18n="settings.off"
+                      >
+                        Выкл
+                      </button>
+                    </div>
+
+                    <div
+                      class="settings-expandable"
+                      id="fractionalNumbersAdvanced"
+                      aria-hidden="true"
+                    >
+                      <div class="settings-item settings-item-nested">
+                        <span data-i18n="settings.showFractionalOnlyLow"
+                          >Только при малых числах</span
+                        >
+                        <button
+                          class="settings-toggle"
+                          id="showFractionalOnlyLowToggle"
+                          type="button"
+                          data-i18n="settings.off"
+                        >
+                          Выкл
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="settings-section settings-section--volume-hud">
+                  <div
+                    class="settings-section-title"
+                    data-i18n="settings.sections.volumeHud"
+                  >
+                    Volume HUD
+                  </div>
+
+                  <div class="settings-item">
+                    <span data-i18n="settings.volumeHudEnabled"
+                      >Volume HUD</span
+                    >
+                    <button
+                      class="settings-toggle"
+                      id="volumeHudSettingsToggle"
+                      type="button"
+                      data-i18n="settings.on"
+                    >
+                      Вкл
+                    </button>
+                  </div>
+
+                  <div
+                    class="settings-expandable"
+                    id="volumeHudSettingsAdvanced"
+                    aria-hidden="true"
+                  >
+                    <label class="settings-item settings-item-nested">
+                      <span data-i18n="settings.volumeHudPosition"
+                        >Положение HUD</span
+                      >
+                      <select
+                        id="volumeHudSettingsPositionSelect"
+                        class="settings-select"
+                      >
+                        <option
+                          value="bottom-center"
+                          data-i18n="settings.volumeHudPositions.bottomCenter"
+                        >
+                          Снизу по центру
+                        </option>
+                        <option
+                          value="bottom-left"
+                          data-i18n="settings.volumeHudPositions.bottomLeft"
+                        >
+                          Снизу слева
+                        </option>
+                        <option
+                          value="bottom-right"
+                          data-i18n="settings.volumeHudPositions.bottomRight"
+                        >
+                          Снизу справа
+                        </option>
+                        <option
+                          value="top-center"
+                          data-i18n="settings.volumeHudPositions.topCenter"
+                        >
+                          Сверху по центру
+                        </option>
+                        <option
+                          value="top-left"
+                          data-i18n="settings.volumeHudPositions.topLeft"
+                        >
+                          Сверху слева
+                        </option>
+                        <option
+                          value="top-right"
+                          data-i18n="settings.volumeHudPositions.topRight"
+                        >
+                          Сверху справа
+                        </option>
+                      </select>
+                    </label>
+
+                    <div class="settings-item settings-item-nested">
+                      <span data-i18n="settings.volumeHudOrientation"
+                        >Ориентация HUD</span
+                      >
+                      <button
+                        class="settings-toggle settings-toggle-mode"
+                        id="volumeHudOrientationToggle"
+                        type="button"
+                      >
+                        Horizontal
+                      </button>
+                    </div>
+
+                    <div
+                      class="settings-subsection-title"
+                      data-i18n="settings.volumeHudVisibleElements"
+                    >
+                      Видимые элементы
+                    </div>
+
+                    <div class="settings-item settings-item-nested">
+                      <span data-i18n="settings.volumeHudShowIcon"
+                        >Иконка приложения</span
+                      >
+                      <button
+                        class="settings-toggle"
+                        id="volumeHudSettingsShowIconToggle"
+                        type="button"
+                        data-i18n="settings.on"
+                      >
+                        Вкл
+                      </button>
+                    </div>
+
+                    <div class="settings-item settings-item-nested">
+                      <span data-i18n="settings.volumeHudShowTitle"
+                        >Название цели</span
+                      >
+                      <button
+                        class="settings-toggle"
+                        id="volumeHudSettingsShowTitleToggle"
+                        type="button"
+                        data-i18n="settings.on"
+                      >
+                        Вкл
+                      </button>
+                    </div>
+
+                    <div class="settings-item settings-item-nested">
+                      <span data-i18n="settings.volumeHudShowSubtitle"
+                        >Подпись канала</span
+                      >
+                      <button
+                        class="settings-toggle"
+                        id="volumeHudSettingsShowSubtitleToggle"
+                        type="button"
+                        data-i18n="settings.on"
+                      >
+                        Вкл
+                      </button>
+                    </div>
+
+                    <div class="settings-item settings-item-nested">
+                      <span data-i18n="settings.volumeHudShowPercent"
+                        >Процент громкости</span
+                      >
+                      <button
+                        class="settings-toggle"
+                        id="volumeHudSettingsShowPercentToggle"
+                        type="button"
+                        data-i18n="settings.on"
+                      >
+                        Вкл
+                      </button>
+                    </div>
+
+                    <div class="settings-item settings-item-nested">
+                      <span data-i18n="settings.volumeHudShowMeter"
+                        >Индикатор громкости</span
+                      >
+                      <button
+                        class="settings-toggle"
+                        id="volumeHudSettingsShowMeterToggle"
+                        type="button"
+                        data-i18n="settings.on"
+                      >
+                        Вкл
+                      </button>
+                    </div>
+
+                    <div
+                      class="settings-subsection-title"
+                      data-i18n="settings.volumeHudPreview"
+                    >
+                      Предпросмотр
+                    </div>
+
+                    <div
+                      class="settings-hud-preview-stage"
+                      id="volumeHudPreviewStage"
+                    >
+                      <div
+                        class="settings-hud-preview-anchor"
+                        id="volumeHudPreviewAnchor"
+                      >
+                        <div
+                          class="settings-hud-preview settings-hud-preview--horizontal"
+                          id="volumeHudPreview"
+                        >
+                          <div
+                            class="settings-hud-preview__icon-shell"
+                            id="volumeHudPreviewIconShell"
+                            aria-hidden="true"
+                          >
+                            <img
+                              class="settings-hud-preview__icon-image"
+                              id="volumeHudPreviewIcon"
+                              src="../assets/favicon.png"
+                              alt="FaderDeck"
+                            />
+                          </div>
+
+                          <div
+                            class="settings-hud-preview__content"
+                            id="volumeHudPreviewContent"
+                          >
+                            <div
+                              class="settings-hud-preview__header"
+                              id="volumeHudPreviewHeader"
+                            >
+                              <div
+                                class="settings-hud-preview__titles"
+                                id="volumeHudPreviewTitles"
+                              >
+                                <div
+                                  class="settings-hud-preview__title"
+                                  id="volumeHudPreviewTitle"
+                                >
+                                  FaderDeck
+                                </div>
+                                <div
+                                  class="settings-hud-preview__subtitle"
+                                  id="volumeHudPreviewSubtitle"
+                                >
+                                  Channel 1
+                                </div>
+                              </div>
+                              <div
+                                class="settings-hud-preview__value"
+                                id="volumeHudPreviewValue"
+                              >
+                                42%
+                              </div>
+                            </div>
+
+                            <div
+                              class="settings-hud-preview__meter"
+                              id="volumeHudPreviewMeter"
+                            >
+                              <div
+                                class="settings-hud-preview__meter-fill"
+                                id="volumeHudPreviewMeterFill"
+                              ></div>
+                              <div
+                                class="settings-hud-preview__meter-thumb"
+                                id="volumeHudPreviewMeterThumb"
+                              ></div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </section>
+
+                <section class="settings-section">
+                  <div
+                    class="settings-section-title"
+                    data-i18n="settings.sections.system"
+                  >
+                    System
+                  </div>
+
+                  <label class="settings-item">
+                    <span data-i18n="settings.startOnBoot"
+                      >Запуск с системой</span
+                    >
+                    <div
+                      class="settings-toggle disabled"
+                      data-i18n="settings.off"
+                    >
+                      Выкл
+                    </div>
+                  </label>
+
+                  <div class="settings-item">
+                    <span data-i18n="settings.closeToTray"
+                      >Hide to tray on close</span
+                    >
+                    <button
+                      class="settings-toggle"
+                      id="closeToTrayToggle"
+                      type="button"
+                      data-i18n="settings.on"
+                    >
+                      On
+                    </button>
+                  </div>
+
+                  <label class="settings-item">
+                    <span data-i18n="settings.language">Язык</span>
+                    <select id="languageSelect" class="settings-select">
+                      <option value="ru" data-i18n="languages.ru">
+                        Русский
+                      </option>
+                      <option value="en" data-i18n="languages.en">
+                        English
+                      </option>
+                    </select>
+                  </label>
+                </section>
+
+                <section class="settings-section">
+                  <div
+                    class="settings-section-title"
+                    data-i18n="settings.sections.advanced"
+                  >
+                    Advanced
+                  </div>
+
+                  <label class="settings-item">
+                    <span data-i18n="settings.developerMode"
+                      >Режим разработчика</span
+                    >
+                    <button
+                      class="settings-toggle"
+                      id="developerModeToggle"
+                      type="button"
+                      data-i18n="settings.off"
+                    >
+                      Выкл
+                    </button>
+                  </label>
+
+                  <label class="settings-item">
+                    <span data-i18n="settings.advancedMode"
+                      >Расширенный режим</span
+                    >
+                    <button
+                      class="settings-toggle"
+                      id="advancedModeToggle"
+                      type="button"
+                      data-i18n="settings.off"
+                    >
+                      Выкл
+                    </button>
+                  </label>
+                </section>
+              </div>
+            </div>
+          </section>
+
+          <section class="menu-panel-view" data-tab="plugins" hidden>
+            <div class="coming-soon-panel">
+              <div class="coming-soon-title" data-i18n="menu.comingSoonTitle">
+                Coming soon
+              </div>
+              <div class="coming-soon-visual">
+                <span
+                  class="coming-soon-glow coming-soon-glow-left"
+                  aria-hidden="true"
+                ></span>
+                <div class="coming-soon-image-shell">
+                  <img
+                    class="coming-soon-image"
+                    src="../assets/workmydearchatjbt.jpg"
+                    alt="Coming soon preview"
+                  />
+                </div>
+                <span
+                  class="coming-soon-glow coming-soon-glow-right"
+                  aria-hidden="true"
+                ></span>
+              </div>
+            </div>
+          </section>
+
+          <section class="menu-panel-view" data-tab="account" hidden>
+            <div class="coming-soon-panel">
+              <div class="coming-soon-title" data-i18n="menu.comingSoonTitle">
+                Coming soon
+              </div>
+              <div class="coming-soon-visual">
+                <span
+                  class="coming-soon-glow coming-soon-glow-left"
+                  aria-hidden="true"
+                ></span>
+                <div class="coming-soon-image-shell">
+                  <img
+                    class="coming-soon-image"
+                    src="../assets/workmydearchatjbt.jpg"
+                    alt="Coming soon preview"
+                  />
+                </div>
+                <span
+                  class="coming-soon-glow coming-soon-glow-right"
+                  aria-hidden="true"
+                ></span>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div
+          class="settings-tooltip-layer hidden"
+          id="settingsTooltipLayer"
+          aria-hidden="true"
+        >
+          <div class="settings-tooltip-bubble" id="settingsTooltipBubble"></div>
+        </div>
+      </div>
+
+      <div class="content-shell">
+        <main class="main-content-viewport" id="mainContentViewport">
+          <div class="main-content-canvas" id="mainContentCanvas">
+            <div class="mixer-container" id="mixerContainer">
+              <div class="empty-state">
+                <div class="empty-state-icon">Mixer</div>
+                <div class="empty-state-text" data-i18n="empty.message">
+                  Нажмите "+" справа, чтобы добавить канал,<br />
+                  или создайте отдельную кнопку ниже
                 </div>
               </div>
-              </section>
-
-              <section class="settings-section">
-              <div class="settings-section-title" data-i18n="settings.sections.system">System</div>
-
-              <label class="settings-item">
-                <span data-i18n="settings.startOnBoot">Запуск с системой</span>
-                <div class="settings-toggle disabled" data-i18n="settings.off">Выкл</div>
-              </label>
-
-              <div class="settings-item">
-                <span data-i18n="settings.closeToTray">Hide to tray on close</span>
-                <button class="settings-toggle" id="closeToTrayToggle" type="button" data-i18n="settings.on">On</button>
+              <div class="add-channel-strip" onclick="createChannel()">
+                <div class="add-channel-plus">+</div>
               </div>
-
-              <label class="settings-item">
-                <span data-i18n="settings.language">Язык</span>
-                <select id="languageSelect" class="settings-select">
-                  <option value="ru" data-i18n="languages.ru">Русский</option>
-                  <option value="en" data-i18n="languages.en">English</option>
-                </select>
-              </label>
-              </section>
-
-              <section class="settings-section">
-              <div class="settings-section-title" data-i18n="settings.sections.advanced">Advanced</div>
-
-              <label class="settings-item">
-                <span data-i18n="settings.developerMode">Режим разработчика</span>
-                <button class="settings-toggle" id="developerModeToggle" type="button" data-i18n="settings.off">Выкл</button>
-              </label>
-
-              <label class="settings-item">
-                <span data-i18n="settings.advancedMode">Расширенный режим</span>
-                <button class="settings-toggle" id="advancedModeToggle" type="button" data-i18n="settings.off">Выкл</button>
-              </label>
-              </section>
             </div>
 
+            <div class="standalone-buttons" id="standaloneButtons"></div>
           </div>
-        </section>
-
-        <section class="menu-panel-view" data-tab="plugins" hidden>
-          <div class="coming-soon-panel">
-            <div class="coming-soon-title" data-i18n="menu.comingSoonTitle">Coming soon</div>
-            <div class="coming-soon-visual">
-              <span class="coming-soon-glow coming-soon-glow-left" aria-hidden="true"></span>
-              <div class="coming-soon-image-shell">
-                <img class="coming-soon-image" src="../assets/workmydearchatjbt.jpg" alt="Coming soon preview">
-              </div>
-              <span class="coming-soon-glow coming-soon-glow-right" aria-hidden="true"></span>
-            </div>
-          </div>
-        </section>
-
-        <section class="menu-panel-view" data-tab="account" hidden>
-          <div class="coming-soon-panel">
-            <div class="coming-soon-title" data-i18n="menu.comingSoonTitle">Coming soon</div>
-            <div class="coming-soon-visual">
-              <span class="coming-soon-glow coming-soon-glow-left" aria-hidden="true"></span>
-              <div class="coming-soon-image-shell">
-                <img class="coming-soon-image" src="../assets/workmydearchatjbt.jpg" alt="Coming soon preview">
-              </div>
-              <span class="coming-soon-glow coming-soon-glow-right" aria-hidden="true"></span>
-            </div>
-          </div>
-        </section>
-      </div>
-
-      <div class="settings-tooltip-layer hidden" id="settingsTooltipLayer" aria-hidden="true">
-        <div class="settings-tooltip-bubble" id="settingsTooltipBubble"></div>
+        </main>
       </div>
     </div>
 
-    <div class="content-shell">
-      <main class="main-content-viewport" id="mainContentViewport">
-        <div class="main-content-canvas" id="mainContentCanvas">
-          <div class="mixer-container" id="mixerContainer">
-            <div class="empty-state">
-              <div class="empty-state-icon">Mixer</div>
-              <div class="empty-state-text" data-i18n="empty.message">
-                Нажмите "+" справа, чтобы добавить канал,<br>
-                или создайте отдельную кнопку ниже
-              </div>
-            </div>
-            <div class="add-channel-strip" onclick="createChannel()">
-              <div class="add-channel-plus">+</div>
-            </div>
+    <div
+      class="modal modal--entity-editor"
+      id="entityEditModal"
+      data-modal-id="entity-edit"
+      aria-hidden="true"
+    >
+      <div class="entity-edit-shell" id="entityEditShell">
+        <div class="entity-edit-preview-column">
+          <div class="entity-edit-preview-label" data-i18n="editor.preview">
+            Preview
           </div>
-
-          <div class="standalone-buttons" id="standaloneButtons"></div>
+          <div class="entity-edit-preview-frame" id="entityEditPreviewFrame">
+            <div
+              class="entity-edit-preview-mount"
+              id="entityEditPreviewMount"
+            ></div>
+          </div>
         </div>
-      </main>
-    </div>
-  </div>
 
-  <div class="modal modal--entity-editor" id="entityEditModal" data-modal-id="entity-edit" aria-hidden="true">
-    <div class="entity-edit-shell" id="entityEditShell">
-      <div class="entity-edit-preview-column">
-        <div class="entity-edit-preview-label" data-i18n="editor.preview">Preview</div>
-        <div class="entity-edit-preview-frame" id="entityEditPreviewFrame">
-          <div class="entity-edit-preview-mount" id="entityEditPreviewMount"></div>
+        <div
+          class="entity-edit-dialog-window"
+          role="dialog"
+          aria-modal="true"
+          tabindex="-1"
+        >
+          <div class="entity-edit-main-shell" id="entityEditMainShell">
+            <div class="entity-edit-main-panel" id="entityEditMain"></div>
+          </div>
+          <aside
+            class="entity-edit-side-panel"
+            id="entityEditSidePanel"
+          ></aside>
         </div>
       </div>
+    </div>
 
-      <div class="entity-edit-dialog-window" role="dialog" aria-modal="true" tabindex="-1">
-        <div class="entity-edit-main-shell" id="entityEditMainShell">
-          <div class="entity-edit-main-panel" id="entityEditMain"></div>
+    <div
+      class="modal"
+      id="buttonModal"
+      data-modal-id="button"
+      aria-hidden="true"
+    >
+      <div
+        class="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="buttonModalTitle"
+        tabindex="-1"
+      >
+        <div
+          class="modal-header"
+          id="buttonModalTitle"
+          data-i18n="buttonModal.title"
+        >
+          Настройки кнопки
         </div>
-        <aside class="entity-edit-side-panel" id="entityEditSidePanel"></aside>
+
+        <div class="form-group">
+          <label
+            class="form-label"
+            for="buttonText"
+            data-i18n="buttonModal.text"
+            >Текст</label
+          >
+          <input
+            type="text"
+            class="form-input"
+            id="buttonText"
+            data-i18n-placeholder="buttonModal.textPlaceholder"
+            placeholder="Button"
+          />
+        </div>
+
+        <div class="form-group">
+          <label
+            class="form-label"
+            for="buttonIcon"
+            data-i18n="buttonModal.icon"
+            >Иконка</label
+          >
+          <input
+            type="text"
+            class="form-input"
+            id="buttonIcon"
+            data-i18n-placeholder="buttonModal.iconPlaceholder"
+            placeholder="BTN"
+          />
+        </div>
+
+        <div class="form-group">
+          <label
+            class="form-label"
+            for="buttonNote"
+            data-i18n="buttonModal.midiNote"
+            >MIDI Note</label
+          >
+          <input
+            type="number"
+            class="form-input"
+            id="buttonNote"
+            value="60"
+            min="0"
+            max="127"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="buttonKey" data-i18n="buttonModal.key"
+            >Клавиша</label
+          >
+          <input
+            type="text"
+            class="form-input"
+            id="buttonKey"
+            data-i18n-placeholder="buttonModal.keyPlaceholder"
+            placeholder="Нажмите клавишу..."
+            readonly
+          />
+        </div>
+
+        <div class="modal-actions">
+          <button
+            class="btn"
+            type="button"
+            data-modal-close
+            data-i18n="common.cancel"
+          >
+            Отмена
+          </button>
+          <button
+            class="btn btn-primary"
+            id="buttonModalSaveButton"
+            type="button"
+            data-i18n="common.save"
+          >
+            Сохранить
+          </button>
+        </div>
       </div>
     </div>
-  </div>
 
-  <div class="modal" id="buttonModal" data-modal-id="button" aria-hidden="true">
-    <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="buttonModalTitle" tabindex="-1">
-      <div class="modal-header" id="buttonModalTitle" data-i18n="buttonModal.title">Настройки кнопки</div>
+    <div id="toastContainer"></div>
 
-      <div class="form-group">
-        <label class="form-label" for="buttonText" data-i18n="buttonModal.text">Текст</label>
-        <input type="text" class="form-input" id="buttonText" data-i18n-placeholder="buttonModal.textPlaceholder" placeholder="Button">
+    <div id="contextMenu" class="context-menu">
+      <div class="context-item" data-action="edit" data-i18n="context.edit">
+        Изменить
       </div>
-
-      <div class="form-group">
-        <label class="form-label" for="buttonIcon" data-i18n="buttonModal.icon">Иконка</label>
-        <input type="text" class="form-input" id="buttonIcon" data-i18n-placeholder="buttonModal.iconPlaceholder" placeholder="BTN">
+      <div class="context-item" data-action="select" data-i18n="context.select">
+        Выделить
       </div>
-
-      <div class="form-group">
-        <label class="form-label" for="buttonNote" data-i18n="buttonModal.midiNote">MIDI Note</label>
-        <input type="number" class="form-input" id="buttonNote" value="60" min="0" max="127">
-      </div>
-
-      <div class="form-group">
-        <label class="form-label" for="buttonKey" data-i18n="buttonModal.key">Клавиша</label>
-        <input type="text" class="form-input" id="buttonKey" data-i18n-placeholder="buttonModal.keyPlaceholder" placeholder="Нажмите клавишу..." readonly>
-      </div>
-
-      <div class="modal-actions">
-        <button class="btn" type="button" data-modal-close data-i18n="common.cancel">Отмена</button>
-        <button class="btn btn-primary" id="buttonModalSaveButton" type="button" data-i18n="common.save">Сохранить</button>
+      <div
+        class="context-item context-item--danger"
+        data-action="delete"
+        data-i18n="context.delete"
+      >
+        Удалить
       </div>
     </div>
-  </div>
 
-  <div id="toastContainer"></div>
-
-<div id="contextMenu" class="context-menu">
-  <div class="context-item" data-action="edit" data-i18n="context.edit">Изменить</div>
-  <div class="context-item" data-action="select" data-i18n="context.select">Выделить</div>
-  <div class="context-item context-item--danger" data-action="delete" data-i18n="context.delete">Удалить</div>
-</div>
-
-  <script src="js/shared/renderer-state-model.js"></script>
-  <script src="js/shared/channel-model.js"></script>
-  <script src="js/shared/channel-targeting.js"></script>
-  <script src="js/adapters/api-bridge.js"></script>
-  <script src="js/adapters/local-storage.js"></script>
-  <script src="js/adapters/language-storage.js"></script>
-  <script src="js/adapters/midi-selection-storage.js"></script>
-  <script src="js/adapters/ui-preferences-storage.js"></script>
-  <script src="js/adapters/profile-storage.js"></script>
-  <script src="js/i18n.js"></script>
-  <script src="js/toasts.js"></script>
-  <script src="js/state/store.js"></script>
-  <script src="js/state/layout-store.js"></script>
-  <script src="js/state/app-state.js"></script>
-  <script src="js/state/ui-store.js"></script>
-  <script src="js/runtime/audio-runtime.js"></script>
-  <script src="js/ui/modal-manager.js"></script>
-  <script src="js/dropdowns.js"></script>
-  <script src="js/actions/profile-actions.js"></script>
-  <script src="js/profiles/profile-store.js"></script>
-  <script src="js/profiles/profile-service.js"></script>
-  <script src="js/profiles.js"></script>
-  <script src="js/actions/ui-actions.js"></script>
-  <script src="js/state/channel-store.js"></script>
-  <script src="js/runtime/channel-button-runtime.js"></script>
-  <script src="js/runtime/standalone-button-runtime.js"></script>
-  <script src="js/actions/layout-actions.js"></script>
-  <script src="js/actions/channel-actions.js"></script>
-  <script src="js/actions/standalone-button-actions.js"></script>
-  <script src="js/channels.js"></script>
-  <script src="js/buttons.js"></script>
-  <script src="js/actions/midi-actions.js"></script>
-  <script src="js/midi/midi-service.js"></script>
-  <script src="js/midi-ui.js"></script>
-  <script src="js/ui/entity-editor.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/shell/composition-root.js"></script>
-</body>
+    <script src="js/shared/renderer-state-model.js"></script>
+    <script src="js/shared/channel-model.js"></script>
+    <script src="js/shared/channel-targeting.js"></script>
+    <script src="js/adapters/api-bridge.js"></script>
+    <script src="js/adapters/local-storage.js"></script>
+    <script src="js/adapters/language-storage.js"></script>
+    <script src="js/adapters/midi-selection-storage.js"></script>
+    <script src="js/adapters/ui-preferences-storage.js"></script>
+    <script src="js/adapters/profile-storage.js"></script>
+    <script src="js/i18n.js"></script>
+    <script src="js/toasts.js"></script>
+    <script src="js/state/store.js"></script>
+    <script src="js/state/layout-store.js"></script>
+    <script src="js/state/app-state.js"></script>
+    <script src="js/state/ui-store.js"></script>
+    <script src="js/runtime/audio-runtime.js"></script>
+    <script src="js/ui/modal-manager.js"></script>
+    <script src="js/dropdowns.js"></script>
+    <script src="js/actions/profile-actions.js"></script>
+    <script src="js/profiles/profile-store.js"></script>
+    <script src="js/profiles/profile-service.js"></script>
+    <script src="js/profiles.js"></script>
+    <script src="js/actions/ui-actions.js"></script>
+    <script src="js/state/channel-store.js"></script>
+    <script src="js/runtime/channel-button-runtime.js"></script>
+    <script src="js/runtime/standalone-button-runtime.js"></script>
+    <script src="js/actions/layout-actions.js"></script>
+    <script src="js/actions/channel-actions.js"></script>
+    <script src="js/actions/standalone-button-actions.js"></script>
+    <script src="js/channels.js"></script>
+    <script src="js/buttons.js"></script>
+    <script src="js/actions/midi-actions.js"></script>
+    <script src="js/midi/midi-service.js"></script>
+    <script src="js/midi-ui.js"></script>
+    <script src="js/ui/entity-editor.js"></script>
+    <script src="js/app.js"></script>
+    <script src="js/shell/composition-root.js"></script>
+  </body>
 </html>

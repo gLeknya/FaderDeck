@@ -71,7 +71,10 @@
     const promoteSubtitle = !showTitle && subtitleVisible;
 
     applyPresentationSettings(presentation);
-    dom.root?.classList.toggle('volume-hud--subtitle-promoted', promoteSubtitle);
+    dom.root?.classList.toggle(
+      'volume-hud--subtitle-promoted',
+      promoteSubtitle
+    );
     dom.root?.classList.toggle('is-muted', muted);
 
     if (dom.title) {
@@ -127,9 +130,15 @@
     toggleHidden(dom.muteOverlay, !muted);
     toggleHidden(dom.titles, !showTitle && (!showSubtitle || !subtitle));
     toggleHidden(dom.meta, !showPercent);
-    toggleHidden(dom.header, (!showTitle && (!showSubtitle || !subtitle)) && !showPercent);
+    toggleHidden(
+      dom.header,
+      !showTitle && (!showSubtitle || !subtitle) && !showPercent
+    );
     toggleHidden(dom.meter, !showMeter);
-    toggleHidden(dom.content, ((!showTitle && (!showSubtitle || !subtitle)) && !showPercent) && !showMeter);
+    toggleHidden(
+      dom.content,
+      !showTitle && (!showSubtitle || !subtitle) && !showPercent && !showMeter
+    );
   }
 
   function cacheDom() {

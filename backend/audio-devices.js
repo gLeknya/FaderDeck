@@ -5,7 +5,9 @@ const SCRIPT_PATH = path.join(__dirname, 'scripts', 'audio-device.ps1');
 const SERVER_REQUEST_TIMEOUT_MS = 8000;
 
 function normalizeFlow(flow = '') {
-  const normalized = String(flow || '').trim().toLowerCase();
+  const normalized = String(flow || '')
+    .trim()
+    .toLowerCase();
 
   if (normalized === 'output' || normalized === 'render') {
     return 'output';
@@ -109,7 +111,9 @@ class AudioDeviceManager {
       }
 
       if (parsedMessage?.ok === false) {
-        pending.reject(new Error(String(parsedMessage?.error || 'audio-device-server-error')));
+        pending.reject(
+          new Error(String(parsedMessage?.error || 'audio-device-server-error'))
+        );
         return;
       }
 
@@ -130,7 +134,9 @@ class AudioDeviceManager {
     });
 
     serverProcess.on('exit', (code, signal) => {
-      const exitError = new Error(`audio-device-server-exit:${code ?? 'null'}:${signal ?? 'null'}`);
+      const exitError = new Error(
+        `audio-device-server-exit:${code ?? 'null'}:${signal ?? 'null'}`
+      );
       this._log('audio-device-server exit', { code, signal });
       this._resetServerState(exitError);
     });
@@ -147,7 +153,11 @@ class AudioDeviceManager {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         this._serverPending.delete(requestId);
-        reject(new Error(`audio-device-server-timeout:${payload?.action || 'unknown'}`));
+        reject(
+          new Error(
+            `audio-device-server-timeout:${payload?.action || 'unknown'}`
+          )
+        );
       }, SERVER_REQUEST_TIMEOUT_MS);
 
       this._serverPending.set(requestId, {
@@ -157,7 +167,9 @@ class AudioDeviceManager {
       });
 
       try {
-        serverProcess.stdin.write(`${JSON.stringify({ id: requestId, ...payload })}\n`);
+        serverProcess.stdin.write(
+          `${JSON.stringify({ id: requestId, ...payload })}\n`
+        );
       } catch (error) {
         clearTimeout(timeoutId);
         this._serverPending.delete(requestId);
@@ -211,7 +223,12 @@ class AudioDeviceManager {
       };
     }
 
-    this._log('set_audio_device_volume', normalizedFlow, normalizedDeviceId, volume);
+    this._log(
+      'set_audio_device_volume',
+      normalizedFlow,
+      normalizedDeviceId,
+      volume
+    );
     return await this._sendServerCommand({
       action: 'set-volume',
       flow: normalizedFlow,
@@ -231,7 +248,12 @@ class AudioDeviceManager {
       };
     }
 
-    this._log('set_audio_device_mute', normalizedFlow, normalizedDeviceId, muted);
+    this._log(
+      'set_audio_device_mute',
+      normalizedFlow,
+      normalizedDeviceId,
+      muted
+    );
     return await this._sendServerCommand({
       action: 'set-mute',
       flow: normalizedFlow,

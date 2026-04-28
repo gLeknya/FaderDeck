@@ -1,45 +1,65 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;">
-  <title>Volume HUD</title>
-  <link rel="stylesheet" href="volume-hud.css">
-</head>
-<body>
-  <div class="volume-hud volume-hud--horizontal" id="volumeHud">
-    <div class="volume-hud__icon-shell hidden" id="volumeHudIconShell" aria-hidden="true">
-      <img class="volume-hud__icon" id="volumeHudIcon" alt="">
-    </div>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;"
+    />
+    <title>Volume HUD</title>
+    <link rel="stylesheet" href="volume-hud.css" />
+  </head>
+  <body>
+    <div class="volume-hud volume-hud--horizontal" id="volumeHud">
+      <div
+        class="volume-hud__icon-shell hidden"
+        id="volumeHudIconShell"
+        aria-hidden="true"
+      >
+        <img class="volume-hud__icon" id="volumeHudIcon" alt="" />
+      </div>
 
-    <div class="volume-hud__content" id="volumeHudContent">
-      <div class="volume-hud__header" id="volumeHudHeader">
-        <div class="volume-hud__titles" id="volumeHudTitles">
-          <div class="volume-hud__title" id="volumeHudTitle">System volume</div>
-          <div class="volume-hud__subtitle hidden" id="volumeHudSubtitle"></div>
+      <div class="volume-hud__content" id="volumeHudContent">
+        <div class="volume-hud__header" id="volumeHudHeader">
+          <div class="volume-hud__titles" id="volumeHudTitles">
+            <div class="volume-hud__title" id="volumeHudTitle">
+              System volume
+            </div>
+            <div
+              class="volume-hud__subtitle hidden"
+              id="volumeHudSubtitle"
+            ></div>
+          </div>
+
+          <div class="volume-hud__meta" id="volumeHudMeta">
+            <div class="volume-hud__value" id="volumeHudValue">0%</div>
+          </div>
         </div>
 
-        <div class="volume-hud__meta" id="volumeHudMeta">
-          <div class="volume-hud__value" id="volumeHudValue">0%</div>
+        <div class="volume-hud__meter" id="volumeHudMeter">
+          <div class="volume-hud__meter-fill" id="volumeHudMeterFill"></div>
+          <div class="volume-hud__meter-thumb" id="volumeHudMeterThumb"></div>
         </div>
       </div>
 
-      <div class="volume-hud__meter" id="volumeHudMeter">
-        <div class="volume-hud__meter-fill" id="volumeHudMeterFill"></div>
-        <div class="volume-hud__meter-thumb" id="volumeHudMeterThumb"></div>
+      <div
+        class="volume-hud__mute-overlay hidden"
+        id="volumeHudMuteOverlay"
+        aria-hidden="true"
+      >
+        <svg
+          class="volume-hud__mute-icon"
+          viewBox="0 0 24 24"
+          aria-hidden="true"
+        >
+          <path d="M5 10H8L13 6V18L8 14H5Z"></path>
+          <path d="M16 9L20 15"></path>
+          <path d="M20 9L16 15"></path>
+        </svg>
       </div>
     </div>
 
-    <div class="volume-hud__mute-overlay hidden" id="volumeHudMuteOverlay" aria-hidden="true">
-      <svg class="volume-hud__mute-icon" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M5 10H8L13 6V18L8 14H5Z"></path>
-        <path d="M16 9L20 15"></path>
-        <path d="M20 9L16 15"></path>
-      </svg>
-    </div>
-  </div>
-
-  <script src="volume-hud.js"></script>
-</body>
+    <script src="volume-hud.js"></script>
+  </body>
 </html>

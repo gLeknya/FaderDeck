@@ -1,3 +1,1 @@
-export const settingsFeatureScripts = [
-  '../actions/ui-actions.js'
-];
+export const settingsFeatureScripts = ['../actions/ui-actions.js'];

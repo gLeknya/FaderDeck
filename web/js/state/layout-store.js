@@ -74,7 +74,10 @@
   }
 
   function isEntityLayoutItemType(type) {
-    return type === LAYOUT_ITEM_TYPES.channel || type === LAYOUT_ITEM_TYPES.standaloneButton;
+    return (
+      type === LAYOUT_ITEM_TYPES.channel ||
+      type === LAYOUT_ITEM_TYPES.standaloneButton
+    );
   }
 
   function getDefaultZoneForLayoutType(type) {
@@ -121,7 +124,10 @@
       return createSpacerLayoutItem(item);
     }
 
-    if (type === LAYOUT_ITEM_TYPES.channel || type === LAYOUT_ITEM_TYPES.standaloneButton) {
+    if (
+      type === LAYOUT_ITEM_TYPES.channel ||
+      type === LAYOUT_ITEM_TYPES.standaloneButton
+    ) {
       return createEntityLayoutItem(type, item.entityId, item);
     }
 
@@ -135,7 +141,9 @@
   function getLayoutEntities(entities = {}) {
     return {
       channels: Array.isArray(entities.channels) ? entities.channels : [],
-      standaloneButtons: Array.isArray(entities.standaloneButtons) ? entities.standaloneButtons : []
+      standaloneButtons: Array.isArray(entities.standaloneButtons)
+        ? entities.standaloneButtons
+        : []
     };
   }
 
@@ -144,10 +152,14 @@
 
     return [
       ...normalizedEntities.channels
-        .map((channel) => createEntityLayoutItem(LAYOUT_ITEM_TYPES.channel, channel.id))
+        .map((channel) =>
+          createEntityLayoutItem(LAYOUT_ITEM_TYPES.channel, channel.id)
+        )
         .filter(Boolean),
       ...normalizedEntities.standaloneButtons
-        .map((button) => createEntityLayoutItem(LAYOUT_ITEM_TYPES.standaloneButton, button.id))
+        .map((button) =>
+          createEntityLayoutItem(LAYOUT_ITEM_TYPES.standaloneButton, button.id)
+        )
         .filter(Boolean)
     ];
   }
@@ -167,8 +179,12 @@
     const normalizedEntities = getLayoutEntities(entities);
     const itemsByZone = createLayoutItemsByZone();
     const availableEntityKeys = new Set([
-      ...normalizedEntities.channels.map((channel) => getLayoutEntityKey(LAYOUT_ITEM_TYPES.channel, channel.id)),
-      ...normalizedEntities.standaloneButtons.map((button) => getLayoutEntityKey(LAYOUT_ITEM_TYPES.standaloneButton, button.id))
+      ...normalizedEntities.channels.map((channel) =>
+        getLayoutEntityKey(LAYOUT_ITEM_TYPES.channel, channel.id)
+      ),
+      ...normalizedEntities.standaloneButtons.map((button) =>
+        getLayoutEntityKey(LAYOUT_ITEM_TYPES.standaloneButton, button.id)
+      )
     ]);
     const renderedEntityKeys = new Set();
 
@@ -181,9 +197,15 @@
         }
 
         if (isEntityLayoutItemType(normalizedItem.type)) {
-          const entityKey = getLayoutEntityKey(normalizedItem.type, normalizedItem.entityId);
+          const entityKey = getLayoutEntityKey(
+            normalizedItem.type,
+            normalizedItem.entityId
+          );
 
-          if (!availableEntityKeys.has(entityKey) || renderedEntityKeys.has(entityKey)) {
+          if (
+            !availableEntityKeys.has(entityKey) ||
+            renderedEntityKeys.has(entityKey)
+          ) {
             return;
           }
 
@@ -195,7 +217,10 @@
     }
 
     normalizedEntities.channels.forEach((channel) => {
-      const entityKey = getLayoutEntityKey(LAYOUT_ITEM_TYPES.channel, channel.id);
+      const entityKey = getLayoutEntityKey(
+        LAYOUT_ITEM_TYPES.channel,
+        channel.id
+      );
 
       if (renderedEntityKeys.has(entityKey)) {
         return;
@@ -208,7 +233,10 @@
     });
 
     normalizedEntities.standaloneButtons.forEach((button) => {
-      const entityKey = getLayoutEntityKey(LAYOUT_ITEM_TYPES.standaloneButton, button.id);
+      const entityKey = getLayoutEntityKey(
+        LAYOUT_ITEM_TYPES.standaloneButton,
+        button.id
+      );
 
       if (renderedEntityKeys.has(entityKey)) {
         return;
@@ -235,8 +263,12 @@
     }
 
     const itemId = dropPreview.itemId || null;
-    const zone = dropPreview.zone ? normalizeLayoutZone(dropPreview.zone, null) : null;
-    const position = ['before', 'after', 'inside'].includes(dropPreview.position)
+    const zone = dropPreview.zone
+      ? normalizeLayoutZone(dropPreview.zone, null)
+      : null;
+    const position = ['before', 'after', 'inside'].includes(
+      dropPreview.position
+    )
       ? dropPreview.position
       : null;
 
@@ -275,17 +307,22 @@
     return nextItems.every((item, index) => {
       const previousItem = previousItems[index];
 
-      return Boolean(previousItem)
-        && item.id === previousItem.id
-        && item.type === previousItem.type
-        && item.zone === previousItem.zone
-        && item.entityId === previousItem.entityId
-        && item.size === previousItem.size;
+      return (
+        Boolean(previousItem) &&
+        item.id === previousItem.id &&
+        item.type === previousItem.type &&
+        item.zone === previousItem.zone &&
+        item.entityId === previousItem.entityId &&
+        item.size === previousItem.size
+      );
     });
   }
 
   function areLayoutStatesEqual(nextLayout, previousLayout) {
-    return areLayoutItemsEqual(nextLayout?.items || [], previousLayout?.items || []);
+    return areLayoutItemsEqual(
+      nextLayout?.items || [],
+      previousLayout?.items || []
+    );
   }
 
   function areLayoutDropPreviewsEqual(nextPreview, previousPreview) {
@@ -297,19 +334,26 @@
       return false;
     }
 
-    return nextPreview.itemId === previousPreview.itemId
-      && nextPreview.zone === previousPreview.zone
-      && nextPreview.position === previousPreview.position;
+    return (
+      nextPreview.itemId === previousPreview.itemId &&
+      nextPreview.zone === previousPreview.zone &&
+      nextPreview.position === previousPreview.position
+    );
   }
 
   function areLayoutEditorStatesEqual(nextState, previousState) {
-    return Boolean(nextState)
-      && Boolean(previousState)
-      && nextState.enabled === previousState.enabled
-      && nextState.selectedItemId === previousState.selectedItemId
-      && nextState.hoveredItemId === previousState.hoveredItemId
-      && nextState.dragItemId === previousState.dragItemId
-      && areLayoutDropPreviewsEqual(nextState.dropPreview, previousState.dropPreview);
+    return (
+      Boolean(nextState) &&
+      Boolean(previousState) &&
+      nextState.enabled === previousState.enabled &&
+      nextState.selectedItemId === previousState.selectedItemId &&
+      nextState.hoveredItemId === previousState.hoveredItemId &&
+      nextState.dragItemId === previousState.dragItemId &&
+      areLayoutDropPreviewsEqual(
+        nextState.dropPreview,
+        previousState.dropPreview
+      )
+    );
   }
 
   function getCurrentLayoutEntitiesState() {
@@ -321,7 +365,10 @@
   }
 
   function getLayoutState() {
-    return normalizeLayoutState(window.getAppState?.().layout, getCurrentLayoutEntitiesState());
+    return normalizeLayoutState(
+      window.getAppState?.().layout,
+      getCurrentLayoutEntitiesState()
+    );
   }
 
   function getLayoutItemsState() {
@@ -349,13 +396,17 @@
       return null;
     }
 
-    return getLayoutItemsState().find((item) => (
-      item.type === type && item.entityId === normalizedEntityId
-    )) || null;
+    return (
+      getLayoutItemsState().find(
+        (item) => item.type === type && item.entityId === normalizedEntityId
+      ) || null
+    );
   }
 
   function getLayoutEditorSessionState() {
-    return normalizeLayoutEditorSessionState(window.getAppState?.().layoutEditor);
+    return normalizeLayoutEditorSessionState(
+      window.getAppState?.().layoutEditor
+    );
   }
 
   function isLayoutEditModeEnabledState() {
@@ -386,14 +437,21 @@
         channels: previousState.channels,
         standaloneButtons: previousState.standaloneButtons
       });
-      const currentLayoutState = normalizeLayoutState(previousState.layout, currentEntities);
-      const draftLayoutState = typeof updater === 'function'
-        ? updater(currentLayoutState) || currentLayoutState
-        : {
-          ...currentLayoutState,
-          ...(updater || {})
-        };
-      const normalizedLayoutState = normalizeLayoutState(draftLayoutState, currentEntities);
+      const currentLayoutState = normalizeLayoutState(
+        previousState.layout,
+        currentEntities
+      );
+      const draftLayoutState =
+        typeof updater === 'function'
+          ? updater(currentLayoutState) || currentLayoutState
+          : {
+              ...currentLayoutState,
+              ...(updater || {})
+            };
+      const normalizedLayoutState = normalizeLayoutState(
+        draftLayoutState,
+        currentEntities
+      );
 
       nextLayoutState = normalizedLayoutState;
 
@@ -419,14 +477,17 @@
   }
 
   function setLayoutItemsState(items, meta = {}) {
-    return updateLayoutState((layoutState) => ({
-      ...layoutState,
-      items: Array.isArray(items) ? items : layoutState.items
-    }), {
-      type: 'layout/set-items',
-      source: 'layout-store',
-      ...meta
-    });
+    return updateLayoutState(
+      (layoutState) => ({
+        ...layoutState,
+        items: Array.isArray(items) ? items : layoutState.items
+      }),
+      {
+        type: 'layout/set-items',
+        source: 'layout-store',
+        ...meta
+      }
+    );
   }
 
   function resolveZoneInsertIndex(zoneItems, index) {
@@ -434,10 +495,18 @@
       return zoneItems.length;
     }
 
-    return Math.max(0, Math.min(zoneItems.length, Number.parseInt(index, 10) || 0));
+    return Math.max(
+      0,
+      Math.min(zoneItems.length, Number.parseInt(index, 10) || 0)
+    );
   }
 
-  function insertLayoutItemAtZoneIndex(layoutItems, nextItem, index, options = {}) {
+  function insertLayoutItemAtZoneIndex(
+    layoutItems,
+    nextItem,
+    index,
+    options = {}
+  ) {
     const itemsByZone = createLayoutItemsByZone();
     const removedItemId = options.removedItemId || null;
 
@@ -450,7 +519,11 @@
     });
 
     const nextZoneItems = itemsByZone[nextItem.zone].slice();
-    nextZoneItems.splice(resolveZoneInsertIndex(nextZoneItems, index), 0, nextItem);
+    nextZoneItems.splice(
+      resolveZoneInsertIndex(nextZoneItems, index),
+      0,
+      nextItem
+    );
     itemsByZone[nextItem.zone] = nextZoneItems;
 
     return combineLayoutItemsByZone(itemsByZone);
@@ -463,26 +536,31 @@
       return null;
     }
 
-    updateLayoutState((layoutState) => {
-      const hasItem = layoutState.items.some((item) => (
-        item.type === defaultItem.type && item.entityId === defaultItem.entityId
-      ));
+    updateLayoutState(
+      (layoutState) => {
+        const hasItem = layoutState.items.some(
+          (item) =>
+            item.type === defaultItem.type &&
+            item.entityId === defaultItem.entityId
+        );
 
-      if (hasItem) {
-        return layoutState;
+        if (hasItem) {
+          return layoutState;
+        }
+
+        return {
+          ...layoutState,
+          items: [...layoutState.items, defaultItem]
+        };
+      },
+      {
+        type: 'layout/ensure-entity-item',
+        source: 'layout-store',
+        entityType: type,
+        entityId: defaultItem.entityId,
+        ...meta
       }
-
-      return {
-        ...layoutState,
-        items: [...layoutState.items, defaultItem]
-      };
-    }, {
-      type: 'layout/ensure-entity-item',
-      source: 'layout-store',
-      entityType: type,
-      entityId: defaultItem.entityId,
-      ...meta
-    });
+    );
 
     return findLayoutEntityItemState(type, entityId);
   }
@@ -490,37 +568,43 @@
   function moveLayoutItemState(itemId, targetIndex, options = {}, meta = {}) {
     let movedItem = null;
 
-    updateLayoutState((layoutState) => {
-      const currentItem = layoutState.items.find((item) => item.id === itemId);
+    updateLayoutState(
+      (layoutState) => {
+        const currentItem = layoutState.items.find(
+          (item) => item.id === itemId
+        );
 
-      if (!currentItem) {
-        return layoutState;
+        if (!currentItem) {
+          return layoutState;
+        }
+
+        const nextZone =
+          currentItem.type === LAYOUT_ITEM_TYPES.spacer
+            ? normalizeLayoutZone(options.zone, currentItem.zone)
+            : currentItem.zone;
+        movedItem = {
+          ...currentItem,
+          zone: nextZone
+        };
+
+        return {
+          ...layoutState,
+          items: insertLayoutItemAtZoneIndex(
+            layoutState.items,
+            movedItem,
+            targetIndex,
+            { removedItemId: currentItem.id }
+          )
+        };
+      },
+      {
+        type: 'layout/move-item',
+        source: 'layout-store',
+        itemId,
+        targetIndex,
+        ...meta
       }
-
-      const nextZone = currentItem.type === LAYOUT_ITEM_TYPES.spacer
-        ? normalizeLayoutZone(options.zone, currentItem.zone)
-        : currentItem.zone;
-      movedItem = {
-        ...currentItem,
-        zone: nextZone
-      };
-
-      return {
-        ...layoutState,
-        items: insertLayoutItemAtZoneIndex(
-          layoutState.items,
-          movedItem,
-          targetIndex,
-          { removedItemId: currentItem.id }
-        )
-      };
-    }, {
-      type: 'layout/move-item',
-      source: 'layout-store',
-      itemId,
-      targetIndex,
-      ...meta
-    });
+    );
 
     return movedItem;
   }
@@ -528,15 +612,22 @@
   function insertLayoutSpacerState(options = {}, meta = {}) {
     const nextSpacer = createSpacerLayoutItem(options);
 
-    updateLayoutState((layoutState) => ({
-      ...layoutState,
-      items: insertLayoutItemAtZoneIndex(layoutState.items, nextSpacer, options.index)
-    }), {
-      type: 'layout/insert-spacer',
-      source: 'layout-store',
-      itemId: nextSpacer.id,
-      ...meta
-    });
+    updateLayoutState(
+      (layoutState) => ({
+        ...layoutState,
+        items: insertLayoutItemAtZoneIndex(
+          layoutState.items,
+          nextSpacer,
+          options.index
+        )
+      }),
+      {
+        type: 'layout/insert-spacer',
+        source: 'layout-store',
+        itemId: nextSpacer.id,
+        ...meta
+      }
+    );
 
     return findLayoutItemState(nextSpacer.id);
   }
@@ -544,23 +635,27 @@
   function removeLayoutItemState(itemId, meta = {}) {
     let removedItem = null;
 
-    updateLayoutState((layoutState) => {
-      removedItem = layoutState.items.find((item) => item.id === itemId) || null;
+    updateLayoutState(
+      (layoutState) => {
+        removedItem =
+          layoutState.items.find((item) => item.id === itemId) || null;
 
-      if (!removedItem) {
-        return layoutState;
+        if (!removedItem) {
+          return layoutState;
+        }
+
+        return {
+          ...layoutState,
+          items: layoutState.items.filter((item) => item.id !== itemId)
+        };
+      },
+      {
+        type: 'layout/remove-item',
+        source: 'layout-store',
+        itemId,
+        ...meta
       }
-
-      return {
-        ...layoutState,
-        items: layoutState.items.filter((item) => item.id !== itemId)
-      };
-    }, {
-      type: 'layout/remove-item',
-      source: 'layout-store',
-      itemId,
-      ...meta
-    });
+    );
 
     return removedItem;
   }
@@ -573,28 +668,32 @@
       return removedItems;
     }
 
-    updateLayoutState((layoutState) => {
-      removedItems = layoutState.items.filter((item) => (
-        item.type === type && item.entityId === normalizedEntityId
-      ));
+    updateLayoutState(
+      (layoutState) => {
+        removedItems = layoutState.items.filter(
+          (item) => item.type === type && item.entityId === normalizedEntityId
+        );
 
-      if (!removedItems.length) {
-        return layoutState;
+        if (!removedItems.length) {
+          return layoutState;
+        }
+
+        return {
+          ...layoutState,
+          items: layoutState.items.filter(
+            (item) =>
+              !(item.type === type && item.entityId === normalizedEntityId)
+          )
+        };
+      },
+      {
+        type: 'layout/remove-entity-items',
+        source: 'layout-store',
+        entityType: type,
+        entityId: normalizedEntityId,
+        ...meta
       }
-
-      return {
-        ...layoutState,
-        items: layoutState.items.filter((item) => !(
-          item.type === type && item.entityId === normalizedEntityId
-        ))
-      };
-    }, {
-      type: 'layout/remove-entity-items',
-      source: 'layout-store',
-      entityType: type,
-      entityId: normalizedEntityId,
-      ...meta
-    });
+    );
 
     return removedItems;
   }
@@ -603,18 +702,28 @@
     let nextLayoutEditorState = null;
 
     window.setAppState?.((previousState) => {
-      const currentLayoutEditorState = normalizeLayoutEditorSessionState(previousState.layoutEditor);
-      const draftLayoutEditorState = typeof updater === 'function'
-        ? updater(currentLayoutEditorState) || currentLayoutEditorState
-        : {
-          ...currentLayoutEditorState,
-          ...(updater || {})
-        };
-      const normalizedLayoutEditorState = normalizeLayoutEditorSessionState(draftLayoutEditorState);
+      const currentLayoutEditorState = normalizeLayoutEditorSessionState(
+        previousState.layoutEditor
+      );
+      const draftLayoutEditorState =
+        typeof updater === 'function'
+          ? updater(currentLayoutEditorState) || currentLayoutEditorState
+          : {
+              ...currentLayoutEditorState,
+              ...(updater || {})
+            };
+      const normalizedLayoutEditorState = normalizeLayoutEditorSessionState(
+        draftLayoutEditorState
+      );
 
       nextLayoutEditorState = normalizedLayoutEditorState;
 
-      if (areLayoutEditorStatesEqual(normalizedLayoutEditorState, currentLayoutEditorState)) {
+      if (
+        areLayoutEditorStatesEqual(
+          normalizedLayoutEditorState,
+          currentLayoutEditorState
+        )
+      ) {
         return previousState;
       }
 
@@ -636,72 +745,96 @@
   }
 
   function patchLayoutEditorSessionState(patch, meta = {}) {
-    return updateLayoutEditorSessionState((layoutEditorState) => ({
-      ...layoutEditorState,
-      ...(patch || {})
-    }), {
-      type: 'layout-editor/patch',
-      source: 'layout-store',
-      ...meta
-    });
+    return updateLayoutEditorSessionState(
+      (layoutEditorState) => ({
+        ...layoutEditorState,
+        ...(patch || {})
+      }),
+      {
+        type: 'layout-editor/patch',
+        source: 'layout-store',
+        ...meta
+      }
+    );
   }
 
   function setLayoutEditModeEnabledState(enabled, meta = {}) {
-    return patchLayoutEditorSessionState({
-      enabled: Boolean(enabled)
-    }, {
-      type: 'layout-editor/set-enabled',
-      ...meta
-    });
+    return patchLayoutEditorSessionState(
+      {
+        enabled: Boolean(enabled)
+      },
+      {
+        type: 'layout-editor/set-enabled',
+        ...meta
+      }
+    );
   }
 
   function setSelectedLayoutItemIdState(itemId, meta = {}) {
-    return patchLayoutEditorSessionState({
-      selectedItemId: itemId || null
-    }, {
-      type: 'layout-editor/set-selection',
-      ...meta
-    });
+    return patchLayoutEditorSessionState(
+      {
+        selectedItemId: itemId || null
+      },
+      {
+        type: 'layout-editor/set-selection',
+        ...meta
+      }
+    );
   }
 
   function setHoveredLayoutItemIdState(itemId, meta = {}) {
-    return patchLayoutEditorSessionState({
-      hoveredItemId: itemId || null
-    }, {
-      type: 'layout-editor/set-hover',
-      ...meta
-    });
+    return patchLayoutEditorSessionState(
+      {
+        hoveredItemId: itemId || null
+      },
+      {
+        type: 'layout-editor/set-hover',
+        ...meta
+      }
+    );
   }
 
   function setDraggedLayoutItemIdState(itemId, meta = {}) {
-    return patchLayoutEditorSessionState({
-      dragItemId: itemId || null
-    }, {
-      type: 'layout-editor/set-drag-item',
-      ...meta
-    });
+    return patchLayoutEditorSessionState(
+      {
+        dragItemId: itemId || null
+      },
+      {
+        type: 'layout-editor/set-drag-item',
+        ...meta
+      }
+    );
   }
 
   function setLayoutDropPreviewState(dropPreview, meta = {}) {
-    return patchLayoutEditorSessionState({
-      dropPreview: normalizeLayoutDropPreview(dropPreview)
-    }, {
-      type: 'layout-editor/set-drop-preview',
-      ...meta
-    });
+    return patchLayoutEditorSessionState(
+      {
+        dropPreview: normalizeLayoutDropPreview(dropPreview)
+      },
+      {
+        type: 'layout-editor/set-drop-preview',
+        ...meta
+      }
+    );
   }
 
   function clearLayoutDropPreviewState(meta = {}) {
-    return patchLayoutEditorSessionState({
-      dropPreview: null
-    }, {
-      type: 'layout-editor/clear-drop-preview',
-      ...meta
-    });
+    return patchLayoutEditorSessionState(
+      {
+        dropPreview: null
+      },
+      {
+        type: 'layout-editor/clear-drop-preview',
+        ...meta
+      }
+    );
   }
 
   function subscribeLayoutState(listener) {
-    if (typeof listener !== 'function' || typeof window.subscribeAppState !== 'function') {
+    if (
+      typeof listener !== 'function' ||
+      typeof window.subscribeAppState !== 'function'
+    ) {
       return () => {};
     }
 
@@ -724,15 +857,27 @@
   }
 
   function subscribeLayoutEditorSessionState(listener) {
-    if (typeof listener !== 'function' || typeof window.subscribeAppState !== 'function') {
+    if (
+      typeof listener !== 'function' ||
+      typeof window.subscribeAppState !== 'function'
+    ) {
       return () => {};
     }
 
     return window.subscribeAppState((nextState, previousState, meta = {}) => {
-      const nextLayoutEditorState = normalizeLayoutEditorSessionState(nextState.layoutEditor);
-      const previousLayoutEditorState = normalizeLayoutEditorSessionState(previousState.layoutEditor);
+      const nextLayoutEditorState = normalizeLayoutEditorSessionState(
+        nextState.layoutEditor
+      );
+      const previousLayoutEditorState = normalizeLayoutEditorSessionState(
+        previousState.layoutEditor
+      );
 
-      if (areLayoutEditorStatesEqual(nextLayoutEditorState, previousLayoutEditorState)) {
+      if (
+        areLayoutEditorStatesEqual(
+          nextLayoutEditorState,
+          previousLayoutEditorState
+        )
+      ) {
         return;
       }
 
@@ -743,7 +888,8 @@
   window.LAYOUT_ZONES = LAYOUT_ZONES;
   window.LAYOUT_ITEM_TYPES = LAYOUT_ITEM_TYPES;
   window.createEmptyLayoutState = createEmptyLayoutState;
-  window.createDefaultLayoutEditorSessionState = createDefaultLayoutEditorSessionState;
+  window.createDefaultLayoutEditorSessionState =
+    createDefaultLayoutEditorSessionState;
   window.createEntityLayoutItem = createEntityLayoutItem;
   window.createSpacerLayoutItem = createSpacerLayoutItem;
   window.normalizeLayoutItem = normalizeLayoutItem;

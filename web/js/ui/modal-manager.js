@@ -21,7 +21,9 @@
   }
 
   function getActiveEntry() {
-    return modalSessionState.activeModalId ? getEntry(modalSessionState.activeModalId) : null;
+    return modalSessionState.activeModalId
+      ? getEntry(modalSessionState.activeModalId)
+      : null;
   }
 
   function focusModal(entry) {
@@ -29,9 +31,13 @@
       return;
     }
 
-    const focusSelector = entry.options.initialFocusSelector
-      || '[autofocus], input, button, select, textarea, [tabindex]:not([tabindex="-1"])';
-    const target = entry.element.querySelector(focusSelector) || entry.content || entry.element;
+    const focusSelector =
+      entry.options.initialFocusSelector ||
+      '[autofocus], input, button, select, textarea, [tabindex]:not([tabindex="-1"])';
+    const target =
+      entry.element.querySelector(focusSelector) ||
+      entry.content ||
+      entry.element;
 
     if (typeof target?.focus === 'function') {
       target.focus({ preventScroll: true });
@@ -39,7 +45,10 @@
   }
 
   function syncBodyState() {
-    document.body.classList.toggle('modal-open', Boolean(modalSessionState.activeModalId));
+    document.body.classList.toggle(
+      'modal-open',
+      Boolean(modalSessionState.activeModalId)
+    );
   }
 
   function getVisibleClassName(entry) {
@@ -64,7 +73,11 @@
     const closingClassName = getClosingClassName(entry);
 
     clearCloseTimer(entry);
-    entry.element.classList.remove('active', visibleClassName, closingClassName);
+    entry.element.classList.remove(
+      'active',
+      visibleClassName,
+      closingClassName
+    );
     entry.element.setAttribute('aria-hidden', 'true');
     entry.state.payload = null;
     entry.state.opener = null;
@@ -92,7 +105,10 @@
 
     const payload = entry.state.payload;
     const opener = entry.state.opener;
-    const transitionDuration = Math.max(0, Number(entry.options.transitionDuration) || 0);
+    const transitionDuration = Math.max(
+      0,
+      Number(entry.options.transitionDuration) || 0
+    );
     const visibleClassName = getVisibleClassName(entry);
     const closingClassName = getClosingClassName(entry);
 
@@ -121,15 +137,22 @@
       return false;
     }
 
-    if (modalSessionState.activeModalId && modalSessionState.activeModalId !== modalId) {
-      closeModal(modalSessionState.activeModalId, { reason: 'switch', nextModalId: modalId });
+    if (
+      modalSessionState.activeModalId &&
+      modalSessionState.activeModalId !== modalId
+    ) {
+      closeModal(modalSessionState.activeModalId, {
+        reason: 'switch',
+        nextModalId: modalId
+      });
     }
 
     clearCloseTimer(entry);
     entry.state.payload = payload;
-    entry.state.opener = document.activeElement instanceof HTMLElement
-      ? document.activeElement
-      : null;
+    entry.state.opener =
+      document.activeElement instanceof HTMLElement
+        ? document.activeElement
+        : null;
     entry.element.classList.add('active');
     entry.element.classList.remove(getClosingClassName(entry));
     entry.element.setAttribute('aria-hidden', 'false');
@@ -157,7 +180,10 @@
     }
 
     entry.element.dataset.modalManagerBound = 'true';
-    entry.element.setAttribute('aria-hidden', entry.element.classList.contains('active') ? 'false' : 'true');
+    entry.element.setAttribute(
+      'aria-hidden',
+      entry.element.classList.contains('active') ? 'false' : 'true'
+    );
 
     entry.element.addEventListener('click', (event) => {
       const closeTrigger = event.target.closest('[data-modal-close]');
@@ -168,14 +194,19 @@
         return;
       }
 
-      if (event.target === entry.element && entry.options.closeOnOverlay !== false) {
+      if (
+        event.target === entry.element &&
+        entry.options.closeOnOverlay !== false
+      ) {
         closeModal(entry.id, { reason: 'overlay' });
       }
     });
   }
 
   function registerModal(modalId, options = {}) {
-    const element = resolveElement(options.element || options.elementId || modalId);
+    const element = resolveElement(
+      options.element || options.elementId || modalId
+    );
 
     if (!element) {
       console.warn(`Modal element for "${modalId}" was not found`);
@@ -229,5 +260,7 @@
   globalScope.closeModal = closeModal;
   globalScope.closeActiveModal = closeActiveModal;
   globalScope.getActiveModalId = () => modalSessionState.activeModalId;
-  globalScope.getModalSessionState = () => ({ activeModalId: modalSessionState.activeModalId });
+  globalScope.getModalSessionState = () => ({
+    activeModalId: modalSessionState.activeModalId
+  });
 })(window);

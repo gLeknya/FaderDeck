@@ -11,12 +11,7 @@ const commonjsFiles = [
 
 export default [
   {
-    ignores: [
-      'node_modules/**',
-      'release/**',
-      'dist/**',
-      'coverage/**'
-    ]
+    ignores: ['node_modules/**', 'release/**', 'dist/**', 'coverage/**']
   },
   {
     ...js.configs.recommended,

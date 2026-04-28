@@ -28,8 +28,16 @@ function normalizeDimension(value, fallback, minValue) {
 
 function normalizeMainWindowState(state = {}) {
   return {
-    width: normalizeDimension(state.width, DEFAULT_MAIN_WINDOW_STATE.width, 980),
-    height: normalizeDimension(state.height, DEFAULT_MAIN_WINDOW_STATE.height, 640),
+    width: normalizeDimension(
+      state.width,
+      DEFAULT_MAIN_WINDOW_STATE.width,
+      980
+    ),
+    height: normalizeDimension(
+      state.height,
+      DEFAULT_MAIN_WINDOW_STATE.height,
+      640
+    ),
     x: normalizeCoordinate(state.x),
     y: normalizeCoordinate(state.y),
     isMaximized: state.isMaximized === true
@@ -39,37 +47,40 @@ function normalizeMainWindowState(state = {}) {
 async function getStoreInstance() {
   if (!storePromise) {
     storePromise = import('electron-store')
-      .then(({ default: Store }) => new Store({
-        name: 'app-state',
-        defaults: {
-          mainWindow: DEFAULT_MAIN_WINDOW_STATE
-        },
-        schema: {
-          mainWindow: {
-            type: 'object',
-            additionalProperties: false,
-            properties: {
-              width: {
-                type: 'number',
-                minimum: 980
-              },
-              height: {
-                type: 'number',
-                minimum: 640
-              },
-              x: {
-                type: ['number', 'null']
-              },
-              y: {
-                type: ['number', 'null']
-              },
-              isMaximized: {
-                type: 'boolean'
+      .then(
+        ({ default: Store }) =>
+          new Store({
+            name: 'app-state',
+            defaults: {
+              mainWindow: DEFAULT_MAIN_WINDOW_STATE
+            },
+            schema: {
+              mainWindow: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  width: {
+                    type: 'number',
+                    minimum: 980
+                  },
+                  height: {
+                    type: 'number',
+                    minimum: 640
+                  },
+                  x: {
+                    type: ['number', 'null']
+                  },
+                  y: {
+                    type: ['number', 'null']
+                  },
+                  isMaximized: {
+                    type: 'boolean'
+                  }
+                }
               }
             }
-          }
-        }
-      }))
+          })
+      )
       .catch((error) => {
         storePromise = null;
         throw error;

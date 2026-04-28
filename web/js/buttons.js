@@ -7,63 +7,75 @@ const buttonModalSessionState = {
 };
 
 function getChannelButtonActionTypes() {
-  return window.CHANNEL_BUTTON_ACTION_TYPES || {
-    none: 'none',
-    mute: 'mute',
-    solo: 'solo',
-    setVolume: 'set-volume',
-    toggleAppVisibility: 'toggle-app-visibility',
-    sendKey: 'send-key',
-    mediaPreviousTrack: 'media-previous-track',
-    mediaNextTrack: 'media-next-track',
-    mediaPlay: 'media-play',
-    mediaPause: 'media-pause',
-    mediaPlayPause: 'media-play-pause',
-    mediaRewind: 'media-rewind',
-    mediaFastForward: 'media-fast-forward',
-    mediaRepeat: 'media-repeat',
-    mediaShuffle: 'media-shuffle',
-    runUserScript: 'run-user-script',
-    launchApp: 'launch-app',
-    setDefaultOutputDevice: 'set-default-output-device',
-    setDefaultInputDevice: 'set-default-input-device'
-  };
+  return (
+    window.CHANNEL_BUTTON_ACTION_TYPES || {
+      none: 'none',
+      mute: 'mute',
+      solo: 'solo',
+      setVolume: 'set-volume',
+      toggleAppVisibility: 'toggle-app-visibility',
+      sendKey: 'send-key',
+      mediaPreviousTrack: 'media-previous-track',
+      mediaNextTrack: 'media-next-track',
+      mediaPlay: 'media-play',
+      mediaPause: 'media-pause',
+      mediaPlayPause: 'media-play-pause',
+      mediaRewind: 'media-rewind',
+      mediaFastForward: 'media-fast-forward',
+      mediaRepeat: 'media-repeat',
+      mediaShuffle: 'media-shuffle',
+      runUserScript: 'run-user-script',
+      launchApp: 'launch-app',
+      setDefaultOutputDevice: 'set-default-output-device',
+      setDefaultInputDevice: 'set-default-input-device'
+    }
+  );
 }
 
 function getChannelButtonIndicatorTypes() {
-  return window.CHANNEL_BUTTON_INDICATOR_TYPES || {
-    toggle: 'toggle',
-    meter: 'meter',
-    press: 'press'
-  };
+  return (
+    window.CHANNEL_BUTTON_INDICATOR_TYPES || {
+      toggle: 'toggle',
+      meter: 'meter',
+      press: 'press'
+    }
+  );
 }
 
 function getChannelButtonIndicatorBehaviors() {
-  return window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
-    actionState: 'action-state',
-    peakMeter: 'peak-meter',
-    targetActivity: 'target-activity'
-  };
+  return (
+    window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
+      actionState: 'action-state',
+      peakMeter: 'peak-meter',
+      targetActivity: 'target-activity'
+    }
+  );
 }
 
 function getDefaultChannelButtonIndicatorThreshold() {
-  return Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20) || -20;
+  return (
+    Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20) || -20
+  );
 }
 
 function getChannelButtonContentModes() {
-  return window.CHANNEL_BUTTON_CONTENT_MODES || {
-    iconTitle: 'icon-title',
-    iconOnly: 'icon-only',
-    titleOnly: 'title-only'
-  };
+  return (
+    window.CHANNEL_BUTTON_CONTENT_MODES || {
+      iconTitle: 'icon-title',
+      iconOnly: 'icon-only',
+      titleOnly: 'title-only'
+    }
+  );
 }
 
 function getChannelButtonMetaModes() {
-  return window.CHANNEL_BUTTON_META_MODES || {
-    actionIndicator: 'action-indicator',
-    actionOnly: 'action-only',
-    indicatorOnly: 'indicator-only'
-  };
+  return (
+    window.CHANNEL_BUTTON_META_MODES || {
+      actionIndicator: 'action-indicator',
+      actionOnly: 'action-only',
+      indicatorOnly: 'indicator-only'
+    }
+  );
 }
 
 function normalizeChannelButton(button = {}) {
@@ -86,7 +98,6 @@ function translateButtonLabel(key, fallback) {
   return value === key ? fallback : value;
 }
 
-
 function getChannelButtonActionLabel(button = {}, options = {}) {
   const normalizedButton = normalizeChannelButton(button);
   const actionTypes = getChannelButtonActionTypes();
@@ -103,45 +114,36 @@ function getChannelButtonActionLabel(button = {}, options = {}) {
   }
 
   if (normalizedButton.actionType === actionTypes.sendKey) {
-    return isCompact
-      ? 'KEY'
-      : t('editor.buttonActionSendKey');
+    return isCompact ? 'KEY' : t('editor.buttonActionSendKey');
   }
 
   if (normalizedButton.actionType === actionTypes.toggleAppVisibility) {
     return isCompact
       ? 'APP'
-      : translateButtonLabel('editor.buttonActionToggleAppVisibility', 'Open / hide app');
+      : translateButtonLabel(
+          'editor.buttonActionToggleAppVisibility',
+          'Open / hide app'
+        );
   }
 
   if (normalizedButton.actionType === actionTypes.mediaPreviousTrack) {
-    return isCompact
-      ? 'PREV'
-      : t('editor.buttonActionMediaPrevious');
+    return isCompact ? 'PREV' : t('editor.buttonActionMediaPrevious');
   }
 
   if (normalizedButton.actionType === actionTypes.mediaNextTrack) {
-    return isCompact
-      ? 'NEXT'
-      : t('editor.buttonActionMediaNext');
+    return isCompact ? 'NEXT' : t('editor.buttonActionMediaNext');
   }
 
   if (normalizedButton.actionType === actionTypes.mediaPlay) {
-    return isCompact
-      ? 'PLAY'
-      : t('editor.buttonActionMediaPlay');
+    return isCompact ? 'PLAY' : t('editor.buttonActionMediaPlay');
   }
 
   if (normalizedButton.actionType === actionTypes.mediaPause) {
-    return isCompact
-      ? 'PAUSE'
-      : t('editor.buttonActionMediaPause');
+    return isCompact ? 'PAUSE' : t('editor.buttonActionMediaPause');
   }
 
   if (normalizedButton.actionType === actionTypes.mediaPlayPause) {
-    return isCompact
-      ? 'PLAY/PAUSE'
-      : t('editor.buttonActionMediaPlayPause');
+    return isCompact ? 'PLAY/PAUSE' : t('editor.buttonActionMediaPlayPause');
   }
 
   if (normalizedButton.actionType === actionTypes.mediaRewind) {
@@ -153,7 +155,10 @@ function getChannelButtonActionLabel(button = {}, options = {}) {
   if (normalizedButton.actionType === actionTypes.mediaFastForward) {
     return isCompact
       ? 'FWD'
-      : translateButtonLabel('editor.buttonActionMediaFastForward', 'Fast forward');
+      : translateButtonLabel(
+          'editor.buttonActionMediaFastForward',
+          'Fast forward'
+        );
   }
 
   if (normalizedButton.actionType === actionTypes.mediaRepeat) {
@@ -183,13 +188,19 @@ function getChannelButtonActionLabel(button = {}, options = {}) {
   if (normalizedButton.actionType === actionTypes.setDefaultOutputDevice) {
     return isCompact
       ? 'OUT'
-      : translateButtonLabel('editor.buttonActionSetDefaultOutputDevice', 'Set output device');
+      : translateButtonLabel(
+          'editor.buttonActionSetDefaultOutputDevice',
+          'Set output device'
+        );
   }
 
   if (normalizedButton.actionType === actionTypes.setDefaultInputDevice) {
     return isCompact
       ? 'IN'
-      : translateButtonLabel('editor.buttonActionSetDefaultInputDevice', 'Set input device');
+      : translateButtonLabel(
+          'editor.buttonActionSetDefaultInputDevice',
+          'Set input device'
+        );
   }
 
   if (normalizedButton.actionType === actionTypes.none) {
@@ -418,20 +429,21 @@ function buildChannelButtonPresentation(channel, button) {
   const runtimeKey = `${channel.id}:${normalizedButton.id}`;
   // Button runtime is owned by the runtime layer now; buttons.js only
   // consumes the current derived state for rendering.
-  const runtimeState = typeof window.getChannelButtonState === 'function'
-    ? window.getChannelButtonState(channel.id, normalizedButton.id)
-    : {
-      actionActive: false,
-      visualActive: false,
-      indicatorActive: false,
-      meterLevel: 0,
-      latched: false,
-      flashActive: false,
-      pressed: false,
-      hasTargets: false,
-      indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
-      buttonIndicatorType: getChannelButtonIndicatorTypes().press
-    };
+  const runtimeState =
+    typeof window.getChannelButtonState === 'function'
+      ? window.getChannelButtonState(channel.id, normalizedButton.id)
+      : {
+          actionActive: false,
+          visualActive: false,
+          indicatorActive: false,
+          meterLevel: 0,
+          latched: false,
+          flashActive: false,
+          pressed: false,
+          hasTargets: false,
+          indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
+          buttonIndicatorType: getChannelButtonIndicatorTypes().press
+        };
   const showIcon = normalizedButton.contentDisplay !== contentModes.titleOnly;
   const showTitle = normalizedButton.contentDisplay !== contentModes.iconOnly;
 
@@ -452,9 +464,12 @@ function renderChannelButtonBodyMarkup(channel, button) {
     <span class="channel-button-face" data-channel-button-runtime-key="${presentation.runtimeKey}">
       <span class="channel-button-main">
         ${presentation.showIcon ? renderChannelButtonIconMarkup(presentation.button) : ''}
-        ${presentation.showTitle && String(presentation.button.text || '').trim()
-          ? `<span class="button-label">${escapeButtonMarkup(presentation.button.text)}</span>`
-          : ''}
+        ${
+          presentation.showTitle &&
+          String(presentation.button.text || '').trim()
+            ? `<span class="button-label">${escapeButtonMarkup(presentation.button.text)}</span>`
+            : ''
+        }
       </span>
     </span>
   `;
@@ -463,9 +478,11 @@ function renderChannelButtonBodyMarkup(channel, button) {
 function getChannelButtonClassName(channel, button) {
   const presentation = buildChannelButtonPresentation(channel, button);
   const classNames = ['channel-side-button'];
-  const indicatorSuffix = presentation.button.indicatorBehavior === getChannelButtonIndicatorBehaviors().peakMeter
-    ? 'meter'
-    : presentation.button.indicatorMode;
+  const indicatorSuffix =
+    presentation.button.indicatorBehavior ===
+    getChannelButtonIndicatorBehaviors().peakMeter
+      ? 'meter'
+      : presentation.button.indicatorMode;
 
   if (presentation.isActive) {
     classNames.push('active');
@@ -476,7 +493,9 @@ function getChannelButtonClassName(channel, button) {
   }
 
   if (presentation.button.contentDisplay) {
-    classNames.push(`channel-side-button--${presentation.button.contentDisplay}`);
+    classNames.push(
+      `channel-side-button--${presentation.button.contentDisplay}`
+    );
   }
 
   if (indicatorSuffix) {
@@ -488,23 +507,25 @@ function getChannelButtonClassName(channel, button) {
 
 function buildStandaloneButtonPresentation(button) {
   const normalizedButton = normalizeChannelButton(button);
-  const runtimeKey = typeof window.standaloneButtonRuntime?.getRuntimeKey === 'function'
-    ? window.standaloneButtonRuntime.getRuntimeKey(normalizedButton.id)
-    : `standalone:${normalizedButton.id}`;
-  const runtimeState = typeof window.getStandaloneButtonState === 'function'
-    ? window.getStandaloneButtonState(normalizedButton.id)
-    : {
-      actionActive: false,
-      visualActive: false,
-      indicatorActive: false,
-      meterLevel: 0,
-      latched: false,
-      flashActive: false,
-      pressed: false,
-      hasTargets: false,
-      indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
-      buttonIndicatorType: getChannelButtonIndicatorTypes().press
-    };
+  const runtimeKey =
+    typeof window.standaloneButtonRuntime?.getRuntimeKey === 'function'
+      ? window.standaloneButtonRuntime.getRuntimeKey(normalizedButton.id)
+      : `standalone:${normalizedButton.id}`;
+  const runtimeState =
+    typeof window.getStandaloneButtonState === 'function'
+      ? window.getStandaloneButtonState(normalizedButton.id)
+      : {
+          actionActive: false,
+          visualActive: false,
+          indicatorActive: false,
+          meterLevel: 0,
+          latched: false,
+          flashActive: false,
+          pressed: false,
+          hasTargets: false,
+          indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
+          buttonIndicatorType: getChannelButtonIndicatorTypes().press
+        };
   const showIcon = true;
   const showTitle = false;
 
@@ -520,7 +541,8 @@ function buildStandaloneButtonPresentation(button) {
 
 function renderStandaloneButtonBodyMarkup(button, options = {}) {
   const presentation = buildStandaloneButtonPresentation(button);
-  const labelText = String(presentation.button.text || '').trim() || t('buttons.defaultLabel');
+  const labelText =
+    String(presentation.button.text || '').trim() || t('buttons.defaultLabel');
   const iconButton = options?.iconOverride
     ? {
         ...presentation.button,
@@ -532,9 +554,11 @@ function renderStandaloneButtonBodyMarkup(button, options = {}) {
     <span class="channel-button-face" data-standalone-button-runtime-key="${presentation.runtimeKey}">
       <span class="channel-button-main">
         ${presentation.showIcon ? renderChannelButtonIconMarkup(iconButton) : ''}
-        ${presentation.showTitle
-          ? `<span class="button-label">${escapeButtonMarkup(labelText)}</span>`
-          : ''}
+        ${
+          presentation.showTitle
+            ? `<span class="button-label">${escapeButtonMarkup(labelText)}</span>`
+            : ''
+        }
       </span>
     </span>
   `;
@@ -543,9 +567,11 @@ function renderStandaloneButtonBodyMarkup(button, options = {}) {
 function getStandaloneButtonClassName(button) {
   const presentation = buildStandaloneButtonPresentation(button);
   const classNames = ['standalone-button', 'channel-side-button--icon-only'];
-  const indicatorSuffix = presentation.button.indicatorBehavior === getChannelButtonIndicatorBehaviors().peakMeter
-    ? 'meter'
-    : presentation.button.indicatorMode;
+  const indicatorSuffix =
+    presentation.button.indicatorBehavior ===
+    getChannelButtonIndicatorBehaviors().peakMeter
+      ? 'meter'
+      : presentation.button.indicatorMode;
 
   if (presentation.isActive) {
     classNames.push('active');
@@ -556,7 +582,9 @@ function getStandaloneButtonClassName(button) {
   }
 
   if (presentation.button.contentDisplay) {
-    classNames.push(`channel-side-button--${presentation.button.contentDisplay}`);
+    classNames.push(
+      `channel-side-button--${presentation.button.contentDisplay}`
+    );
   }
 
   if (indicatorSuffix) {
@@ -567,11 +595,15 @@ function getStandaloneButtonClassName(button) {
 }
 
 function findChannel(channelId) {
-  return typeof findChannelState === 'function' ? findChannelState(channelId) : null;
+  return typeof findChannelState === 'function'
+    ? findChannelState(channelId)
+    : null;
 }
 
 function findStandaloneButton(buttonId) {
-  return typeof findStandaloneButtonState === 'function' ? findStandaloneButtonState(buttonId) : null;
+  return typeof findStandaloneButtonState === 'function'
+    ? findStandaloneButtonState(buttonId)
+    : null;
 }
 
 function isMediaControllerStandaloneButton(button = {}) {
@@ -579,18 +611,20 @@ function isMediaControllerStandaloneButton(button = {}) {
 }
 
 function getRenderableStandaloneButtonsState() {
-  return (getStandaloneButtonsState?.() || []).filter((button) => !isMediaControllerStandaloneButton(button));
+  return (getStandaloneButtonsState?.() || []).filter(
+    (button) => !isMediaControllerStandaloneButton(button)
+  );
 }
 
 function getStandaloneLayoutItems() {
   return typeof getLayoutItemsByZoneState === 'function'
     ? getLayoutItemsByZoneState(window.LAYOUT_ZONES?.standalone || 'standalone')
     : getRenderableStandaloneButtonsState().map((button) => ({
-      id: `layout-standalone-button-${button.id}`,
-      type: window.LAYOUT_ITEM_TYPES?.standaloneButton || 'standalone-button',
-      zone: window.LAYOUT_ZONES?.standalone || 'standalone',
-      entityId: button.id
-    }));
+        id: `layout-standalone-button-${button.id}`,
+        type: window.LAYOUT_ITEM_TYPES?.standaloneButton || 'standalone-button',
+        zone: window.LAYOUT_ZONES?.standalone || 'standalone',
+        entityId: button.id
+      }));
 }
 
 function getStandaloneLayoutEditModeEnabled() {
@@ -658,7 +692,9 @@ function getStandaloneLayoutItemClassName(layoutItem) {
   }
 
   if (dropPreview?.itemId === layoutItem.id) {
-    classNames.push(dropPreview.position === 'before' ? 'is-drop-before' : 'is-drop-after');
+    classNames.push(
+      dropPreview.position === 'before' ? 'is-drop-before' : 'is-drop-after'
+    );
   }
 
   if (layoutItem.type === (window.LAYOUT_ITEM_TYPES?.spacer || 'spacer')) {
@@ -673,7 +709,8 @@ function getStandaloneLayoutInteractionAttributes(layoutItem) {
     return '';
   }
 
-  const zone = layoutItem.zone || window.LAYOUT_ZONES?.standalone || 'standalone';
+  const zone =
+    layoutItem.zone || window.LAYOUT_ZONES?.standalone || 'standalone';
 
   return `
     draggable="true"
@@ -755,7 +792,8 @@ function createDefaultButton() {
     actionMode: window.CHANNEL_BUTTON_INTERACTION_MODES?.trigger || 'trigger',
     actionValue: window.DEFAULT_CHANNEL_BUTTON_ACTION_VALUE ?? 50,
     indicatorEnabled: true,
-    indicatorMode: window.CHANNEL_BUTTON_INTERACTION_MODES?.trigger || 'trigger',
+    indicatorMode:
+      window.CHANNEL_BUTTON_INTERACTION_MODES?.trigger || 'trigger',
     indicatorModeLinkedToAction: false,
     indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
     indicatorThreshold: getDefaultChannelButtonIndicatorThreshold(),
@@ -781,7 +819,10 @@ function addChannelButton(channelId) {
     return null;
   }
 
-  const button = window.channelActions?.addChannelButton(channelId, createDefaultButton(), { source: 'ui' }) || null;
+  const button =
+    window.channelActions?.addChannelButton(channelId, createDefaultButton(), {
+      source: 'ui'
+    }) || null;
 
   if (button) {
     window.channelActions?.markChannelConfigured(channelId, { source: 'ui' });
@@ -825,7 +866,11 @@ function addAndConfigureChannelButton(channelId) {
 }
 
 async function toggleButton(channelId, buttonId) {
-  const button = await window.channelActions?.executeChannelButton?.(channelId, buttonId, { source: 'ui' });
+  const button = await window.channelActions?.executeChannelButton?.(
+    channelId,
+    buttonId,
+    { source: 'ui' }
+  );
 
   if (!button) {
     return null;
@@ -857,7 +902,9 @@ function renderStandaloneButtons() {
   const container = document.getElementById('standaloneButtons');
   const standaloneButtonsList = getRenderableStandaloneButtonsState();
   const layoutItems = getStandaloneLayoutItems();
-  const buttonsById = new Map(standaloneButtonsList.map((button) => [button.id, button]));
+  const buttonsById = new Map(
+    standaloneButtonsList.map((button) => [button.id, button])
+  );
   const layoutEditModeEnabled = getStandaloneLayoutEditModeEnabled();
 
   if (!container) {
@@ -907,20 +954,24 @@ function renderStandaloneButtons() {
     })
     .join('');
 
-  const addMarkup = standaloneButtonsList.length < MAX_STANDALONE_BUTTONS
-    ? `
+  const addMarkup =
+    standaloneButtonsList.length < MAX_STANDALONE_BUTTONS
+      ? `
       <div class="standalone-add-strip ${layoutEditModeEnabled ? 'is-disabled' : ''}" ${layoutEditModeEnabled ? '' : 'onclick="addStandaloneButton()"'} >
         <div class="add-channel-plus">+</div>
       </div>
     `
-    : '';
+      : '';
 
   container.innerHTML = `${buttonsMarkup}${renderStandaloneLayoutInsertControl()}${addMarkup}`;
   scheduleContentMetricsUpdate();
 }
 
 function toggleStandaloneButton(buttonId) {
-  const button = window.standaloneButtonActions?.executeStandaloneButton?.(buttonId, { source: 'ui' });
+  const button = window.standaloneButtonActions?.executeStandaloneButton?.(
+    buttonId,
+    { source: 'ui' }
+  );
 
   if (!button) {
     return null;
@@ -958,9 +1009,11 @@ async function remapStandaloneButton(buttonId) {
     return null;
   }
 
-  return window.midiActions?.learnStandaloneButtonMapping?.(Number(buttonId), {
-    source: 'buttons-ui'
-  }) || null;
+  return (
+    window.midiActions?.learnStandaloneButtonMapping?.(Number(buttonId), {
+      source: 'buttons-ui'
+    }) || null
+  );
 }
 
 function closeButtonModal() {
@@ -969,7 +1022,9 @@ function closeButtonModal() {
 
 function readButtonFormState() {
   return {
-    text: document.getElementById('buttonText').value.trim() || t('buttons.defaultLabel'),
+    text:
+      document.getElementById('buttonText').value.trim() ||
+      t('buttons.defaultLabel'),
     icon: document.getElementById('buttonIcon').value.trim() || 'BTN',
     note: Number.parseInt(document.getElementById('buttonNote').value, 10) || 0,
     key: document.getElementById('buttonKey').value || null
@@ -991,13 +1046,17 @@ function saveButtonConfig() {
   const nextConfig = readButtonFormState();
 
   if (buttonModalSessionState.currentConfig.standalone) {
-    updateStandaloneButtonState?.(buttonModalSessionState.currentConfig.buttonId, (standaloneButton) => {
-      applyButtonConfig(standaloneButton, nextConfig);
-      return standaloneButton;
-    }, {
-      type: 'standalone-buttons/configure',
-      source: 'ui'
-    });
+    updateStandaloneButtonState?.(
+      buttonModalSessionState.currentConfig.buttonId,
+      (standaloneButton) => {
+        applyButtonConfig(standaloneButton, nextConfig);
+        return standaloneButton;
+      },
+      {
+        type: 'standalone-buttons/configure',
+        source: 'ui'
+      }
+    );
   } else {
     window.channelActions?.updateChannelButton(
       buttonModalSessionState.currentConfig.channelId,
@@ -1037,18 +1096,19 @@ function sendButtonAction(button) {
 }
 
 function initStandaloneButtonsStateSync() {
-  if (standaloneButtonsUiStateSyncInitialized || typeof subscribeAppState !== 'function') {
+  if (
+    standaloneButtonsUiStateSyncInitialized ||
+    typeof subscribeAppState !== 'function'
+  ) {
     return;
   }
 
   subscribeAppState((nextState, previousState) => {
     if (
-      nextState.standaloneButtons === previousState.standaloneButtons
-      && nextState.layout === previousState.layout
-      && (
-        window.isLayoutEditorParked?.()
-        || nextState.layoutEditor === previousState.layoutEditor
-      )
+      nextState.standaloneButtons === previousState.standaloneButtons &&
+      nextState.layout === previousState.layout &&
+      (window.isLayoutEditorParked?.() ||
+        nextState.layoutEditor === previousState.layoutEditor)
     ) {
       return;
     }
@@ -1194,17 +1254,26 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   };
 
   function getCurrentControllerLanguage() {
-    return typeof getCurrentLanguage === 'function' ? getCurrentLanguage() : 'ru';
+    return typeof getCurrentLanguage === 'function'
+      ? getCurrentLanguage()
+      : 'ru';
   }
 
   function getControllerLabel(definition) {
     const slot = String(definition?.slot || '').trim();
 
     if (slot === 'play-pause') {
-      return getCurrentControllerLanguage() === 'en' ? 'Play / pause' : 'Плей / пауза';
+      return getCurrentControllerLanguage() === 'en'
+        ? 'Play / pause'
+        : 'Плей / пауза';
     }
 
-    return definition?.label?.[getCurrentControllerLanguage()] || definition?.label?.ru || definition?.slot || 'Button';
+    return (
+      definition?.label?.[getCurrentControllerLanguage()] ||
+      definition?.label?.ru ||
+      definition?.slot ||
+      'Button'
+    );
   }
 
   function getMediaControllerTargetAppId() {
@@ -1217,19 +1286,26 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function getRenderableControllerDefinitions() {
-    const slotOrder = new Map(MEDIA_CONTROLLER_RENDER_SLOTS.map((slot, index) => [slot, index]));
+    const slotOrder = new Map(
+      MEDIA_CONTROLLER_RENDER_SLOTS.map((slot, index) => [slot, index])
+    );
 
-    return BUTTON_DEFINITIONS
-      .filter((definition) => slotOrder.has(String(definition?.slot || '').trim()))
-      .sort((left, right) => {
-        return slotOrder.get(String(left?.slot || '').trim()) - slotOrder.get(String(right?.slot || '').trim());
-      });
+    return BUTTON_DEFINITIONS.filter((definition) =>
+      slotOrder.has(String(definition?.slot || '').trim())
+    ).sort((left, right) => {
+      return (
+        slotOrder.get(String(left?.slot || '').trim()) -
+        slotOrder.get(String(right?.slot || '').trim())
+      );
+    });
   }
 
   function getDefaultControllerOrder(slot = '') {
     const normalizedSlot = String(slot || '').trim();
     const fallbackIndex = MEDIA_CONTROLLER_RENDER_SLOTS.indexOf(normalizedSlot);
-    return fallbackIndex >= 0 ? fallbackIndex : MEDIA_CONTROLLER_RENDER_SLOTS.length + 1;
+    return fallbackIndex >= 0
+      ? fallbackIndex
+      : MEDIA_CONTROLLER_RENDER_SLOTS.length + 1;
   }
 
   function getApi() {
@@ -1273,13 +1349,19 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function normalizeRepeatMode(mode = '') {
-    const normalized = String(mode || '').trim().toLowerCase();
+    const normalized = String(mode || '')
+      .trim()
+      .toLowerCase();
 
     if (normalized === 'track') {
       return REPEAT_MODES.track;
     }
 
-    if (normalized === 'list' || normalized === 'playlist' || normalized === 'on') {
+    if (
+      normalized === 'list' ||
+      normalized === 'playlist' ||
+      normalized === 'on'
+    ) {
       return REPEAT_MODES.list;
     }
 
@@ -1309,25 +1391,40 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     return document.visibilityState === 'visible';
   }
 
-  function areMediaSessionSnapshotsEqual(nextSnapshot = {}, previousSnapshot = {}) {
+  function areMediaSessionSnapshotsEqual(
+    nextSnapshot = {},
+    previousSnapshot = {}
+  ) {
     return (
-      Boolean(nextSnapshot.success) === Boolean(previousSnapshot.success)
-      && Boolean(nextSnapshot.hasSession) === Boolean(previousSnapshot.hasSession)
-      && String(nextSnapshot.targetAppId || '') === String(previousSnapshot.targetAppId || '')
-      && String(nextSnapshot.playbackStatus || '') === String(previousSnapshot.playbackStatus || '')
-      && Boolean(nextSnapshot.shuffleActive) === Boolean(previousSnapshot.shuffleActive)
-      && String(nextSnapshot.repeatMode || '') === String(previousSnapshot.repeatMode || '')
+      Boolean(nextSnapshot.success) === Boolean(previousSnapshot.success) &&
+      Boolean(nextSnapshot.hasSession) ===
+        Boolean(previousSnapshot.hasSession) &&
+      String(nextSnapshot.targetAppId || '') ===
+        String(previousSnapshot.targetAppId || '') &&
+      String(nextSnapshot.playbackStatus || '') ===
+        String(previousSnapshot.playbackStatus || '') &&
+      Boolean(nextSnapshot.shuffleActive) ===
+        Boolean(previousSnapshot.shuffleActive) &&
+      String(nextSnapshot.repeatMode || '') ===
+        String(previousSnapshot.repeatMode || '')
     );
   }
 
   function isMediaSessionPlaying(snapshot = getMediaSessionSnapshot()) {
-    return PLAYBACK_ACTIVE_STATUSES.has(String(snapshot?.playbackStatus || '').trim().toLowerCase());
+    return PLAYBACK_ACTIVE_STATUSES.has(
+      String(snapshot?.playbackStatus || '')
+        .trim()
+        .toLowerCase()
+    );
   }
 
   function setMediaSessionSnapshot(snapshot = {}, options = {}) {
     const nextSnapshot = normalizeMediaSessionSnapshot(snapshot);
     const previousSnapshot = getMediaSessionSnapshot();
-    const changed = !areMediaSessionSnapshotsEqual(nextSnapshot, previousSnapshot);
+    const changed = !areMediaSessionSnapshotsEqual(
+      nextSnapshot,
+      previousSnapshot
+    );
 
     mediaSessionState.snapshot = nextSnapshot;
     mediaSessionState.lastUpdatedAt = Date.now();
@@ -1371,11 +1468,16 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       return Promise.resolve(getMediaSessionSnapshot());
     }
 
-    if (!force && mediaSessionState.lastUpdatedAt && now - mediaSessionState.lastUpdatedAt < MEDIA_SESSION_REFRESH_MIN_MS) {
+    if (
+      !force &&
+      mediaSessionState.lastUpdatedAt &&
+      now - mediaSessionState.lastUpdatedAt < MEDIA_SESSION_REFRESH_MIN_MS
+    ) {
       return Promise.resolve(getMediaSessionSnapshot());
     }
 
-    mediaSessionState.refreshPromise = api.get_media_session_state(targetAppId)
+    mediaSessionState.refreshPromise = api
+      .get_media_session_state(targetAppId)
       .then((response) => setMediaSessionSnapshot(response, options))
       .catch((error) => {
         console.error('refreshMediaSessionState error', error);
@@ -1423,11 +1525,17 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       return mediaSessionState.sessionsPromise;
     }
 
-    if (!force && mediaSessionState.sessionsLastUpdatedAt && now - mediaSessionState.sessionsLastUpdatedAt < MEDIA_SESSION_LIST_REFRESH_MIN_MS) {
+    if (
+      !force &&
+      mediaSessionState.sessionsLastUpdatedAt &&
+      now - mediaSessionState.sessionsLastUpdatedAt <
+        MEDIA_SESSION_LIST_REFRESH_MIN_MS
+    ) {
       return Promise.resolve(getAvailableMediaSessions());
     }
 
-    mediaSessionState.sessionsPromise = api.list_media_sessions()
+    mediaSessionState.sessionsPromise = api
+      .list_media_sessions()
       .then((response) => setAvailableMediaSessions(response?.sessions || []))
       .catch((error) => {
         console.error('refreshAvailableMediaSessions error', error);
@@ -1448,18 +1556,23 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
 
     mediaSessionState.scheduledRefreshTimerId = window.setTimeout(() => {
       mediaSessionState.scheduledRefreshTimerId = null;
-      refreshMediaSessionState({ force: true, allowHidden: true }).finally(() => {
-        window.requestStandaloneButtonRuntimeRefresh?.({
-          reason: 'media-controller/session-refresh',
-          force: true,
-          source: 'media-controller',
-          ...meta
-        });
-      });
+      refreshMediaSessionState({ force: true, allowHidden: true }).finally(
+        () => {
+          window.requestStandaloneButtonRuntimeRefresh?.({
+            reason: 'media-controller/session-refresh',
+            force: true,
+            source: 'media-controller',
+            ...meta
+          });
+        }
+      );
     }, MEDIA_SESSION_SYNC_DELAY_MS);
   }
 
-  function getResolvedMediaControllerIcon(slot = '', snapshot = getMediaSessionSnapshot()) {
+  function getResolvedMediaControllerIcon(
+    slot = '',
+    snapshot = getMediaSessionSnapshot()
+  ) {
     if (String(slot || '').trim() === 'play-pause') {
       return isMediaSessionPlaying(snapshot) ? 'pause' : 'play';
     }
@@ -1468,23 +1581,29 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function getIndicatorTypes() {
-    return window.CHANNEL_BUTTON_INDICATOR_TYPES || {
-      toggle: 'toggle',
-      meter: 'meter',
-      press: 'press'
-    };
+    return (
+      window.CHANNEL_BUTTON_INDICATOR_TYPES || {
+        toggle: 'toggle',
+        meter: 'meter',
+        press: 'press'
+      }
+    );
   }
 
   function getContentModes() {
-    return window.CHANNEL_BUTTON_CONTENT_MODES || {
-      iconTitle: 'icon-title',
-      iconOnly: 'icon-only',
-      titleOnly: 'title-only'
-    };
+    return (
+      window.CHANNEL_BUTTON_CONTENT_MODES || {
+        iconTitle: 'icon-title',
+        iconOnly: 'icon-only',
+        titleOnly: 'title-only'
+      }
+    );
   }
 
   function getMediaControllerButtonsState() {
-    return (getStandaloneButtonsState?.() || []).filter((button) => isMediaControllerStandaloneButton(button));
+    return (getStandaloneButtonsState?.() || []).filter((button) =>
+      isMediaControllerStandaloneButton(button)
+    );
   }
 
   function getOrderedMediaControllerButtonsState() {
@@ -1517,14 +1636,26 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function findMediaControllerDefinitionBySlot(slot = '') {
-    return getRenderableControllerDefinitions().find((definition) => String(definition?.slot || '') === String(slot || '')) || null;
+    return (
+      getRenderableControllerDefinitions().find(
+        (definition) => String(definition?.slot || '') === String(slot || '')
+      ) || null
+    );
   }
 
   function findMediaControllerButtonBySlot(slot = '') {
-    return getMediaControllerButtonsState().find((button) => String(button?.controllerSlot || '') === String(slot || '')) || null;
+    return (
+      getMediaControllerButtonsState().find(
+        (button) => String(button?.controllerSlot || '') === String(slot || '')
+      ) || null
+    );
   }
 
-  function getMediaControllerButtonRuntimeState(button = {}, previousState = {}, snapshot = getMediaSessionSnapshot()) {
+  function getMediaControllerButtonRuntimeState(
+    button = {},
+    previousState = {},
+    snapshot = getMediaSessionSnapshot()
+  ) {
     if (!isMediaControllerStandaloneButton(button)) {
       return null;
     }
@@ -1540,7 +1671,11 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     const flashActive = Boolean(previousState?.flashActive);
     let latched = false;
     let actionActive = false;
-    let indicatorMode = String(button?.indicatorMode || previousState?.indicatorMode || interactionModes.trigger).trim();
+    let indicatorMode = String(
+      button?.indicatorMode ||
+        previousState?.indicatorMode ||
+        interactionModes.trigger
+    ).trim();
 
     if (!Object.values(interactionModes).includes(indicatorMode)) {
       indicatorMode = interactionModes.trigger;
@@ -1561,7 +1696,9 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     }
 
     const visualActive = indicatorEnabled
-      ? (indicatorMode === interactionModes.toggle ? latched : pressed)
+      ? indicatorMode === interactionModes.toggle
+        ? latched
+        : pressed
       : false;
 
     return {
@@ -1575,7 +1712,9 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       hasTargets: true,
       indicatorEnabled,
       indicatorMode,
-      indicatorBehavior: button?.indicatorBehavior || getChannelButtonIndicatorBehaviors().actionState,
+      indicatorBehavior:
+        button?.indicatorBehavior ||
+        getChannelButtonIndicatorBehaviors().actionState,
       buttonIndicatorType: button?.indicatorType
     };
   }
@@ -1583,7 +1722,10 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   function createMediaControllerButton(definition) {
     const slot = String(definition?.slot || '').trim();
     return normalizeChannelButton({
-      id: Date.now() + Math.floor(Math.random() * 100000) + Math.floor(Math.random() * 1000),
+      id:
+        Date.now() +
+        Math.floor(Math.random() * 100000) +
+        Math.floor(Math.random() * 1000),
       text: '',
       icon: slot === 'play-pause' ? 'play' : definition.icon,
       actionEnabled: true,
@@ -1591,7 +1733,8 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       actionMode: definition.actionMode,
       actionValue: window.DEFAULT_CHANNEL_BUTTON_ACTION_VALUE ?? 50,
       indicatorEnabled: true,
-      indicatorMode: slot === 'play-pause' ? 'toggle' : definition.indicatorMode,
+      indicatorMode:
+        slot === 'play-pause' ? 'toggle' : definition.indicatorMode,
       indicatorModeLinkedToAction: true,
       indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
       indicatorThreshold: getDefaultChannelButtonIndicatorThreshold(),
@@ -1623,7 +1766,8 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
         const existingButton = findMediaControllerButtonBySlot(definition.slot);
         const slot = String(definition?.slot || '').trim();
         const desiredIcon = slot === 'play-pause' ? 'play' : definition.icon;
-        const desiredIndicatorMode = slot === 'play-pause' ? 'toggle' : definition.indicatorMode;
+        const desiredIndicatorMode =
+          slot === 'play-pause' ? 'toggle' : definition.indicatorMode;
 
         if (existingButton) {
           const patch = {};
@@ -1669,10 +1813,14 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
           }
 
           if (Object.keys(patch).length) {
-            window.standaloneButtonActions?.updateStandaloneButton?.(existingButton.id, patch, {
-              type: 'media-controller/repair',
-              source: 'media-controller'
-            });
+            window.standaloneButtonActions?.updateStandaloneButton?.(
+              existingButton.id,
+              patch,
+              {
+                type: 'media-controller/repair',
+                source: 'media-controller'
+              }
+            );
             changed = true;
           }
 
@@ -1722,7 +1870,8 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       shell = document.createElement('div');
       shell.id = 'mediaControllerShell';
       shell.className = 'media-controller-shell';
-      shell.innerHTML = '<div class="media-controller" id="mediaController"></div>';
+      shell.innerHTML =
+        '<div class="media-controller" id="mediaController"></div>';
       contentShell.appendChild(shell);
     }
 
@@ -1758,7 +1907,10 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   async function executeControllerButton(button = {}, meta = {}) {
-    if (!isMediaControllerStandaloneButton(button) || meta?.phase === 'release') {
+    if (
+      !isMediaControllerStandaloneButton(button) ||
+      meta?.phase === 'release'
+    ) {
       return false;
     }
 
@@ -1779,7 +1931,11 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     try {
       if (slot === 'shuffle') {
         const enabled = !Boolean(snapshot.shuffleActive);
-        const response = await api.set_media_option?.('shuffle', enabled, targetAppId);
+        const response = await api.set_media_option?.(
+          'shuffle',
+          enabled,
+          targetAppId
+        );
 
         if (response?.success) {
           setMediaSessionSnapshot({
@@ -1791,7 +1947,10 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
         }
       } else if (slot === 'repeat') {
         const nextMode = getNextRepeatMode(snapshot);
-        const response = await api.set_media_repeat_mode?.(nextMode, targetAppId);
+        const response = await api.set_media_repeat_mode?.(
+          nextMode,
+          targetAppId
+        );
 
         if (response?.success) {
           setMediaSessionSnapshot({
@@ -1803,7 +1962,10 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
         }
       } else if (slot === 'play-pause') {
         const nextPlayingState = !isMediaSessionPlaying(snapshot);
-        const response = await api.send_media_transport?.(nextPlayingState ? 'play' : 'pause', targetAppId);
+        const response = await api.send_media_transport?.(
+          nextPlayingState ? 'play' : 'pause',
+          targetAppId
+        );
 
         if (response?.success) {
           setMediaSessionSnapshot({
@@ -1861,23 +2023,43 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
 
     container.innerHTML = `
       <div class="media-controller__row">
-        ${renderEntries.map(({ definition, button }) => {
+        ${renderEntries
+          .map(({ definition, button }) => {
+            const className = [
+              getStandaloneButtonClassName(button),
+              'media-controller__button',
+              definition.slot === 'play-pause'
+                ? 'media-controller__button--play-stop'
+                : '',
+              definition.slot === 'shuffle' && sessionSnapshot.shuffleActive
+                ? 'is-shuffle-active'
+                : '',
+              definition.slot === 'repeat' && repeatMode !== REPEAT_MODES.off
+                ? 'is-repeat-active'
+                : '',
+              definition.slot === 'repeat' && repeatMode === REPEAT_MODES.list
+                ? 'is-repeat-list'
+                : '',
+              definition.slot === 'repeat' && repeatMode === REPEAT_MODES.track
+                ? 'is-repeat-track'
+                : '',
+              definition.slot === 'play-pause' &&
+              isMediaSessionPlaying(sessionSnapshot)
+                ? 'is-playing'
+                : '',
+              !button.midiMapping ? 'is-unbound' : '',
+              Number.isFinite(selectedButtonId) &&
+              Number(button.id) === selectedButtonId
+                ? 'is-context-selected'
+                : ''
+            ]
+              .filter(Boolean)
+              .join(' ');
+            const escapedLabel = escapeButtonMarkup(
+              getControllerLabel(definition)
+            );
 
-          const className = [
-            getStandaloneButtonClassName(button),
-            'media-controller__button',
-            definition.slot === 'play-pause' ? 'media-controller__button--play-stop' : '',
-            definition.slot === 'shuffle' && sessionSnapshot.shuffleActive ? 'is-shuffle-active' : '',
-            definition.slot === 'repeat' && repeatMode !== REPEAT_MODES.off ? 'is-repeat-active' : '',
-            definition.slot === 'repeat' && repeatMode === REPEAT_MODES.list ? 'is-repeat-list' : '',
-            definition.slot === 'repeat' && repeatMode === REPEAT_MODES.track ? 'is-repeat-track' : '',
-            definition.slot === 'play-pause' && isMediaSessionPlaying(sessionSnapshot) ? 'is-playing' : '',
-            !button.midiMapping ? 'is-unbound' : '',
-            Number.isFinite(selectedButtonId) && Number(button.id) === selectedButtonId ? 'is-context-selected' : ''
-          ].filter(Boolean).join(' ');
-          const escapedLabel = escapeButtonMarkup(getControllerLabel(definition));
-
-          return `
+            return `
             <button
               class="${className}"
               type="button"
@@ -1888,11 +2070,15 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
               title="${escapedLabel}"
               aria-label="${escapedLabel}">
               ${renderStandaloneButtonBodyMarkup(button, {
-                iconOverride: getResolvedMediaControllerIcon(definition.slot, sessionSnapshot)
+                iconOverride: getResolvedMediaControllerIcon(
+                  definition.slot,
+                  sessionSnapshot
+                )
               })}
             </button>
           `;
-        }).join('')}
+          })
+          .join('')}
       </div>
     `;
   }
@@ -1914,10 +2100,13 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function selectMediaController(options = {}) {
-    const buttonId = Number.isFinite(Number(options?.buttonId)) ? Number(options.buttonId) : null;
+    const buttonId = Number.isFinite(Number(options?.buttonId))
+      ? Number(options.buttonId)
+      : null;
     clearMediaControllerSelectionTimer();
     mediaControllerSelectionState.buttonId = buttonId;
-    mediaControllerSelectionState.expiresAt = Date.now() + MEDIA_CONTROLLER_SELECTION_DURATION_MS;
+    mediaControllerSelectionState.expiresAt =
+      Date.now() + MEDIA_CONTROLLER_SELECTION_DURATION_MS;
     renderMediaController();
     mediaControllerSelectionState.timerId = window.setTimeout(() => {
       clearMediaControllerSelection();
@@ -1930,15 +2119,23 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       return null;
     }
 
-    return window.standaloneButtonActions?.updateStandaloneButton?.(Number(buttonId), patch, {
-      type: 'media-controller/update',
-      source: 'media-controller',
-      ...meta
-    }) || null;
+    return (
+      window.standaloneButtonActions?.updateStandaloneButton?.(
+        Number(buttonId),
+        patch,
+        {
+          type: 'media-controller/update',
+          source: 'media-controller',
+          ...meta
+        }
+      ) || null
+    );
   }
 
   function countVisibleMediaControllerButtons() {
-    return getMediaControllerButtonsState().filter((button) => button?.controllerHidden !== true).length;
+    return getMediaControllerButtonsState().filter(
+      (button) => button?.controllerHidden !== true
+    ).length;
   }
 
   function setMediaControllerButtonHidden(buttonId, hidden = true, meta = {}) {
@@ -1948,7 +2145,11 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       return null;
     }
 
-    if (hidden && button.controllerHidden !== true && countVisibleMediaControllerButtons() <= 1) {
+    if (
+      hidden &&
+      button.controllerHidden !== true &&
+      countVisibleMediaControllerButtons() <= 1
+    ) {
       window.showToast?.(
         'warn',
         translateControllerText(
@@ -1961,15 +2162,21 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       return null;
     }
 
-    return updateMediaControllerButton(button.id, {
-      controllerHidden: Boolean(hidden)
-    }, meta);
+    return updateMediaControllerButton(
+      button.id,
+      {
+        controllerHidden: Boolean(hidden)
+      },
+      meta
+    );
   }
 
   function moveMediaControllerButton(buttonId, direction = 'left', meta = {}) {
     const normalizedButtonId = Number(buttonId);
     const orderedButtons = getOrderedMediaControllerButtonsState();
-    const currentIndex = orderedButtons.findIndex((button) => Number(button?.id) === normalizedButtonId);
+    const currentIndex = orderedButtons.findIndex(
+      (button) => Number(button?.id) === normalizedButtonId
+    );
 
     if (currentIndex < 0) {
       return false;
@@ -1991,14 +2198,22 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       ? Number(targetButton.controllerOrder)
       : getDefaultControllerOrder(targetButton?.controllerSlot);
 
-    updateMediaControllerButton(currentButton.id, { controllerOrder: targetOrder }, {
-      ...meta,
-      type: 'media-controller/reorder'
-    });
-    updateMediaControllerButton(targetButton.id, { controllerOrder: currentOrder }, {
-      ...meta,
-      type: 'media-controller/reorder'
-    });
+    updateMediaControllerButton(
+      currentButton.id,
+      { controllerOrder: targetOrder },
+      {
+        ...meta,
+        type: 'media-controller/reorder'
+      }
+    );
+    updateMediaControllerButton(
+      targetButton.id,
+      { controllerOrder: currentOrder },
+      {
+        ...meta,
+        type: 'media-controller/reorder'
+      }
+    );
     return true;
   }
 
@@ -2012,7 +2227,9 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       );
     }
 
-    const channel = Number.isFinite(Number(mapping.channel)) ? Number(mapping.channel) + 1 : 1;
+    const channel = Number.isFinite(Number(mapping.channel))
+      ? Number(mapping.channel) + 1
+      : 1;
 
     if (String(mapping.kind || '').trim() === 'cc') {
       return `Ch ${channel} · CC ${Number(mapping.cc) || 0}`;
@@ -2029,7 +2246,8 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       ? availableSessions.some((session) => session.appId === selectedAppId)
       : true;
     const autoLabel = currentLanguage === 'en' ? 'Auto target' : 'Автоцель';
-    const unavailableLabel = currentLanguage === 'en' ? 'Unavailable target' : 'Недоступная цель';
+    const unavailableLabel =
+      currentLanguage === 'en' ? 'Unavailable target' : 'Недоступная цель';
     const options = [
       `<option value="">${escapeButtonMarkup(autoLabel)}</option>`
     ];
@@ -2042,7 +2260,9 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
 
     availableSessions.forEach((session) => {
       const label = session.label || session.appId;
-      options.push(`<option value="${escapeButtonMarkup(session.appId)}">${escapeButtonMarkup(label)}</option>`);
+      options.push(
+        `<option value="${escapeButtonMarkup(session.appId)}">${escapeButtonMarkup(label)}</option>`
+      );
     });
 
     return options.join('');
@@ -2063,7 +2283,9 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     const list = document.getElementById('mediaControllerEditorList');
     const title = document.getElementById('mediaControllerEditorTitle');
     const subtitle = document.getElementById('mediaControllerEditorSubtitle');
-    const closeButton = document.querySelector('#mediaControllerEditorModal [data-modal-close]');
+    const closeButton = document.querySelector(
+      '#mediaControllerEditorModal [data-modal-close]'
+    );
 
     if (!list) {
       return;
@@ -2096,24 +2318,33 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     if (closeButton) {
       closeButton.setAttribute(
         'aria-label',
-        translateControllerText('editor.close', currentLanguage === 'en' ? 'Close' : 'Закрыть')
+        translateControllerText(
+          'editor.close',
+          currentLanguage === 'en' ? 'Close' : 'Закрыть'
+        )
       );
     }
 
-    list.innerHTML = orderedButtons.map((button, index) => {
-      const definition = findMediaControllerDefinitionBySlot(button?.controllerSlot);
+    list.innerHTML = orderedButtons
+      .map((button, index) => {
+        const definition = findMediaControllerDefinitionBySlot(
+          button?.controllerSlot
+        );
 
-      if (!definition) {
-        return '';
-      }
+        if (!definition) {
+          return '';
+        }
 
-      const isHidden = button?.controllerHidden === true;
-      const isSelected = Number(button?.id) === Number(selectedButtonId);
-      const iconKey = getResolvedMediaControllerIcon(definition.slot, getMediaSessionSnapshot());
-      const canMoveLeft = index > 0;
-      const canMoveRight = index < orderedButtons.length - 1;
+        const isHidden = button?.controllerHidden === true;
+        const isSelected = Number(button?.id) === Number(selectedButtonId);
+        const iconKey = getResolvedMediaControllerIcon(
+          definition.slot,
+          getMediaSessionSnapshot()
+        );
+        const canMoveLeft = index > 0;
+        const canMoveRight = index < orderedButtons.length - 1;
 
-      return `
+        return `
         <div class="media-controller-editor__item ${isHidden ? 'is-hidden' : ''} ${isSelected ? 'is-selected' : ''}" data-button-id="${button.id}">
           <div class="media-controller-editor__item-main">
             <div class="media-controller-editor__preview">
@@ -2131,8 +2362,14 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
             <button class="btn" type="button" data-media-controller-editor-action="toggle-visibility" data-button-id="${button.id}">
               ${escapeButtonMarkup(
                 isHidden
-                  ? translateControllerText('mediaController.showButton', currentLanguage === 'en' ? 'Show' : 'Показать')
-                  : translateControllerText('mediaController.hideButton', currentLanguage === 'en' ? 'Hide' : 'Скрыть')
+                  ? translateControllerText(
+                      'mediaController.showButton',
+                      currentLanguage === 'en' ? 'Show' : 'Показать'
+                    )
+                  : translateControllerText(
+                      'mediaController.hideButton',
+                      currentLanguage === 'en' ? 'Hide' : 'Скрыть'
+                    )
               )}
             </button>
             <button class="btn icon-btn" type="button" data-media-controller-editor-action="move-left" data-button-id="${button.id}" ${canMoveLeft ? '' : 'disabled'}>
@@ -2144,7 +2381,8 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
           </div>
         </div>
       `;
-    }).join('');
+      })
+      .join('');
   }
 
   function ensureMediaControllerEditorModal() {
@@ -2177,7 +2415,11 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       document.body.appendChild(modal);
     }
 
-    if (!window.modalManager?.getRegisteredModal?.(MEDIA_CONTROLLER_EDITOR_MODAL_ID)) {
+    if (
+      !window.modalManager?.getRegisteredModal?.(
+        MEDIA_CONTROLLER_EDITOR_MODAL_ID
+      )
+    ) {
       window.modalManager?.register?.(MEDIA_CONTROLLER_EDITOR_MODAL_ID, {
         element: modal,
         transitionDuration: 180,
@@ -2192,14 +2434,18 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     if (modal.dataset.mediaControllerEditorBound !== 'true') {
       modal.dataset.mediaControllerEditorBound = 'true';
       modal.addEventListener('click', async (event) => {
-        const actionButton = event.target.closest('[data-media-controller-editor-action][data-button-id]');
+        const actionButton = event.target.closest(
+          '[data-media-controller-editor-action][data-button-id]'
+        );
 
         if (!actionButton) {
           return;
         }
 
         event.preventDefault();
-        const action = String(actionButton.dataset.mediaControllerEditorAction || '').trim();
+        const action = String(
+          actionButton.dataset.mediaControllerEditorAction || ''
+        ).trim();
         const buttonId = Number(actionButton.dataset.buttonId);
 
         if (!Number.isFinite(buttonId)) {
@@ -2213,13 +2459,21 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
           });
         } else if (action === 'toggle-visibility') {
           const button = findStandaloneButton(buttonId);
-          setMediaControllerButtonHidden(buttonId, button?.controllerHidden !== true, {
+          setMediaControllerButtonHidden(
+            buttonId,
+            button?.controllerHidden !== true,
+            {
+              source: 'media-controller-editor'
+            }
+          );
+        } else if (action === 'move-left') {
+          moveMediaControllerButton(buttonId, 'left', {
             source: 'media-controller-editor'
           });
-        } else if (action === 'move-left') {
-          moveMediaControllerButton(buttonId, 'left', { source: 'media-controller-editor' });
         } else if (action === 'move-right') {
-          moveMediaControllerButton(buttonId, 'right', { source: 'media-controller-editor' });
+          moveMediaControllerButton(buttonId, 'right', {
+            source: 'media-controller-editor'
+          });
         }
 
         renderMediaControllerEditor({ buttonId });
@@ -2283,7 +2537,9 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
 
     shell.dataset.mediaControllerBound = 'true';
     shell.addEventListener('click', (event) => {
-      const buttonElement = event.target.closest('[data-media-controller-slot][data-button-id]');
+      const buttonElement = event.target.closest(
+        '[data-media-controller-slot][data-button-id]'
+      );
 
       if (!buttonElement) {
         return;
@@ -2300,21 +2556,33 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function initMediaControllerUiSync() {
-    if (mediaControllerUiSyncInitialized || typeof subscribeAppState !== 'function') {
+    if (
+      mediaControllerUiSyncInitialized ||
+      typeof subscribeAppState !== 'function'
+    ) {
       return;
     }
 
     subscribeAppState((nextState, previousState) => {
-      if (nextState.standaloneButtons !== previousState.standaloneButtons || nextState.ui !== previousState.ui) {
+      if (
+        nextState.standaloneButtons !== previousState.standaloneButtons ||
+        nextState.ui !== previousState.ui
+      ) {
         renderMediaController();
 
         if (window.getActiveModalId?.() === MEDIA_CONTROLLER_EDITOR_MODAL_ID) {
-          renderMediaControllerEditor({ buttonId: mediaControllerEditorState.selectedButtonId });
+          renderMediaControllerEditor({
+            buttonId: mediaControllerEditorState.selectedButtonId
+          });
         }
       }
 
-      const nextTargetAppId = String(nextState?.ui?.settings?.mediaControllerTargetAppId || '').trim();
-      const previousTargetAppId = String(previousState?.ui?.settings?.mediaControllerTargetAppId || '').trim();
+      const nextTargetAppId = String(
+        nextState?.ui?.settings?.mediaControllerTargetAppId || ''
+      ).trim();
+      const previousTargetAppId = String(
+        previousState?.ui?.settings?.mediaControllerTargetAppId || ''
+      ).trim();
 
       if (nextTargetAppId !== previousTargetAppId) {
         refreshMediaSessionState({ force: true });
@@ -2326,7 +2594,10 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function initMediaControllerRuntimeSync() {
-    if (mediaControllerRuntimeSyncInitialized || typeof window.standaloneButtonRuntime?.subscribe !== 'function') {
+    if (
+      mediaControllerRuntimeSyncInitialized ||
+      typeof window.standaloneButtonRuntime?.subscribe !== 'function'
+    ) {
       return;
     }
 
@@ -2334,7 +2605,9 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       renderMediaController();
 
       if (window.getActiveModalId?.() === MEDIA_CONTROLLER_EDITOR_MODAL_ID) {
-        renderMediaControllerEditor({ buttonId: mediaControllerEditorState.selectedButtonId });
+        renderMediaControllerEditor({
+          buttonId: mediaControllerEditorState.selectedButtonId
+        });
       }
     });
     mediaControllerRuntimeSyncInitialized = true;
@@ -2374,7 +2647,10 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   window.mediaControllerUi = {
     init: initMediaControllerUi,
     render: renderMediaController,
-    refreshEditor: () => renderMediaControllerEditor({ buttonId: mediaControllerEditorState.selectedButtonId }),
+    refreshEditor: () =>
+      renderMediaControllerEditor({
+        buttonId: mediaControllerEditorState.selectedButtonId
+      }),
     ensureButtons: ensureMediaControllerButtons,
     ensureStandaloneButtonsTopRow,
     isControllerButton: isMediaControllerStandaloneButton,

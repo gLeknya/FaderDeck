@@ -11,7 +11,10 @@ const { ProcessCatalog } = require('./processes');
 
 function clampVolume(volume) {
   const numericVolume = Number(volume);
-  const clampedVolume = Math.max(0, Math.min(100, Number.isFinite(numericVolume) ? numericVolume : 0));
+  const clampedVolume = Math.max(
+    0,
+    Math.min(100, Number.isFinite(numericVolume) ? numericVolume : 0)
+  );
   return Math.round(clampedVolume * 1000) / 1000;
 }
 
@@ -28,7 +31,11 @@ class AudioManager {
 
   getApplicationState(processName) {
     if (!this._applicationStates.has(processName)) {
-      this._applicationStates.set(processName, { volume: 100, muted: false, peak: 0 });
+      this._applicationStates.set(processName, {
+        volume: 100,
+        muted: false,
+        peak: 0
+      });
     }
 
     return this._applicationStates.get(processName);
@@ -38,7 +45,10 @@ class AudioManager {
     const rememberedState = this.getApplicationState(processName);
     rememberedState.volume = clampVolume(state.volume);
     rememberedState.muted = Boolean(state.muted);
-    rememberedState.peak = Math.max(0, Math.min(1, Number(state?.peak ?? state?.peakLevel) || 0));
+    rememberedState.peak = Math.max(
+      0,
+      Math.min(1, Number(state?.peak ?? state?.peakLevel) || 0)
+    );
     return rememberedState;
   }
 
@@ -66,8 +76,20 @@ class AudioManager {
         ...application,
         volume: detectedState.muted ? 0 : detectedState.volume,
         muted: detectedState.muted,
-        peak: Math.max(0, Math.min(1, Number(detectedState?.peak ?? detectedState?.peakLevel) || 0)),
-        peakLevel: Math.max(0, Math.min(1, Number(detectedState?.peak ?? detectedState?.peakLevel) || 0)),
+        peak: Math.max(
+          0,
+          Math.min(
+            1,
+            Number(detectedState?.peak ?? detectedState?.peakLevel) || 0
+          )
+        ),
+        peakLevel: Math.max(
+          0,
+          Math.min(
+            1,
+            Number(detectedState?.peak ?? detectedState?.peakLevel) || 0
+          )
+        ),
         hasAudioSession: true,
         sessionCount: detectedState.sessionCount ?? 1
       };
@@ -101,7 +123,10 @@ class AudioManager {
   async getDetectedSessionStateMap(processNames = []) {
     const applications = await this._audioSessions.listSessions(processNames);
     return new Map(
-      applications.map((application) => [application.process.toLowerCase(), application])
+      applications.map((application) => [
+        application.process.toLowerCase(),
+        application
+      ])
     );
   }
 
@@ -111,19 +136,24 @@ class AudioManager {
       this.getDetectedSessionStateMap()
     ]);
 
-    return detectedApplications.map((application) => (
+    return detectedApplications.map((application) =>
       this.withDetectedOrRememberedState(
         application,
         detectedSessionStateMap.get(application.process.toLowerCase())
       )
-    ));
+    );
   }
 
   async listApplications() {
-    const runningApplications = await this._processCatalog.listRunningApplications();
+    const runningApplications =
+      await this._processCatalog.listRunningApplications();
     const visibleApplications = runningApplications.length
-      ? runningApplications.map((application) => this.withApplicationState(application))
-      : STATIC_APPLICATIONS.map((application) => this.withApplicationState(application));
+      ? runningApplications.map((application) =>
+          this.withApplicationState(application)
+        )
+      : STATIC_APPLICATIONS.map((application) =>
+          this.withApplicationState(application)
+        );
     const applications = [
       this.buildMasterApplication(),
       ...visibleApplications
@@ -138,7 +168,12 @@ class AudioManager {
     if (processName === 'master') {
       this._masterVolume = clampVolume(volume);
       this._muted = this._masterVolume === 0;
-      return { success: true, volume: this._masterVolume, process: processName, muted: this._muted };
+      return {
+        success: true,
+        volume: this._masterVolume,
+        process: processName,
+        muted: this._muted
+      };
     }
 
     const nextVolume = clampVolume(volume);
@@ -148,23 +183,28 @@ class AudioManager {
       muted: nextMuted
     });
 
-    return this._audioSessions.setVolume(processName, nextVolume).then((result) => {
-      const detectedState = result?.application || null;
-      const hasAudioSession = Boolean(detectedState) || Number(result?.updatedCount) > 0;
+    return this._audioSessions
+      .setVolume(processName, nextVolume)
+      .then((result) => {
+        const detectedState = result?.application || null;
+        const hasAudioSession =
+          Boolean(detectedState) || Number(result?.updatedCount) > 0;
 
-      if (detectedState) {
-        this.rememberApplicationState(processName, detectedState);
-      }
+        if (detectedState) {
+          this.rememberApplicationState(processName, detectedState);
+        }
 
-      return {
-        success: true,
-        volume: detectedState?.muted ? 0 : (detectedState?.volume ?? state.volume),
-        process: processName,
-        muted: detectedState?.muted ?? state.muted,
-        updatedCount: result?.updatedCount ?? 0,
-        hasAudioSession
-      };
-    });
+        return {
+          success: true,
+          volume: detectedState?.muted
+            ? 0
+            : (detectedState?.volume ?? state.volume),
+          process: processName,
+          muted: detectedState?.muted ?? state.muted,
+          updatedCount: result?.updatedCount ?? 0,
+          hasAudioSession
+        };
+      });
   }
 
   toggleMute(processName) {
@@ -183,22 +223,25 @@ class AudioManager {
       muted: nextMuted
     });
 
-    return this._audioSessions.setMute(processName, nextMuted).then((result) => {
-      const detectedState = result?.application || null;
-      const hasAudioSession = Boolean(detectedState) || Number(result?.updatedCount) > 0;
+    return this._audioSessions
+      .setMute(processName, nextMuted)
+      .then((result) => {
+        const detectedState = result?.application || null;
+        const hasAudioSession =
+          Boolean(detectedState) || Number(result?.updatedCount) > 0;
 
-      if (detectedState) {
-        this.rememberApplicationState(processName, detectedState);
-      }
+        if (detectedState) {
+          this.rememberApplicationState(processName, detectedState);
+        }
 
-      return {
-        success: true,
-        muted: detectedState?.muted ?? nextMuted,
-        process: processName,
-        updatedCount: result?.updatedCount ?? 0,
-        hasAudioSession
-      };
-    });
+        return {
+          success: true,
+          muted: detectedState?.muted ?? nextMuted,
+          process: processName,
+          updatedCount: result?.updatedCount ?? 0,
+          hasAudioSession
+        };
+      });
   }
 
   setMute(processName, muted) {
@@ -222,23 +265,28 @@ class AudioManager {
       muted: nextMuted
     });
 
-    return this._audioSessions.setMute(processName, nextMuted).then((result) => {
-      const detectedState = result?.application || null;
-      const hasAudioSession = Boolean(detectedState) || Number(result?.updatedCount) > 0;
+    return this._audioSessions
+      .setMute(processName, nextMuted)
+      .then((result) => {
+        const detectedState = result?.application || null;
+        const hasAudioSession =
+          Boolean(detectedState) || Number(result?.updatedCount) > 0;
 
-      if (detectedState) {
-        this.rememberApplicationState(processName, detectedState);
-      }
+        if (detectedState) {
+          this.rememberApplicationState(processName, detectedState);
+        }
 
-      return {
-        success: true,
-        muted: detectedState?.muted ?? nextMuted,
-        process: processName,
-        volume: detectedState?.muted ? 0 : (detectedState?.volume ?? state.volume),
-        updatedCount: result?.updatedCount ?? 0,
-        hasAudioSession
-      };
-    });
+        return {
+          success: true,
+          muted: detectedState?.muted ?? nextMuted,
+          process: processName,
+          volume: detectedState?.muted
+            ? 0
+            : (detectedState?.volume ?? state.volume),
+          updatedCount: result?.updatedCount ?? 0,
+          hasAudioSession
+        };
+      });
   }
 
   async getApplicationCatalog() {
@@ -264,7 +312,9 @@ class AudioManager {
         return this.buildMasterApplication();
       }
 
-      const detectedState = detectedSessionStateMap.get(processName.toLowerCase());
+      const detectedState = detectedSessionStateMap.get(
+        processName.toLowerCase()
+      );
 
       if (detectedState) {
         this.rememberApplicationState(processName, detectedState);
@@ -273,8 +323,20 @@ class AudioManager {
           process: processName,
           volume: detectedState.muted ? 0 : detectedState.volume,
           muted: detectedState.muted,
-          peak: Math.max(0, Math.min(1, Number(detectedState?.peak ?? detectedState?.peakLevel) || 0)),
-          peakLevel: Math.max(0, Math.min(1, Number(detectedState?.peak ?? detectedState?.peakLevel) || 0)),
+          peak: Math.max(
+            0,
+            Math.min(
+              1,
+              Number(detectedState?.peak ?? detectedState?.peakLevel) || 0
+            )
+          ),
+          peakLevel: Math.max(
+            0,
+            Math.min(
+              1,
+              Number(detectedState?.peak ?? detectedState?.peakLevel) || 0
+            )
+          ),
           hasAudioSession: true,
           sessionCount: detectedState.sessionCount ?? 1
         };

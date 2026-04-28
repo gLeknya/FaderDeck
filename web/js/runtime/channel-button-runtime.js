@@ -17,37 +17,45 @@
   };
 
   function getChannelButtonActionTypes() {
-    return window.CHANNEL_BUTTON_ACTION_TYPES || {
-      none: 'none',
-      mute: 'mute',
-      solo: 'solo',
-      setVolume: 'set-volume',
-      sendKey: 'send-key'
-    };
+    return (
+      window.CHANNEL_BUTTON_ACTION_TYPES || {
+        none: 'none',
+        mute: 'mute',
+        solo: 'solo',
+        setVolume: 'set-volume',
+        sendKey: 'send-key'
+      }
+    );
   }
 
   function getChannelButtonIndicatorTypes() {
-    return window.CHANNEL_BUTTON_INDICATOR_TYPES || {
-      toggle: 'toggle',
-      meter: 'meter',
-      press: 'press'
-    };
+    return (
+      window.CHANNEL_BUTTON_INDICATOR_TYPES || {
+        toggle: 'toggle',
+        meter: 'meter',
+        press: 'press'
+      }
+    );
   }
 
   function getChannelButtonIndicatorBehaviors() {
-    return window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
-      actionState: 'action-state',
-      peakMeter: 'peak-meter',
-      targetActivity: 'target-activity'
-    };
+    return (
+      window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
+        actionState: 'action-state',
+        peakMeter: 'peak-meter',
+        targetActivity: 'target-activity'
+      }
+    );
   }
 
   function getChannelButtonInteractionModes() {
-    return window.CHANNEL_BUTTON_INTERACTION_MODES || {
-      push: 'push',
-      toggle: 'toggle',
-      trigger: 'trigger'
-    };
+    return (
+      window.CHANNEL_BUTTON_INTERACTION_MODES || {
+        push: 'push',
+        toggle: 'toggle',
+        trigger: 'trigger'
+      }
+    );
   }
 
   function normalizeChannelButton(button = {}) {
@@ -74,26 +82,38 @@
       pressed: false,
       hasTargets: false,
       indicatorBehavior: getChannelButtonIndicatorBehaviors().actionState,
-      indicatorThreshold: Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20) || -20,
+      indicatorThreshold:
+        Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20) || -20,
       buttonIndicatorType: getChannelButtonIndicatorTypes().press
     };
   }
 
   function resolveIndicatorThreshold(button = {}, fallbackState = null) {
-    const rawValue = button?.indicatorThreshold ?? fallbackState?.indicatorThreshold;
+    const rawValue =
+      button?.indicatorThreshold ?? fallbackState?.indicatorThreshold;
     const channelModel = window.channelModel || null;
 
-    if (typeof channelModel?.normalizeChannelButtonIndicatorThreshold === 'function') {
+    if (
+      typeof channelModel?.normalizeChannelButtonIndicatorThreshold ===
+      'function'
+    ) {
       return channelModel.normalizeChannelButtonIndicatorThreshold(rawValue);
     }
 
-    const minValue = Number(window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60);
+    const minValue = Number(
+      window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60
+    );
     const maxValue = Number(window.MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? 0);
-    const defaultValue = Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20);
+    const defaultValue = Number(
+      window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20
+    );
     const numericValue = Number(rawValue);
     return Math.max(
       minValue,
-      Math.min(maxValue, Number.isFinite(numericValue) ? numericValue : defaultValue)
+      Math.min(
+        maxValue,
+        Number.isFinite(numericValue) ? numericValue : defaultValue
+      )
     );
   }
 
@@ -101,10 +121,14 @@
     const normalizedLevel = Math.max(0, Math.min(1, Number(meterLevel) || 0));
     const minDb = Number(window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60);
     const maxDb = Number(window.MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? 0);
-    const thresholdDb = Math.max(minDb, Math.min(maxDb, Number(indicatorThreshold) || minDb));
-    const levelDb = normalizedLevel > 0
-      ? Math.max(minDb, Math.min(maxDb, 20 * Math.log10(normalizedLevel)))
-      : minDb;
+    const thresholdDb = Math.max(
+      minDb,
+      Math.min(maxDb, Number(indicatorThreshold) || minDb)
+    );
+    const levelDb =
+      normalizedLevel > 0
+        ? Math.max(minDb, Math.min(maxDb, 20 * Math.log10(normalizedLevel)))
+        : minDb;
 
     if (levelDb <= thresholdDb) {
       return 0;
@@ -134,14 +158,18 @@
 
   function resolveIndicatorMode(button = {}, fallbackState = null) {
     const interactionModes = getChannelButtonInteractionModes();
-    const explicitMode = String(button?.indicatorMode || fallbackState?.indicatorMode || '').trim();
+    const explicitMode = String(
+      button?.indicatorMode || fallbackState?.indicatorMode || ''
+    ).trim();
 
     if (Object.values(interactionModes).includes(explicitMode)) {
       return explicitMode;
     }
 
     const legacyIndicatorType = String(
-      button?.indicatorType || fallbackState?.buttonIndicatorType || getChannelButtonIndicatorTypes().press
+      button?.indicatorType ||
+        fallbackState?.buttonIndicatorType ||
+        getChannelButtonIndicatorTypes().press
     ).trim();
 
     if (legacyIndicatorType === getChannelButtonIndicatorTypes().toggle) {
@@ -179,7 +207,9 @@
 
     if (
       String(
-        button?.indicatorType || fallbackState?.buttonIndicatorType || getChannelButtonIndicatorTypes().press
+        button?.indicatorType ||
+          fallbackState?.buttonIndicatorType ||
+          getChannelButtonIndicatorTypes().press
       ).trim() === getChannelButtonIndicatorTypes().meter
     ) {
       return indicatorBehaviors.peakMeter;
@@ -233,11 +263,16 @@
   }
 
   function getChannelButtonStateByKey(buttonKey) {
-    return channelButtonRuntimeState.byKey.get(buttonKey) || createDefaultRuntimeState();
+    return (
+      channelButtonRuntimeState.byKey.get(buttonKey) ||
+      createDefaultRuntimeState()
+    );
   }
 
   function getChannelButtonState(channelId, buttonId) {
-    return getChannelButtonStateByKey(getChannelButtonRuntimeKey(channelId, buttonId));
+    return getChannelButtonStateByKey(
+      getChannelButtonRuntimeKey(channelId, buttonId)
+    );
   }
 
   function subscribeChannelButtonRuntime(listener) {
@@ -270,13 +305,26 @@
     return fallbackProcess ? [fallbackProcess] : [];
   }
 
-  async function resolveButtonTargetBinding(channel = {}, button = {}, options = {}) {
-    if (typeof window.channelActions?.resolveActionTargetBinding === 'function') {
-      return window.channelActions.resolveActionTargetBinding(channel, button, options);
+  async function resolveButtonTargetBinding(
+    channel = {},
+    button = {},
+    options = {}
+  ) {
+    if (
+      typeof window.channelActions?.resolveActionTargetBinding === 'function'
+    ) {
+      return window.channelActions.resolveActionTargetBinding(
+        channel,
+        button,
+        options
+      );
     }
 
     if (window.channelTargeting?.resolveChannelTargetBinding) {
-      return window.channelTargeting.resolveChannelTargetBinding(channel, options);
+      return window.channelTargeting.resolveChannelTargetBinding(
+        channel,
+        options
+      );
     }
 
     return {
@@ -291,33 +339,56 @@
   }
 
   function readButtonAudioStateMap(processes = []) {
-    const normalizedProcesses = [...new Set(
-      (Array.isArray(processes) ? processes : [])
-        .map((processName) => String(processName || '').trim())
-        .filter(Boolean)
-    )];
-    const api = typeof getApi === 'function' ? getApi() : (window.getNativeApi?.() ?? null);
+    const normalizedProcesses = [
+      ...new Set(
+        (Array.isArray(processes) ? processes : [])
+          .map((processName) => String(processName || '').trim())
+          .filter(Boolean)
+      )
+    ];
+    const api =
+      typeof getApi === 'function'
+        ? getApi()
+        : (window.getNativeApi?.() ?? null);
 
     if (!normalizedProcesses.length || !api?.get_audio_states) {
       return Promise.resolve(new Map());
     }
 
-    return api.get_audio_states(normalizedProcesses)
-      .then((response) => new Map(
-        (Array.isArray(response?.applications) ? response.applications : []).map((application) => [
-          String(application?.process || '').trim().toLowerCase(),
-          application
-        ])
-      ))
+    return api
+      .get_audio_states(normalizedProcesses)
+      .then(
+        (response) =>
+          new Map(
+            (Array.isArray(response?.applications)
+              ? response.applications
+              : []
+            ).map((application) => [
+              String(application?.process || '')
+                .trim()
+                .toLowerCase(),
+              application
+            ])
+          )
+      )
       .catch((error) => {
         console.error('get_audio_states error', error);
         return new Map();
       });
   }
 
-  function aggregateButtonTargetState(targetProcesses = [], audioStateMap = new Map()) {
+  function aggregateButtonTargetState(
+    targetProcesses = [],
+    audioStateMap = new Map()
+  ) {
     const states = targetProcesses
-      .map((processName) => audioStateMap.get(String(processName || '').trim().toLowerCase()))
+      .map((processName) =>
+        audioStateMap.get(
+          String(processName || '')
+            .trim()
+            .toLowerCase()
+        )
+      )
       .filter(Boolean);
 
     if (!states.length) {
@@ -328,7 +399,9 @@
       };
     }
 
-    const volume = states.reduce((sum, state) => sum + (Number(state?.volume) || 0), 0) / states.length;
+    const volume =
+      states.reduce((sum, state) => sum + (Number(state?.volume) || 0), 0) /
+      states.length;
     const muted = states.every((state) => Boolean(state?.muted));
 
     return {
@@ -350,35 +423,51 @@
     return window.channelTargeting.readBindingState(binding, options);
   }
 
-  async function getSharedBindingStateMaps(resolvedBindings = [], options = {}) {
+  async function getSharedBindingStateMaps(
+    resolvedBindings = [],
+    options = {}
+  ) {
     const targeting = window.channelTargeting || null;
-    const processNames = [...new Set(
-      resolvedBindings
-        .flatMap(({ binding }) => Array.isArray(binding?.appTargets) ? binding.appTargets : [])
-        .map((target) => String(target?.process || '').trim())
-        .filter(Boolean)
-    )];
-    const allDeviceTargets = resolvedBindings.flatMap(({ binding }) => (
+    const processNames = [
+      ...new Set(
+        resolvedBindings
+          .flatMap(({ binding }) =>
+            Array.isArray(binding?.appTargets) ? binding.appTargets : []
+          )
+          .map((target) => String(target?.process || '').trim())
+          .filter(Boolean)
+      )
+    ];
+    const allDeviceTargets = resolvedBindings.flatMap(({ binding }) =>
       Array.isArray(binding?.deviceTargets)
         ? binding.deviceTargets.map((target) => ({
-          ...target,
-          flow: String(target?.flow || binding?.deviceFlow || 'output').trim().toLowerCase() === 'input'
-            ? 'input'
-            : 'output'
-        }))
+            ...target,
+            flow:
+              String(target?.flow || binding?.deviceFlow || 'output')
+                .trim()
+                .toLowerCase() === 'input'
+                ? 'input'
+                : 'output'
+          }))
         : []
-    ));
-    const outputTargets = allDeviceTargets.filter((target) => target.flow !== 'input');
-    const inputTargets = allDeviceTargets.filter((target) => target.flow === 'input');
+    );
+    const outputTargets = allDeviceTargets.filter(
+      (target) => target.flow !== 'input'
+    );
+    const inputTargets = allDeviceTargets.filter(
+      (target) => target.flow === 'input'
+    );
 
     const [appStateMap, outputDeviceMap, inputDeviceMap] = await Promise.all([
       typeof targeting?.getProcessAudioStateMap === 'function'
         ? targeting.getProcessAudioStateMap(processNames, options)
         : readButtonAudioStateMap(processNames),
-      outputTargets.length && typeof targeting?.getAudioDeviceStateMap === 'function'
+      outputTargets.length &&
+      typeof targeting?.getAudioDeviceStateMap === 'function'
         ? targeting.getAudioDeviceStateMap(outputTargets, 'output', options)
         : Promise.resolve(new Map()),
-      inputTargets.length && typeof targeting?.getAudioDeviceStateMap === 'function'
+      inputTargets.length &&
+      typeof targeting?.getAudioDeviceStateMap === 'function'
         ? targeting.getAudioDeviceStateMap(inputTargets, 'input', options)
         : Promise.resolve(new Map())
     ]);
@@ -386,30 +475,69 @@
     return {
       appStateMap: appStateMap instanceof Map ? appStateMap : new Map(),
       deviceStateMap: new Map([
-        ...Array.from(outputDeviceMap instanceof Map ? outputDeviceMap.entries() : []),
-        ...Array.from(inputDeviceMap instanceof Map ? inputDeviceMap.entries() : [])
+        ...Array.from(
+          outputDeviceMap instanceof Map ? outputDeviceMap.entries() : []
+        ),
+        ...Array.from(
+          inputDeviceMap instanceof Map ? inputDeviceMap.entries() : []
+        )
       ])
     };
   }
 
   function refreshChannelButtonRuntimeDom() {
-    document.querySelectorAll('[data-channel-button-runtime-key]').forEach((element) => {
-      const runtimeKey = String(element.dataset.channelButtonRuntimeKey || '').trim();
-      const state = getChannelButtonStateByKey(runtimeKey);
-      const buttonRoot = element.closest('.channel-side-button');
+    document
+      .querySelectorAll('[data-channel-button-runtime-key]')
+      .forEach((element) => {
+        const runtimeKey = String(
+          element.dataset.channelButtonRuntimeKey || ''
+        ).trim();
+        const state = getChannelButtonStateByKey(runtimeKey);
+        const buttonRoot = element.closest('.channel-side-button');
 
-      if (buttonRoot) {
-        const meterLevel = Math.max(0, Math.min(1, Number(state.meterLevel) || 0));
-        buttonRoot.classList.toggle('active', Boolean(state.visualActive || state.flashActive));
-        buttonRoot.classList.toggle('is-pressed-indicator', Boolean(state.pressed));
-        buttonRoot.classList.toggle('is-binding-flash', Boolean(state.flashActive));
-        buttonRoot.style.setProperty('--button-meter-level', String(meterLevel));
-        buttonRoot.style.setProperty('--button-meter-fill-opacity', meterLevel > 0.001 ? String(Math.min(1, 0.24 + (meterLevel * 0.76))) : '0');
-        buttonRoot.style.setProperty('--button-meter-glow-opacity', meterLevel > 0.001 ? String(Math.min(0.92, 0.18 + (meterLevel * 0.74))) : '0');
-        buttonRoot.style.setProperty('--button-meter-glow-scale', String(0.82 + (meterLevel * 0.24)));
-        buttonRoot.style.setProperty('--button-meter-border-opacity', String(0.14 + (meterLevel * 0.34)));
-      }
-    });
+        if (buttonRoot) {
+          const meterLevel = Math.max(
+            0,
+            Math.min(1, Number(state.meterLevel) || 0)
+          );
+          buttonRoot.classList.toggle(
+            'active',
+            Boolean(state.visualActive || state.flashActive)
+          );
+          buttonRoot.classList.toggle(
+            'is-pressed-indicator',
+            Boolean(state.pressed)
+          );
+          buttonRoot.classList.toggle(
+            'is-binding-flash',
+            Boolean(state.flashActive)
+          );
+          buttonRoot.style.setProperty(
+            '--button-meter-level',
+            String(meterLevel)
+          );
+          buttonRoot.style.setProperty(
+            '--button-meter-fill-opacity',
+            meterLevel > 0.001
+              ? String(Math.min(1, 0.24 + meterLevel * 0.76))
+              : '0'
+          );
+          buttonRoot.style.setProperty(
+            '--button-meter-glow-opacity',
+            meterLevel > 0.001
+              ? String(Math.min(0.92, 0.18 + meterLevel * 0.74))
+              : '0'
+          );
+          buttonRoot.style.setProperty(
+            '--button-meter-glow-scale',
+            String(0.82 + meterLevel * 0.24)
+          );
+          buttonRoot.style.setProperty(
+            '--button-meter-border-opacity',
+            String(0.14 + meterLevel * 0.34)
+          );
+        }
+      });
   }
 
   function emitChannelButtonRuntimeChange(meta = {}) {
@@ -423,19 +551,28 @@
 
   function areChannelButtonStatesEqual(nextState = {}, previousState = {}) {
     return (
-      Boolean(nextState.actionActive) === Boolean(previousState.actionActive)
-      && Boolean(nextState.visualActive) === Boolean(previousState.visualActive)
-      && Boolean(nextState.indicatorActive) === Boolean(previousState.indicatorActive)
-      && Boolean(nextState.latched) === Boolean(previousState.latched)
-      && Boolean(nextState.flashActive) === Boolean(previousState.flashActive)
-      && Boolean(nextState.pressed) === Boolean(previousState.pressed)
-      && Boolean(nextState.hasTargets) === Boolean(previousState.hasTargets)
-      && String(nextState.indicatorBehavior || '') === String(previousState.indicatorBehavior || '')
-      && Math.abs(
-        (Number(nextState.indicatorThreshold) || 0) - (Number(previousState.indicatorThreshold) || 0)
-      ) < 0.5
-      && Math.abs((Number(nextState.rawMeterLevel) || 0) - (Number(previousState.rawMeterLevel) || 0)) < 0.005
-      && Math.abs((Number(nextState.meterLevel) || 0) - (Number(previousState.meterLevel) || 0)) < 0.005
+      Boolean(nextState.actionActive) === Boolean(previousState.actionActive) &&
+      Boolean(nextState.visualActive) === Boolean(previousState.visualActive) &&
+      Boolean(nextState.indicatorActive) ===
+        Boolean(previousState.indicatorActive) &&
+      Boolean(nextState.latched) === Boolean(previousState.latched) &&
+      Boolean(nextState.flashActive) === Boolean(previousState.flashActive) &&
+      Boolean(nextState.pressed) === Boolean(previousState.pressed) &&
+      Boolean(nextState.hasTargets) === Boolean(previousState.hasTargets) &&
+      String(nextState.indicatorBehavior || '') ===
+        String(previousState.indicatorBehavior || '') &&
+      Math.abs(
+        (Number(nextState.indicatorThreshold) || 0) -
+          (Number(previousState.indicatorThreshold) || 0)
+      ) < 0.5 &&
+      Math.abs(
+        (Number(nextState.rawMeterLevel) || 0) -
+          (Number(previousState.rawMeterLevel) || 0)
+      ) < 0.005 &&
+      Math.abs(
+        (Number(nextState.meterLevel) || 0) -
+          (Number(previousState.meterLevel) || 0)
+      ) < 0.005
     );
   }
 
@@ -454,7 +591,9 @@
       indicatorBehavior,
       indicatorThreshold,
       rawMeterLevel: Number(previousState.rawMeterLevel) || 0,
-      rawMeterDb: Number(previousState.rawMeterDb) || Number(window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60)
+      rawMeterDb:
+        Number(previousState.rawMeterDb) ||
+        Number(window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60)
     };
     const visualActive = getIndicatorVisualState({
       indicatorEnabled,
@@ -481,7 +620,8 @@
 
   function triggerChannelButtonPressRuntime(channelId, buttonId) {
     const runtimeKey = getChannelButtonRuntimeKey(channelId, buttonId);
-    const existingTimerId = channelButtonRuntimeState.pressTimers.get(runtimeKey);
+    const existingTimerId =
+      channelButtonRuntimeState.pressTimers.get(runtimeKey);
 
     if (existingTimerId) {
       clearTimeout(existingTimerId);
@@ -497,15 +637,19 @@
     channelButtonRuntimeState.pressTimers.set(runtimeKey, timerId);
   }
 
-  function toggleChannelButtonLatchRuntime(channelId, buttonId, indicatorTypeHint = null) {
+  function toggleChannelButtonLatchRuntime(
+    channelId,
+    buttonId,
+    indicatorTypeHint = null
+  ) {
     const runtimeKey = getChannelButtonRuntimeKey(channelId, buttonId);
     const previousState = getChannelButtonStateByKey(runtimeKey);
     const interactionModes = getChannelButtonInteractionModes();
-    const buttonIndicatorMode = (
-      indicatorTypeHint && Object.values(interactionModes).includes(indicatorTypeHint)
-    )
-      ? indicatorTypeHint
-      : resolveIndicatorMode({}, previousState);
+    const buttonIndicatorMode =
+      indicatorTypeHint &&
+      Object.values(interactionModes).includes(indicatorTypeHint)
+        ? indicatorTypeHint
+        : resolveIndicatorMode({}, previousState);
 
     if (buttonIndicatorMode !== interactionModes.toggle) {
       return previousState;
@@ -570,8 +714,11 @@
   }
 
   function activateSoloChannelButtonRuntime(buttonKey, snapshot = []) {
-    channelButtonRuntimeState.activeSoloKey = String(buttonKey || '').trim() || null;
-    channelButtonRuntimeState.soloSnapshot = Array.isArray(snapshot) ? snapshot : [];
+    channelButtonRuntimeState.activeSoloKey =
+      String(buttonKey || '').trim() || null;
+    channelButtonRuntimeState.soloSnapshot = Array.isArray(snapshot)
+      ? snapshot
+      : [];
   }
 
   function restoreSoloChannelButtonRuntime() {
@@ -604,18 +751,23 @@
     }
 
     channelButtonRuntimeState.refreshInFlight = (async () => {
-      const channels = typeof getChannelsState === 'function' ? getChannelsState() : [];
-      const buttonEntries = channels.flatMap((channel) => (
-        (Array.isArray(channel?.buttons) ? channel.buttons : []).map((button) => ({
-          channel,
-          button: normalizeChannelButton(button)
-        }))
-      ));
+      const channels =
+        typeof getChannelsState === 'function' ? getChannelsState() : [];
+      const buttonEntries = channels.flatMap((channel) =>
+        (Array.isArray(channel?.buttons) ? channel.buttons : []).map(
+          (button) => ({
+            channel,
+            button: normalizeChannelButton(button)
+          })
+        )
+      );
 
       if (!buttonEntries.length) {
         if (channelButtonRuntimeState.byKey.size) {
           channelButtonRuntimeState.byKey.clear();
-          emitChannelButtonRuntimeChange({ type: 'channel-button-runtime/cleared' });
+          emitChannelButtonRuntimeChange({
+            type: 'channel-button-runtime/cleared'
+          });
         }
         return;
       }
@@ -624,10 +776,15 @@
         buttonEntries.map(async ({ channel, button }) => ({
           channel,
           button,
-          binding: await resolveButtonTargetBinding(channel, button, { force: false })
+          binding: await resolveButtonTargetBinding(channel, button, {
+            force: false
+          })
         }))
       );
-      const sharedStateMaps = await getSharedBindingStateMaps(resolvedBindings, { force, live: true });
+      const sharedStateMaps = await getSharedBindingStateMaps(
+        resolvedBindings,
+        { force, live: true }
+      );
       const nextStates = new Map();
 
       for (const { channel, button, binding } of resolvedBindings) {
@@ -640,31 +797,46 @@
         const previousState = getChannelButtonStateByKey(runtimeKey);
         const rawMeterLevel = aggregateState.muted
           ? 0
-          : (Number.isFinite(Number(aggregateState.peakLevel))
+          : Number.isFinite(Number(aggregateState.peakLevel))
             ? Math.max(0, Math.min(1, Number(aggregateState.peakLevel) || 0))
-            : Math.max(0, Math.min(1, (aggregateState.volume || 0) / 100)));
+            : Math.max(0, Math.min(1, (aggregateState.volume || 0) / 100));
         const rawMeterDb = convertMeterLevelToDb(rawMeterLevel);
         const latched = Boolean(previousState.latched);
         const indicatorEnabled = isIndicatorEnabled(button, previousState);
         const indicatorMode = resolveIndicatorMode(button, previousState);
-        const indicatorBehavior = resolveIndicatorBehavior(button, previousState);
-        const indicatorThreshold = resolveIndicatorThreshold(button, previousState);
+        const indicatorBehavior = resolveIndicatorBehavior(
+          button,
+          previousState
+        );
+        const indicatorThreshold = resolveIndicatorThreshold(
+          button,
+          previousState
+        );
         let actionActive = false;
 
-        if (!button.actionEnabled || button.actionType === getChannelButtonActionTypes().none) {
+        if (
+          !button.actionEnabled ||
+          button.actionType === getChannelButtonActionTypes().none
+        ) {
           actionActive = false;
         } else if (button.actionType === getChannelButtonActionTypes().solo) {
           actionActive = channelButtonRuntimeState.activeSoloKey === runtimeKey;
-        } else if (button.actionType === getChannelButtonActionTypes().setVolume) {
-          actionActive = aggregateState.hasTargets
-            && !aggregateState.muted
-            && Math.abs((aggregateState.volume || 0) - (Number(button.actionValue) || 0)) <= 1;
+        } else if (
+          button.actionType === getChannelButtonActionTypes().setVolume
+        ) {
+          actionActive =
+            aggregateState.hasTargets &&
+            !aggregateState.muted &&
+            Math.abs(
+              (aggregateState.volume || 0) - (Number(button.actionValue) || 0)
+            ) <= 1;
         } else if (button.actionType === getChannelButtonActionTypes().mute) {
           actionActive = aggregateState.hasTargets && aggregateState.muted;
         }
-        const effectiveMeterLevel = indicatorBehavior === getChannelButtonIndicatorBehaviors().peakMeter
-          ? applyPeakMeterThreshold(rawMeterLevel, indicatorThreshold)
-          : rawMeterLevel;
+        const effectiveMeterLevel =
+          indicatorBehavior === getChannelButtonIndicatorBehaviors().peakMeter
+            ? applyPeakMeterThreshold(rawMeterLevel, indicatorThreshold)
+            : rawMeterLevel;
 
         const visualActive = getIndicatorVisualState({
           indicatorEnabled,
@@ -701,7 +873,12 @@
 
       if (!hasChanged) {
         nextStates.forEach((nextState, runtimeKey) => {
-          if (!areChannelButtonStatesEqual(nextState, channelButtonRuntimeState.byKey.get(runtimeKey))) {
+          if (
+            !areChannelButtonStatesEqual(
+              nextState,
+              channelButtonRuntimeState.byKey.get(runtimeKey)
+            )
+          ) {
             hasChanged = true;
           }
         });
@@ -710,7 +887,9 @@
       channelButtonRuntimeState.byKey = nextStates;
 
       if (hasChanged) {
-        emitChannelButtonRuntimeChange({ type: 'channel-button-runtime/updated' });
+        emitChannelButtonRuntimeChange({
+          type: 'channel-button-runtime/updated'
+        });
       } else {
         refreshChannelButtonRuntimeDom();
       }
@@ -735,9 +914,11 @@
   }
 
   function syncChannelButtonRuntimePolling() {
-    const hasChannelButtons = (typeof getChannelsState === 'function' ? getChannelsState() : []).some((channel) => (
-      Array.isArray(channel?.buttons) && channel.buttons.length > 0
-    ));
+    const hasChannelButtons = (
+      typeof getChannelsState === 'function' ? getChannelsState() : []
+    ).some(
+      (channel) => Array.isArray(channel?.buttons) && channel.buttons.length > 0
+    );
 
     if (!hasChannelButtons) {
       if (channelButtonRuntimeState.pollTimerId) {
@@ -768,18 +949,18 @@
         }
 
         if (
-          meta?.type === 'channels/set-volume'
-          || meta?.type === 'channels/rename'
-          || meta?.type === 'channels/set-title-icon'
-          || meta?.type === 'channels/set-fader-mapping'
-          || meta?.type === 'channels/set-button-placement'
+          meta?.type === 'channels/set-volume' ||
+          meta?.type === 'channels/rename' ||
+          meta?.type === 'channels/set-title-icon' ||
+          meta?.type === 'channels/set-fader-mapping' ||
+          meta?.type === 'channels/set-button-placement'
         ) {
           return;
         }
 
         if (
-          meta?.type
-          && ![
+          meta?.type &&
+          ![
             'renderer/hydrate',
             'channels/remove',
             'channels/set-app',
@@ -832,7 +1013,8 @@
 
   // Compatibility bridge: keep the existing globals while moving ownership
   // out of buttons.js and into this runtime module.
-  window.requestChannelButtonRuntimeRefresh = requestChannelButtonRuntimeRefresh;
+  window.requestChannelButtonRuntimeRefresh =
+    requestChannelButtonRuntimeRefresh;
   window.getChannelButtonState = getChannelButtonState;
   window.setChannelButtonPressedRuntime = setChannelButtonPressedRuntime;
   window.triggerChannelButtonPressRuntime = triggerChannelButtonPressRuntime;
@@ -840,6 +1022,7 @@
   window.flashChannelButtonBindingRuntime = flashChannelButtonBindingRuntime;
   window.activateSoloChannelButtonRuntime = activateSoloChannelButtonRuntime;
   window.restoreSoloChannelButtonRuntime = restoreSoloChannelButtonRuntime;
-  window.getActiveSoloChannelButtonKeyRuntime = getActiveSoloChannelButtonKeyRuntime;
+  window.getActiveSoloChannelButtonKeyRuntime =
+    getActiveSoloChannelButtonKeyRuntime;
   window.initChannelButtonsRuntime = initChannelButtonsRuntime;
 })(window);

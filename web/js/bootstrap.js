@@ -37,9 +37,7 @@
     },
     {
       name: 'settings',
-      scripts: [
-        './actions/ui-actions.js'
-      ]
+      scripts: ['./actions/ui-actions.js']
     },
     {
       name: 'channels',
@@ -62,20 +60,17 @@
     },
     {
       name: 'editor',
-      scripts: [
-        './ui/entity-editor.js'
-      ]
+      scripts: ['./ui/entity-editor.js']
     },
     {
       name: 'shell',
-      scripts: [
-        './app.js',
-        './shell/composition-root.js'
-      ]
+      scripts: ['./app.js', './shell/composition-root.js']
     }
   ]);
 
-  const rendererScriptPlan = rendererFeaturePlan.flatMap((feature) => feature.scripts);
+  const rendererScriptPlan = rendererFeaturePlan.flatMap(
+    (feature) => feature.scripts
+  );
 
   function loadLegacyScript(path) {
     return new Promise((resolve, reject) => {
@@ -83,7 +78,8 @@
       script.src = new URL(path, bootstrapBaseUrl).toString();
       script.async = false;
       script.onload = () => resolve(path);
-      script.onerror = () => reject(new Error(`Failed to load renderer script: ${path}`));
+      script.onerror = () =>
+        reject(new Error(`Failed to load renderer script: ${path}`));
       document.body.appendChild(script);
     });
   }

@@ -21,42 +21,50 @@
   }
 
   function getActionTypes() {
-    return window.CHANNEL_BUTTON_ACTION_TYPES || {
-      none: 'none',
-      mute: 'mute',
-      solo: 'solo',
-      setVolume: 'set-volume',
-      sendKey: 'send-key',
-      mediaPreviousTrack: 'media-previous-track',
-      mediaNextTrack: 'media-next-track',
-      mediaPlay: 'media-play',
-      mediaPause: 'media-pause',
-      mediaPlayPause: 'media-play-pause'
-    };
+    return (
+      window.CHANNEL_BUTTON_ACTION_TYPES || {
+        none: 'none',
+        mute: 'mute',
+        solo: 'solo',
+        setVolume: 'set-volume',
+        sendKey: 'send-key',
+        mediaPreviousTrack: 'media-previous-track',
+        mediaNextTrack: 'media-next-track',
+        mediaPlay: 'media-play',
+        mediaPause: 'media-pause',
+        mediaPlayPause: 'media-play-pause'
+      }
+    );
   }
 
   function getIndicatorTypes() {
-    return window.CHANNEL_BUTTON_INDICATOR_TYPES || {
-      toggle: 'toggle',
-      meter: 'meter',
-      press: 'press'
-    };
+    return (
+      window.CHANNEL_BUTTON_INDICATOR_TYPES || {
+        toggle: 'toggle',
+        meter: 'meter',
+        press: 'press'
+      }
+    );
   }
 
   function getIndicatorBehaviors() {
-    return window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
-      actionState: 'action-state',
-      peakMeter: 'peak-meter',
-      targetActivity: 'target-activity'
-    };
+    return (
+      window.CHANNEL_BUTTON_INDICATOR_BEHAVIORS || {
+        actionState: 'action-state',
+        peakMeter: 'peak-meter',
+        targetActivity: 'target-activity'
+      }
+    );
   }
 
   function getInteractionModes() {
-    return window.CHANNEL_BUTTON_INTERACTION_MODES || {
-      push: 'push',
-      toggle: 'toggle',
-      trigger: 'trigger'
-    };
+    return (
+      window.CHANNEL_BUTTON_INTERACTION_MODES || {
+        push: 'push',
+        toggle: 'toggle',
+        trigger: 'trigger'
+      }
+    );
   }
 
   function normalizeButton(button = {}) {
@@ -83,26 +91,38 @@
       pressed: false,
       hasTargets: false,
       indicatorBehavior: getIndicatorBehaviors().actionState,
-      indicatorThreshold: Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20) || -20,
+      indicatorThreshold:
+        Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20) || -20,
       buttonIndicatorType: getIndicatorTypes().press
     };
   }
 
   function resolveIndicatorThreshold(button = {}, fallbackState = null) {
-    const rawValue = button?.indicatorThreshold ?? fallbackState?.indicatorThreshold;
+    const rawValue =
+      button?.indicatorThreshold ?? fallbackState?.indicatorThreshold;
     const channelModel = window.channelModel || null;
 
-    if (typeof channelModel?.normalizeChannelButtonIndicatorThreshold === 'function') {
+    if (
+      typeof channelModel?.normalizeChannelButtonIndicatorThreshold ===
+      'function'
+    ) {
       return channelModel.normalizeChannelButtonIndicatorThreshold(rawValue);
     }
 
-    const minValue = Number(window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60);
+    const minValue = Number(
+      window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60
+    );
     const maxValue = Number(window.MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? 0);
-    const defaultValue = Number(window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20);
+    const defaultValue = Number(
+      window.DEFAULT_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -20
+    );
     const numericValue = Number(rawValue);
     return Math.max(
       minValue,
-      Math.min(maxValue, Number.isFinite(numericValue) ? numericValue : defaultValue)
+      Math.min(
+        maxValue,
+        Number.isFinite(numericValue) ? numericValue : defaultValue
+      )
     );
   }
 
@@ -110,10 +130,14 @@
     const normalizedLevel = Math.max(0, Math.min(1, Number(meterLevel) || 0));
     const minDb = Number(window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60);
     const maxDb = Number(window.MAX_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? 0);
-    const thresholdDb = Math.max(minDb, Math.min(maxDb, Number(indicatorThreshold) || minDb));
-    const levelDb = normalizedLevel > 0
-      ? Math.max(minDb, Math.min(maxDb, 20 * Math.log10(normalizedLevel)))
-      : minDb;
+    const thresholdDb = Math.max(
+      minDb,
+      Math.min(maxDb, Number(indicatorThreshold) || minDb)
+    );
+    const levelDb =
+      normalizedLevel > 0
+        ? Math.max(minDb, Math.min(maxDb, 20 * Math.log10(normalizedLevel)))
+        : minDb;
 
     if (levelDb <= thresholdDb) {
       return 0;
@@ -143,14 +167,18 @@
 
   function resolveIndicatorMode(button = {}, fallbackState = null) {
     const interactionModes = getInteractionModes();
-    const explicitMode = String(button?.indicatorMode || fallbackState?.indicatorMode || '').trim();
+    const explicitMode = String(
+      button?.indicatorMode || fallbackState?.indicatorMode || ''
+    ).trim();
 
     if (Object.values(interactionModes).includes(explicitMode)) {
       return explicitMode;
     }
 
     const legacyIndicatorType = String(
-      button?.indicatorType || fallbackState?.buttonIndicatorType || getIndicatorTypes().press
+      button?.indicatorType ||
+        fallbackState?.buttonIndicatorType ||
+        getIndicatorTypes().press
     ).trim();
 
     if (legacyIndicatorType === getIndicatorTypes().toggle) {
@@ -188,7 +216,9 @@
 
     if (
       String(
-        button?.indicatorType || fallbackState?.buttonIndicatorType || getIndicatorTypes().press
+        button?.indicatorType ||
+          fallbackState?.buttonIndicatorType ||
+          getIndicatorTypes().press
       ).trim() === getIndicatorTypes().meter
     ) {
       return indicatorBehaviors.peakMeter;
@@ -242,11 +272,16 @@
   }
 
   function getStandaloneButtonStateByKey(runtimeKey) {
-    return standaloneButtonRuntimeState.byKey.get(runtimeKey) || createDefaultRuntimeState();
+    return (
+      standaloneButtonRuntimeState.byKey.get(runtimeKey) ||
+      createDefaultRuntimeState()
+    );
   }
 
   function getStandaloneButtonState(buttonId) {
-    return getStandaloneButtonStateByKey(getStandaloneButtonRuntimeKey(buttonId));
+    return getStandaloneButtonStateByKey(
+      getStandaloneButtonRuntimeKey(buttonId)
+    );
   }
 
   function subscribeStandaloneButtonRuntime(listener) {
@@ -261,7 +296,9 @@
   }
 
   function getButtonTargetProcesses(button = {}) {
-    if (typeof window.standaloneButtonActions?.getTargetProcesses === 'function') {
+    if (
+      typeof window.standaloneButtonActions?.getTargetProcesses === 'function'
+    ) {
       return window.standaloneButtonActions.getTargetProcesses(button);
     }
 
@@ -280,8 +317,13 @@
   }
 
   async function resolveButtonTargetBinding(button = {}, options = {}) {
-    if (typeof window.standaloneButtonActions?.resolveTargetBinding === 'function') {
-      return window.standaloneButtonActions.resolveTargetBinding(button, options);
+    if (
+      typeof window.standaloneButtonActions?.resolveTargetBinding === 'function'
+    ) {
+      return window.standaloneButtonActions.resolveTargetBinding(
+        button,
+        options
+      );
     }
 
     return {
@@ -296,35 +338,56 @@
   }
 
   function readButtonAudioStateMap(processes = []) {
-    const normalizedProcesses = [...new Set(
-      (Array.isArray(processes) ? processes : [])
-        .map((processName) => String(processName || '').trim())
-        .filter(Boolean)
-    )];
-    const api = typeof window.getApi === 'function'
-      ? window.getApi()
-      : (window.getNativeApi?.() ?? null);
+    const normalizedProcesses = [
+      ...new Set(
+        (Array.isArray(processes) ? processes : [])
+          .map((processName) => String(processName || '').trim())
+          .filter(Boolean)
+      )
+    ];
+    const api =
+      typeof window.getApi === 'function'
+        ? window.getApi()
+        : (window.getNativeApi?.() ?? null);
 
     if (!normalizedProcesses.length || !api?.get_audio_states) {
       return Promise.resolve(new Map());
     }
 
-    return api.get_audio_states(normalizedProcesses)
-      .then((response) => new Map(
-        (Array.isArray(response?.applications) ? response.applications : []).map((application) => [
-          String(application?.process || '').trim().toLowerCase(),
-          application
-        ])
-      ))
+    return api
+      .get_audio_states(normalizedProcesses)
+      .then(
+        (response) =>
+          new Map(
+            (Array.isArray(response?.applications)
+              ? response.applications
+              : []
+            ).map((application) => [
+              String(application?.process || '')
+                .trim()
+                .toLowerCase(),
+              application
+            ])
+          )
+      )
       .catch((error) => {
         console.error('get_audio_states error', error);
         return new Map();
       });
   }
 
-  function aggregateButtonTargetState(targetProcesses = [], audioStateMap = new Map()) {
+  function aggregateButtonTargetState(
+    targetProcesses = [],
+    audioStateMap = new Map()
+  ) {
     const states = targetProcesses
-      .map((processName) => audioStateMap.get(String(processName || '').trim().toLowerCase()))
+      .map((processName) =>
+        audioStateMap.get(
+          String(processName || '')
+            .trim()
+            .toLowerCase()
+        )
+      )
       .filter(Boolean);
 
     if (!states.length) {
@@ -335,7 +398,9 @@
       };
     }
 
-    const volume = states.reduce((sum, state) => sum + (Number(state?.volume) || 0), 0) / states.length;
+    const volume =
+      states.reduce((sum, state) => sum + (Number(state?.volume) || 0), 0) /
+      states.length;
     const muted = states.every((state) => Boolean(state?.muted));
 
     return {
@@ -357,35 +422,51 @@
     return window.channelTargeting.readBindingState(binding, options);
   }
 
-  async function getSharedBindingStateMaps(resolvedBindings = [], options = {}) {
+  async function getSharedBindingStateMaps(
+    resolvedBindings = [],
+    options = {}
+  ) {
     const targeting = window.channelTargeting || null;
-    const processNames = [...new Set(
-      resolvedBindings
-        .flatMap(({ binding }) => Array.isArray(binding?.appTargets) ? binding.appTargets : [])
-        .map((target) => String(target?.process || '').trim())
-        .filter(Boolean)
-    )];
-    const allDeviceTargets = resolvedBindings.flatMap(({ binding }) => (
+    const processNames = [
+      ...new Set(
+        resolvedBindings
+          .flatMap(({ binding }) =>
+            Array.isArray(binding?.appTargets) ? binding.appTargets : []
+          )
+          .map((target) => String(target?.process || '').trim())
+          .filter(Boolean)
+      )
+    ];
+    const allDeviceTargets = resolvedBindings.flatMap(({ binding }) =>
       Array.isArray(binding?.deviceTargets)
         ? binding.deviceTargets.map((target) => ({
-          ...target,
-          flow: String(target?.flow || binding?.deviceFlow || 'output').trim().toLowerCase() === 'input'
-            ? 'input'
-            : 'output'
-        }))
+            ...target,
+            flow:
+              String(target?.flow || binding?.deviceFlow || 'output')
+                .trim()
+                .toLowerCase() === 'input'
+                ? 'input'
+                : 'output'
+          }))
         : []
-    ));
-    const outputTargets = allDeviceTargets.filter((target) => target.flow !== 'input');
-    const inputTargets = allDeviceTargets.filter((target) => target.flow === 'input');
+    );
+    const outputTargets = allDeviceTargets.filter(
+      (target) => target.flow !== 'input'
+    );
+    const inputTargets = allDeviceTargets.filter(
+      (target) => target.flow === 'input'
+    );
 
     const [appStateMap, outputDeviceMap, inputDeviceMap] = await Promise.all([
       typeof targeting?.getProcessAudioStateMap === 'function'
         ? targeting.getProcessAudioStateMap(processNames, options)
         : readButtonAudioStateMap(processNames),
-      outputTargets.length && typeof targeting?.getAudioDeviceStateMap === 'function'
+      outputTargets.length &&
+      typeof targeting?.getAudioDeviceStateMap === 'function'
         ? targeting.getAudioDeviceStateMap(outputTargets, 'output', options)
         : Promise.resolve(new Map()),
-      inputTargets.length && typeof targeting?.getAudioDeviceStateMap === 'function'
+      inputTargets.length &&
+      typeof targeting?.getAudioDeviceStateMap === 'function'
         ? targeting.getAudioDeviceStateMap(inputTargets, 'input', options)
         : Promise.resolve(new Map())
     ]);
@@ -393,32 +474,71 @@
     return {
       appStateMap: appStateMap instanceof Map ? appStateMap : new Map(),
       deviceStateMap: new Map([
-        ...Array.from(outputDeviceMap instanceof Map ? outputDeviceMap.entries() : []),
-        ...Array.from(inputDeviceMap instanceof Map ? inputDeviceMap.entries() : [])
+        ...Array.from(
+          outputDeviceMap instanceof Map ? outputDeviceMap.entries() : []
+        ),
+        ...Array.from(
+          inputDeviceMap instanceof Map ? inputDeviceMap.entries() : []
+        )
       ])
     };
   }
 
   function refreshStandaloneButtonRuntimeDom() {
-    document.querySelectorAll('[data-standalone-button-runtime-key]').forEach((element) => {
-      const runtimeKey = String(element.dataset.standaloneButtonRuntimeKey || '').trim();
-      const state = getStandaloneButtonStateByKey(runtimeKey);
-      const buttonRoot = element.closest('.standalone-button');
+    document
+      .querySelectorAll('[data-standalone-button-runtime-key]')
+      .forEach((element) => {
+        const runtimeKey = String(
+          element.dataset.standaloneButtonRuntimeKey || ''
+        ).trim();
+        const state = getStandaloneButtonStateByKey(runtimeKey);
+        const buttonRoot = element.closest('.standalone-button');
 
-      if (!buttonRoot) {
-        return;
-      }
+        if (!buttonRoot) {
+          return;
+        }
 
-      const meterLevel = Math.max(0, Math.min(1, Number(state.meterLevel) || 0));
-      buttonRoot.classList.toggle('active', Boolean(state.visualActive || state.flashActive));
-      buttonRoot.classList.toggle('is-pressed-indicator', Boolean(state.pressed));
-      buttonRoot.classList.toggle('is-binding-flash', Boolean(state.flashActive));
-      buttonRoot.style.setProperty('--button-meter-level', String(meterLevel));
-      buttonRoot.style.setProperty('--button-meter-fill-opacity', meterLevel > 0.001 ? String(Math.min(1, 0.24 + (meterLevel * 0.76))) : '0');
-      buttonRoot.style.setProperty('--button-meter-glow-opacity', meterLevel > 0.001 ? String(Math.min(0.92, 0.18 + (meterLevel * 0.74))) : '0');
-      buttonRoot.style.setProperty('--button-meter-glow-scale', String(0.82 + (meterLevel * 0.24)));
-      buttonRoot.style.setProperty('--button-meter-border-opacity', String(0.14 + (meterLevel * 0.34)));
-    });
+        const meterLevel = Math.max(
+          0,
+          Math.min(1, Number(state.meterLevel) || 0)
+        );
+        buttonRoot.classList.toggle(
+          'active',
+          Boolean(state.visualActive || state.flashActive)
+        );
+        buttonRoot.classList.toggle(
+          'is-pressed-indicator',
+          Boolean(state.pressed)
+        );
+        buttonRoot.classList.toggle(
+          'is-binding-flash',
+          Boolean(state.flashActive)
+        );
+        buttonRoot.style.setProperty(
+          '--button-meter-level',
+          String(meterLevel)
+        );
+        buttonRoot.style.setProperty(
+          '--button-meter-fill-opacity',
+          meterLevel > 0.001
+            ? String(Math.min(1, 0.24 + meterLevel * 0.76))
+            : '0'
+        );
+        buttonRoot.style.setProperty(
+          '--button-meter-glow-opacity',
+          meterLevel > 0.001
+            ? String(Math.min(0.92, 0.18 + meterLevel * 0.74))
+            : '0'
+        );
+        buttonRoot.style.setProperty(
+          '--button-meter-glow-scale',
+          String(0.82 + meterLevel * 0.24)
+        );
+        buttonRoot.style.setProperty(
+          '--button-meter-border-opacity',
+          String(0.14 + meterLevel * 0.34)
+        );
+      });
   }
 
   function emitStandaloneButtonRuntimeChange(meta = {}) {
@@ -427,24 +547,35 @@
       reason: 'standalone-button-runtime',
       ...meta
     });
-    standaloneButtonRuntimeState.listeners.forEach((listener) => listener(meta));
+    standaloneButtonRuntimeState.listeners.forEach((listener) =>
+      listener(meta)
+    );
   }
 
   function areStandaloneButtonStatesEqual(nextState = {}, previousState = {}) {
     return (
-      Boolean(nextState.actionActive) === Boolean(previousState.actionActive)
-      && Boolean(nextState.visualActive) === Boolean(previousState.visualActive)
-      && Boolean(nextState.indicatorActive) === Boolean(previousState.indicatorActive)
-      && Boolean(nextState.latched) === Boolean(previousState.latched)
-      && Boolean(nextState.flashActive) === Boolean(previousState.flashActive)
-      && Boolean(nextState.pressed) === Boolean(previousState.pressed)
-      && Boolean(nextState.hasTargets) === Boolean(previousState.hasTargets)
-      && String(nextState.indicatorBehavior || '') === String(previousState.indicatorBehavior || '')
-      && Math.abs(
-        (Number(nextState.indicatorThreshold) || 0) - (Number(previousState.indicatorThreshold) || 0)
-      ) < 0.5
-      && Math.abs((Number(nextState.rawMeterLevel) || 0) - (Number(previousState.rawMeterLevel) || 0)) < 0.005
-      && Math.abs((Number(nextState.meterLevel) || 0) - (Number(previousState.meterLevel) || 0)) < 0.005
+      Boolean(nextState.actionActive) === Boolean(previousState.actionActive) &&
+      Boolean(nextState.visualActive) === Boolean(previousState.visualActive) &&
+      Boolean(nextState.indicatorActive) ===
+        Boolean(previousState.indicatorActive) &&
+      Boolean(nextState.latched) === Boolean(previousState.latched) &&
+      Boolean(nextState.flashActive) === Boolean(previousState.flashActive) &&
+      Boolean(nextState.pressed) === Boolean(previousState.pressed) &&
+      Boolean(nextState.hasTargets) === Boolean(previousState.hasTargets) &&
+      String(nextState.indicatorBehavior || '') ===
+        String(previousState.indicatorBehavior || '') &&
+      Math.abs(
+        (Number(nextState.indicatorThreshold) || 0) -
+          (Number(previousState.indicatorThreshold) || 0)
+      ) < 0.5 &&
+      Math.abs(
+        (Number(nextState.rawMeterLevel) || 0) -
+          (Number(previousState.rawMeterLevel) || 0)
+      ) < 0.005 &&
+      Math.abs(
+        (Number(nextState.meterLevel) || 0) -
+          (Number(previousState.meterLevel) || 0)
+      ) < 0.005
     );
   }
 
@@ -463,7 +594,9 @@
       indicatorBehavior,
       indicatorThreshold,
       rawMeterLevel: Number(previousState.rawMeterLevel) || 0,
-      rawMeterDb: Number(previousState.rawMeterDb) || Number(window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60)
+      rawMeterDb:
+        Number(previousState.rawMeterDb) ||
+        Number(window.MIN_CHANNEL_BUTTON_INDICATOR_THRESHOLD ?? -60)
     };
     const visualActive = getIndicatorVisualState({
       indicatorEnabled,
@@ -489,7 +622,8 @@
 
   function triggerStandaloneButtonPressRuntime(buttonId) {
     const runtimeKey = getStandaloneButtonRuntimeKey(buttonId);
-    const existingTimerId = standaloneButtonRuntimeState.pressTimers.get(runtimeKey);
+    const existingTimerId =
+      standaloneButtonRuntimeState.pressTimers.get(runtimeKey);
 
     if (existingTimerId) {
       clearTimeout(existingTimerId);
@@ -505,15 +639,18 @@
     standaloneButtonRuntimeState.pressTimers.set(runtimeKey, timerId);
   }
 
-  function toggleStandaloneButtonLatchRuntime(buttonId, indicatorTypeHint = null) {
+  function toggleStandaloneButtonLatchRuntime(
+    buttonId,
+    indicatorTypeHint = null
+  ) {
     const runtimeKey = getStandaloneButtonRuntimeKey(buttonId);
     const previousState = getStandaloneButtonStateByKey(runtimeKey);
     const interactionModes = getInteractionModes();
-    const buttonIndicatorMode = (
-      indicatorTypeHint && Object.values(interactionModes).includes(indicatorTypeHint)
-    )
-      ? indicatorTypeHint
-      : resolveIndicatorMode({}, previousState);
+    const buttonIndicatorMode =
+      indicatorTypeHint &&
+      Object.values(interactionModes).includes(indicatorTypeHint)
+        ? indicatorTypeHint
+        : resolveIndicatorMode({}, previousState);
 
     if (buttonIndicatorMode !== interactionModes.toggle) {
       return previousState;
@@ -575,8 +712,11 @@
   }
 
   function activateStandaloneSoloRuntime(buttonId, snapshot = []) {
-    standaloneButtonRuntimeState.activeSoloKey = getStandaloneButtonRuntimeKey(buttonId);
-    standaloneButtonRuntimeState.soloSnapshot = Array.isArray(snapshot) ? snapshot : [];
+    standaloneButtonRuntimeState.activeSoloKey =
+      getStandaloneButtonRuntimeKey(buttonId);
+    standaloneButtonRuntimeState.soloSnapshot = Array.isArray(snapshot)
+      ? snapshot
+      : [];
   }
 
   function restoreStandaloneSoloRuntime() {
@@ -609,15 +749,20 @@
     }
 
     standaloneButtonRuntimeState.refreshInFlight = (async () => {
-      const buttons = getStandaloneButtons().map((button) => normalizeButton(button));
-      const mediaControllerSnapshot = typeof window.mediaControllerUi?.getCachedRuntimeSnapshot === 'function'
-        ? window.mediaControllerUi.getCachedRuntimeSnapshot()
-        : null;
+      const buttons = getStandaloneButtons().map((button) =>
+        normalizeButton(button)
+      );
+      const mediaControllerSnapshot =
+        typeof window.mediaControllerUi?.getCachedRuntimeSnapshot === 'function'
+          ? window.mediaControllerUi.getCachedRuntimeSnapshot()
+          : null;
 
       if (!buttons.length) {
         if (standaloneButtonRuntimeState.byKey.size) {
           standaloneButtonRuntimeState.byKey.clear();
-          emitStandaloneButtonRuntimeChange({ type: 'standalone-button-runtime/cleared' });
+          emitStandaloneButtonRuntimeChange({
+            type: 'standalone-button-runtime/cleared'
+          });
         }
         return;
       }
@@ -628,15 +773,24 @@
           binding: await resolveButtonTargetBinding(button, { force: false })
         }))
       );
-      const sharedStateMaps = await getSharedBindingStateMaps(resolvedBindings, { force, live: true });
+      const sharedStateMaps = await getSharedBindingStateMaps(
+        resolvedBindings,
+        { force, live: true }
+      );
       const nextStates = new Map();
 
       for (const { button, binding } of resolvedBindings) {
         const runtimeKey = getStandaloneButtonRuntimeKey(button.id);
         const previousState = getStandaloneButtonStateByKey(runtimeKey);
-        const customRuntimeState = typeof window.mediaControllerUi?.getRuntimeStateForButton === 'function'
-          ? window.mediaControllerUi.getRuntimeStateForButton(button, previousState, mediaControllerSnapshot)
-          : null;
+        const customRuntimeState =
+          typeof window.mediaControllerUi?.getRuntimeStateForButton ===
+          'function'
+            ? window.mediaControllerUi.getRuntimeStateForButton(
+                button,
+                previousState,
+                mediaControllerSnapshot
+              )
+            : null;
 
         if (customRuntimeState) {
           nextStates.set(runtimeKey, {
@@ -653,32 +807,46 @@
         });
         const rawMeterLevel = aggregateState.muted
           ? 0
-          : (Number.isFinite(Number(aggregateState.peakLevel))
+          : Number.isFinite(Number(aggregateState.peakLevel))
             ? Math.max(0, Math.min(1, Number(aggregateState.peakLevel) || 0))
-            : Math.max(0, Math.min(1, (aggregateState.volume || 0) / 100)));
+            : Math.max(0, Math.min(1, (aggregateState.volume || 0) / 100));
         const rawMeterDb = convertMeterLevelToDb(rawMeterLevel);
         const latched = Boolean(previousState.latched);
         const indicatorEnabled = isIndicatorEnabled(button, previousState);
         const indicatorMode = resolveIndicatorMode(button, previousState);
-        const indicatorBehavior = resolveIndicatorBehavior(button, previousState);
-        const indicatorThreshold = resolveIndicatorThreshold(button, previousState);
+        const indicatorBehavior = resolveIndicatorBehavior(
+          button,
+          previousState
+        );
+        const indicatorThreshold = resolveIndicatorThreshold(
+          button,
+          previousState
+        );
         let actionActive = false;
 
-        if (!button.actionEnabled || button.actionType === getActionTypes().none) {
+        if (
+          !button.actionEnabled ||
+          button.actionType === getActionTypes().none
+        ) {
           actionActive = false;
         } else if (button.actionType === getActionTypes().solo) {
-          actionActive = standaloneButtonRuntimeState.activeSoloKey === runtimeKey;
+          actionActive =
+            standaloneButtonRuntimeState.activeSoloKey === runtimeKey;
         } else if (button.actionType === getActionTypes().setVolume) {
-          actionActive = aggregateState.hasTargets
-            && !aggregateState.muted
-            && Math.abs((aggregateState.volume || 0) - (Number(button.actionValue) || 0)) <= 1;
+          actionActive =
+            aggregateState.hasTargets &&
+            !aggregateState.muted &&
+            Math.abs(
+              (aggregateState.volume || 0) - (Number(button.actionValue) || 0)
+            ) <= 1;
         } else if (button.actionType === getActionTypes().mute) {
           actionActive = aggregateState.hasTargets && aggregateState.muted;
         }
 
-        const effectiveMeterLevel = indicatorBehavior === getIndicatorBehaviors().peakMeter
-          ? applyPeakMeterThreshold(rawMeterLevel, indicatorThreshold)
-          : rawMeterLevel;
+        const effectiveMeterLevel =
+          indicatorBehavior === getIndicatorBehaviors().peakMeter
+            ? applyPeakMeterThreshold(rawMeterLevel, indicatorThreshold)
+            : rawMeterLevel;
 
         const visualActive = getIndicatorVisualState({
           indicatorEnabled,
@@ -711,11 +879,17 @@
         });
       }
 
-      let hasChanged = nextStates.size !== standaloneButtonRuntimeState.byKey.size;
+      let hasChanged =
+        nextStates.size !== standaloneButtonRuntimeState.byKey.size;
 
       if (!hasChanged) {
         nextStates.forEach((nextState, runtimeKey) => {
-          if (!areStandaloneButtonStatesEqual(nextState, standaloneButtonRuntimeState.byKey.get(runtimeKey))) {
+          if (
+            !areStandaloneButtonStatesEqual(
+              nextState,
+              standaloneButtonRuntimeState.byKey.get(runtimeKey)
+            )
+          ) {
             hasChanged = true;
           }
         });
@@ -724,7 +898,9 @@
       standaloneButtonRuntimeState.byKey = nextStates;
 
       if (hasChanged) {
-        emitStandaloneButtonRuntimeChange({ type: 'standalone-button-runtime/updated' });
+        emitStandaloneButtonRuntimeChange({
+          type: 'standalone-button-runtime/updated'
+        });
       } else {
         refreshStandaloneButtonRuntimeDom();
       }
@@ -776,14 +952,14 @@
         }
 
         if (
-          meta?.type
-          && ![
+          meta?.type &&
+          ![
             'renderer/hydrate',
             'standalone-buttons/add',
             'standalone-buttons/update',
             'standalone-buttons/remove'
-          ].includes(meta.type)
-          && !String(meta.type).startsWith('standalone-buttons/')
+          ].includes(meta.type) &&
+          !String(meta.type).startsWith('standalone-buttons/')
         ) {
           return;
         }
@@ -826,16 +1002,21 @@
     getActiveSoloKey: getActiveStandaloneSoloButtonRuntimeKey
   };
 
-  window.requestStandaloneButtonRuntimeRefresh = requestStandaloneButtonRuntimeRefresh;
+  window.requestStandaloneButtonRuntimeRefresh =
+    requestStandaloneButtonRuntimeRefresh;
   window.getStandaloneButtonState = getStandaloneButtonState;
   window.setStandaloneButtonPressedRuntime = (buttonId, isPressed) => {
     setStandaloneButtonPressedState(buttonId, isPressed);
   };
-  window.triggerStandaloneButtonPressRuntime = triggerStandaloneButtonPressRuntime;
-  window.toggleStandaloneButtonLatchRuntime = toggleStandaloneButtonLatchRuntime;
-  window.flashStandaloneButtonBindingRuntime = flashStandaloneButtonBindingRuntime;
+  window.triggerStandaloneButtonPressRuntime =
+    triggerStandaloneButtonPressRuntime;
+  window.toggleStandaloneButtonLatchRuntime =
+    toggleStandaloneButtonLatchRuntime;
+  window.flashStandaloneButtonBindingRuntime =
+    flashStandaloneButtonBindingRuntime;
   window.activateStandaloneSoloRuntime = activateStandaloneSoloRuntime;
   window.restoreStandaloneSoloRuntime = restoreStandaloneSoloRuntime;
-  window.getActiveStandaloneSoloButtonRuntimeKey = getActiveStandaloneSoloButtonRuntimeKey;
+  window.getActiveStandaloneSoloButtonRuntimeKey =
+    getActiveStandaloneSoloButtonRuntimeKey;
   window.initStandaloneButtonsRuntime = initStandaloneButtonsRuntime;
 })(window);

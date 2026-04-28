@@ -7,7 +7,11 @@ const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
 const SCRIPT_PATH = path.join(__dirname, 'scripts', 'process-list.ps1');
-const FOCUSED_SCRIPT_PATH = path.join(__dirname, 'scripts', 'focused-application.ps1');
+const FOCUSED_SCRIPT_PATH = path.join(
+  __dirname,
+  'scripts',
+  'focused-application.ps1'
+);
 const WINDOWS_DIRECTORY = (process.env.WINDIR || 'C:\\Windows').toLowerCase();
 const SYSTEM_PATH_PREFIXES = [
   path.join(WINDOWS_DIRECTORY, 'system32'),
@@ -37,7 +41,9 @@ function isSystemPath(entryPath) {
   }
 
   const normalizedPath = entryPath.toLowerCase();
-  return SYSTEM_PATH_PREFIXES.some((prefix) => normalizedPath.startsWith(prefix));
+  return SYSTEM_PATH_PREFIXES.some((prefix) =>
+    normalizedPath.startsWith(prefix)
+  );
 }
 
 function humanizeProcessName(processName) {
@@ -54,7 +60,9 @@ function humanizeProcessName(processName) {
 }
 
 function normalizeProcess(rawProcess) {
-  const processFile = String(rawProcess.Process || '').trim() || `${String(rawProcess.ProcessName || '').trim()}.exe`;
+  const processFile =
+    String(rawProcess.Process || '').trim() ||
+    `${String(rawProcess.ProcessName || '').trim()}.exe`;
   const processName = String(rawProcess.ProcessName || '').trim();
   const executable = processFile || `${processName}.exe`;
   const executablePath = String(rawProcess.Path || '').trim();
@@ -74,7 +82,10 @@ function normalizeProcess(rawProcess) {
 }
 
 function shouldIncludeProcess(entry) {
-  if (!entry.process || IGNORED_PROCESS_NAMES.has(entry.processName.toLowerCase())) {
+  if (
+    !entry.process ||
+    IGNORED_PROCESS_NAMES.has(entry.processName.toLowerCase())
+  ) {
     return false;
   }
 
@@ -142,7 +153,15 @@ class ProcessCatalog {
 
     const focusServerProcess = spawn(
       'powershell.exe',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', FOCUSED_SCRIPT_PATH, '-Action', 'serve'],
+      [
+        '-NoProfile',
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        FOCUSED_SCRIPT_PATH,
+        '-Action',
+        'serve'
+      ],
       {
         windowsHide: true,
         stdio: ['pipe', 'pipe', 'pipe']
@@ -168,7 +187,11 @@ class ProcessCatalog {
       try {
         parsedMessage = JSON.parse(normalizedLine);
       } catch (error) {
-        this._log('focused-application-server parse error:', error, normalizedLine);
+        this._log(
+          'focused-application-server parse error:',
+          error,
+          normalizedLine
+        );
         return;
       }
 
@@ -186,7 +209,11 @@ class ProcessCatalog {
       }
 
       if (parsedMessage?.ok === false) {
-        pending.reject(new Error(String(parsedMessage?.error || 'focused-application-server-error')));
+        pending.reject(
+          new Error(
+            String(parsedMessage?.error || 'focused-application-server-error')
+          )
+        );
         return;
       }
 
@@ -207,7 +234,9 @@ class ProcessCatalog {
     });
 
     focusServerProcess.on('exit', (code, signal) => {
-      const exitError = new Error(`focused-application-server-exit:${code ?? 'null'}:${signal ?? 'null'}`);
+      const exitError = new Error(
+        `focused-application-server-exit:${code ?? 'null'}:${signal ?? 'null'}`
+      );
       this._log('focused-application-server exit:', { code, signal });
       this._resetFocusServerState(exitError);
     });
@@ -224,7 +253,11 @@ class ProcessCatalog {
     return new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         this._focusServerPending.delete(requestId);
-        reject(new Error(`focused-application-server-timeout:${payload?.action || 'get'}`));
+        reject(
+          new Error(
+            `focused-application-server-timeout:${payload?.action || 'get'}`
+          )
+        );
       }, 3000);
 
       this._focusServerPending.set(requestId, {
@@ -234,7 +267,9 @@ class ProcessCatalog {
       });
 
       try {
-        focusServerProcess.stdin.write(`${JSON.stringify({ id: requestId, ...payload })}\n`);
+        focusServerProcess.stdin.write(
+          `${JSON.stringify({ id: requestId, ...payload })}\n`
+        );
       } catch (error) {
         clearTimeout(timeoutId);
         this._focusServerPending.delete(requestId);
@@ -286,14 +321,13 @@ class ProcessCatalog {
           });
         });
 
-      return Array.from(uniqueApplications.values())
-        .sort((left, right) => {
-          if (left.hasWindow !== right.hasWindow) {
-            return left.hasWindow ? -1 : 1;
-          }
+      return Array.from(uniqueApplications.values()).sort((left, right) => {
+        if (left.hasWindow !== right.hasWindow) {
+          return left.hasWindow ? -1 : 1;
+        }
 
-          return left.name.localeCompare(right.name);
-        });
+        return left.name.localeCompare(right.name);
+      });
     } catch (error) {
       this._log('list_running_applications error:', error);
       return [];
@@ -334,7 +368,9 @@ class ProcessCatalog {
   }
 
   shutdown() {
-    this._resetFocusServerState(new Error('focused-application-server-shutdown'));
+    this._resetFocusServerState(
+      new Error('focused-application-server-shutdown')
+    );
   }
 }
 

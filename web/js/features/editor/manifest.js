@@ -1,3 +1,1 @@
-export const editorFeatureScripts = [
-  '../ui/entity-editor.js'
-];
+export const editorFeatureScripts = ['../ui/entity-editor.js'];

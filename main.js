@@ -1,4 +1,13 @@
-const { app, BrowserWindow, ipcMain, Menu, Tray, dialog, shell, screen } = require('electron');
+const {
+  app,
+  BrowserWindow,
+  ipcMain,
+  Menu,
+  Tray,
+  dialog,
+  shell,
+  screen
+} = require('electron');
 const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
@@ -38,10 +47,7 @@ const VOLUME_HUD_POSITIONS = new Set([
   'top-left',
   'top-right'
 ]);
-const VOLUME_HUD_ORIENTATIONS = new Set([
-  'horizontal',
-  'vertical'
-]);
+const VOLUME_HUD_ORIENTATIONS = new Set(['horizontal', 'vertical']);
 const WINDOW_OPTIONS = {
   width: 1400,
   height: 800,
@@ -132,7 +138,9 @@ function summarizeLogValue(value, depth = 0) {
   }
 
   if (Array.isArray(value)) {
-    const sample = value.slice(0, 6).map((entry) => summarizeLogValue(entry, depth + 1));
+    const sample = value
+      .slice(0, 6)
+      .map((entry) => summarizeLogValue(entry, depth + 1));
 
     if (value.length > sample.length) {
       sample.push(`...+${value.length - sample.length} more`);
@@ -177,12 +185,18 @@ function getIpcLoggerMethod(methodName) {
   return IPC_QUERY_METHODS.has(methodName) ? 'debug' : 'info';
 }
 
-function logIpcMessage(methodName, phase, payload, level = getIpcLoggerMethod(methodName)) {
+function logIpcMessage(
+  methodName,
+  phase,
+  payload,
+  level = getIpcLoggerMethod(methodName)
+) {
   if (SUPPRESSED_IPC_LOG_METHODS.has(methodName)) {
     return;
   }
 
-  const loggerMethod = typeof logger[level] === 'function' ? logger[level] : logger.info;
+  const loggerMethod =
+    typeof logger[level] === 'function' ? logger[level] : logger.info;
   loggerMethod(`[ipc:${phase}] ${methodName}`, payload);
 }
 
@@ -217,7 +231,8 @@ function getNormalizedApplicationIconCacheKey(applicationPath = '') {
 }
 
 async function getApplicationIconCacheFilePath(applicationPath = '') {
-  const normalizedApplicationPath = getNormalizedApplicationIconCacheKey(applicationPath);
+  const normalizedApplicationPath =
+    getNormalizedApplicationIconCacheKey(applicationPath);
 
   if (!normalizedApplicationPath) {
     return '';
@@ -234,7 +249,9 @@ async function getApplicationIconCacheFilePath(applicationPath = '') {
 
   const cacheHash = crypto
     .createHash('sha1')
-    .update(`${APPLICATION_ICON_CACHE_VERSION}:${normalizedApplicationPath}:${cacheSignature}`)
+    .update(
+      `${APPLICATION_ICON_CACHE_VERSION}:${normalizedApplicationPath}:${cacheSignature}`
+    )
     .digest('hex');
   const iconCacheDirectory = await ensureApplicationIconCacheDirectory();
 
@@ -251,7 +268,8 @@ function convertPngBufferToDataUrl(pngBuffer) {
 
 async function readCachedApplicationIconDataUrl(applicationPath = '') {
   try {
-    const cacheFilePath = await getApplicationIconCacheFilePath(applicationPath);
+    const cacheFilePath =
+      await getApplicationIconCacheFilePath(applicationPath);
 
     if (!cacheFilePath) {
       return '';
@@ -274,7 +292,10 @@ async function readCachedApplicationIconDataUrl(applicationPath = '') {
   }
 }
 
-async function writeCachedApplicationIconDataUrl(applicationPath = '', icon = null) {
+async function writeCachedApplicationIconDataUrl(
+  applicationPath = '',
+  icon = null
+) {
   if (!icon || typeof icon.isEmpty !== 'function' || icon.isEmpty()) {
     return '';
   }
@@ -287,7 +308,8 @@ async function writeCachedApplicationIconDataUrl(applicationPath = '', icon = nu
   }
 
   try {
-    const cacheFilePath = await getApplicationIconCacheFilePath(applicationPath);
+    const cacheFilePath =
+      await getApplicationIconCacheFilePath(applicationPath);
 
     if (!cacheFilePath) {
       return iconDataUrl;
@@ -322,9 +344,14 @@ function createLoggedInvokeHandler(methodName, handler) {
 
 function createLoggedSendHandler(methodName, handler) {
   return (event, ...args) => {
-    logIpcMessage(methodName, 'send', {
-      args: summarizeLogValue(args)
-    }, 'debug');
+    logIpcMessage(
+      methodName,
+      'send',
+      {
+        args: summarizeLogValue(args)
+      },
+      'debug'
+    );
 
     try {
       return handler(event, ...args);
@@ -538,10 +565,17 @@ function normalizeVolumeHudPayload(payload = {}) {
 
   return {
     channelId: Number.parseInt(payload?.channelId, 10) || null,
-    title: String(payload?.title || '').trim().slice(0, 120),
-    subtitle: String(payload?.subtitle || '').trim().slice(0, 160),
-    valueText: String(payload?.valueText || '').trim().slice(0, 32),
-    iconDataUrl: typeof payload?.iconDataUrl === 'string' ? payload.iconDataUrl : '',
+    title: String(payload?.title || '')
+      .trim()
+      .slice(0, 120),
+    subtitle: String(payload?.subtitle || '')
+      .trim()
+      .slice(0, 160),
+    valueText: String(payload?.valueText || '')
+      .trim()
+      .slice(0, 32),
+    iconDataUrl:
+      typeof payload?.iconDataUrl === 'string' ? payload.iconDataUrl : '',
     source: String(payload?.source || '').trim(),
     volume: Math.max(0, Math.min(100, Number(payload?.volume) || 0)),
     muted: Boolean(payload?.muted),
@@ -570,22 +604,25 @@ function normalizeVolumeHudPresentation(presentation = {}) {
 }
 
 function getVolumeHudWindowSize(presentation = {}) {
-  return VOLUME_HUD_WINDOW_SIZES[presentation.orientation] || VOLUME_HUD_WINDOW_SIZES.horizontal;
+  return (
+    VOLUME_HUD_WINDOW_SIZES[presentation.orientation] ||
+    VOLUME_HUD_WINDOW_SIZES.horizontal
+  );
 }
 
 function getVolumeHudBounds(presentation = {}) {
   const fallbackDisplay = screen.getPrimaryDisplay();
-  const referenceDisplay = (
-    mainWindow && !mainWindow.isDestroyed()
+  const referenceDisplay =
+    (mainWindow && !mainWindow.isDestroyed()
       ? screen.getDisplayMatching(mainWindow.getBounds())
-      : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())
-  ) || fallbackDisplay;
+      : screen.getDisplayNearestPoint(screen.getCursorScreenPoint())) ||
+    fallbackDisplay;
   const workArea = referenceDisplay.workArea;
   const size = getVolumeHudWindowSize(presentation);
   const isTopAligned = presentation.position.startsWith('top-');
   const isLeftAligned = presentation.position.endsWith('-left');
   const isRightAligned = presentation.position.endsWith('-right');
-  let x = Math.round(workArea.x + ((workArea.width - size.width) / 2));
+  let x = Math.round(workArea.x + (workArea.width - size.width) / 2);
   let y = isTopAligned
     ? workArea.y + VOLUME_HUD_WINDOW_MARGIN
     : workArea.y + workArea.height - size.height - VOLUME_HUD_WINDOW_MARGIN;
@@ -636,11 +673,15 @@ function createVolumeHudWindow() {
   });
 
   volumeHudWindow.setAlwaysOnTop(true, 'screen-saver');
-  volumeHudWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  volumeHudWindow.setVisibleOnAllWorkspaces(true, {
+    visibleOnFullScreen: true
+  });
   volumeHudWindow.setIgnoreMouseEvents(true, { forward: true });
   volumeHudWindow.setFocusable(false);
   volumeHudWindow.removeMenu();
-  volumeHudWindow.loadFile(path.join(__dirname, 'web', 'overlay', 'volume-hud.html'));
+  volumeHudWindow.loadFile(
+    path.join(__dirname, 'web', 'overlay', 'volume-hud.html')
+  );
 
   volumeHudReadyPromise = new Promise((resolve) => {
     volumeHudWindow.webContents.once('did-finish-load', () => {
@@ -671,7 +712,9 @@ function scheduleVolumeHudHide() {
       return;
     }
 
-    volumeHudWindow.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, { visible: false });
+    volumeHudWindow.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, {
+      visible: false
+    });
 
     volumeHudHideCommitTimer = setTimeout(() => {
       if (volumeHudWindow && !volumeHudWindow.isDestroyed()) {
@@ -686,15 +729,13 @@ async function showVolumeHud(payload = {}) {
   const presentation = normalizedPayload.presentation;
 
   if (
-    !presentation.enabled
-    || (
-      !presentation.showIcon
-      && !presentation.showTitle
-      && !presentation.showSubtitle
-      && !presentation.showPercent
-      && !presentation.showMeter
-    )
-    || (!normalizedPayload.title && !normalizedPayload.valueText)
+    !presentation.enabled ||
+    (!presentation.showIcon &&
+      !presentation.showTitle &&
+      !presentation.showSubtitle &&
+      !presentation.showPercent &&
+      !presentation.showMeter) ||
+    (!normalizedPayload.title && !normalizedPayload.valueText)
   ) {
     return { success: false };
   }
@@ -819,149 +860,227 @@ function handleWindowControl(window, action) {
 }
 
 function registerIpcHandlers() {
-  registerIpcInvokeHandlers(ipcMain, Object.fromEntries(
-    Object.entries({
-    get_audio_applications: () => ensureApi().getAudioApplications(),
-    list_running_applications: () => ensureApi().listRunningApplications(),
-    get_audio_states: (_event, processNames) => ensureApi().getAudioStates(processNames),
-    set_app_volume: (_event, processName, volume) => ensureApi().setAppVolume(processName, volume),
-    toggle_app_mute: (_event, processName) => ensureApi().toggleAppMute(processName),
-    set_app_mute: (_event, processName, muted) => ensureApi().setAppMute(processName, muted),
-    send_key: (_event, key, targetHint) => ensureApi().sendKey(key, targetHint),
-    list_audio_devices: (_event, flow) => ensureApi().listAudioDevices(flow),
-    set_audio_device_volume: (_event, deviceId, volume, flow) => ensureApi().setAudioDeviceVolume(deviceId, volume, flow),
-    set_audio_device_mute: (_event, deviceId, muted, flow) => ensureApi().setAudioDeviceMute(deviceId, muted, flow),
-    set_default_audio_device: (_event, deviceId, flow) => ensureApi().setDefaultAudioDevice(deviceId, flow),
-    get_focused_application: () => ensureApi().getFocusedApplication(),
-    launch_app: (_event, filePath) => ensureApi().launchApp(filePath),
-    run_user_script: (_event, filePath) => ensureApi().runUserScript(filePath),
-    set_process_window_visibility: (_event, processName, visible, executablePath) => (
-      ensureApi().setProcessWindowVisibility(processName, visible, executablePath)
-    ),
-    set_media_option: (_event, command, enabled, targetAppId) => ensureApi().setMediaOption(command, enabled, targetAppId),
-    send_media_transport: (_event, command, targetAppId) => ensureApi().sendMediaTransport(command, targetAppId),
-    list_media_sessions: () => ensureApi().listMediaSessions(),
-    get_media_session_state: (_event, targetAppId) => ensureApi().getMediaSessionState(targetAppId),
-    set_media_repeat_mode: (_event, mode, targetAppId) => ensureApi().setMediaRepeatMode(mode, targetAppId),
-    save_profile: (_event, name, data) => ensureApi().saveProfile(name, data),
-    load_profile: (_event, name) => ensureApi().loadProfile(name),
-    list_profiles: () => ensureApi().listProfiles(),
-    delete_profile: (_event, name) => ensureApi().deleteProfile(name),
-    rename_profile: (_event, fromName, toName) => ensureApi().renameProfile(fromName, toName),
-    import_profile: (_event, filePath, options) => ensureApi().importProfile(filePath, options),
-    get_profile_template: (_event, options) => ensureApi().getProfileTemplate(options),
-    get_profiles_directory: () => ensureApi().getProfilesDirectory(),
-    get_application_icons: async (_event, applicationPaths = []) => {
-      const icons = {};
-      const uniquePaths = Array.isArray(applicationPaths)
-        ? [...new Set(applicationPaths.filter((entry) => typeof entry === 'string' && entry.trim()))]
-        : [];
+  registerIpcInvokeHandlers(
+    ipcMain,
+    Object.fromEntries(
+      Object.entries({
+        get_audio_applications: () => ensureApi().getAudioApplications(),
+        list_running_applications: () => ensureApi().listRunningApplications(),
+        get_audio_states: (_event, processNames) =>
+          ensureApi().getAudioStates(processNames),
+        set_app_volume: (_event, processName, volume) =>
+          ensureApi().setAppVolume(processName, volume),
+        toggle_app_mute: (_event, processName) =>
+          ensureApi().toggleAppMute(processName),
+        set_app_mute: (_event, processName, muted) =>
+          ensureApi().setAppMute(processName, muted),
+        send_key: (_event, key, targetHint) =>
+          ensureApi().sendKey(key, targetHint),
+        list_audio_devices: (_event, flow) =>
+          ensureApi().listAudioDevices(flow),
+        set_audio_device_volume: (_event, deviceId, volume, flow) =>
+          ensureApi().setAudioDeviceVolume(deviceId, volume, flow),
+        set_audio_device_mute: (_event, deviceId, muted, flow) =>
+          ensureApi().setAudioDeviceMute(deviceId, muted, flow),
+        set_default_audio_device: (_event, deviceId, flow) =>
+          ensureApi().setDefaultAudioDevice(deviceId, flow),
+        get_focused_application: () => ensureApi().getFocusedApplication(),
+        launch_app: (_event, filePath) => ensureApi().launchApp(filePath),
+        run_user_script: (_event, filePath) =>
+          ensureApi().runUserScript(filePath),
+        set_process_window_visibility: (
+          _event,
+          processName,
+          visible,
+          executablePath
+        ) =>
+          ensureApi().setProcessWindowVisibility(
+            processName,
+            visible,
+            executablePath
+          ),
+        set_media_option: (_event, command, enabled, targetAppId) =>
+          ensureApi().setMediaOption(command, enabled, targetAppId),
+        send_media_transport: (_event, command, targetAppId) =>
+          ensureApi().sendMediaTransport(command, targetAppId),
+        list_media_sessions: () => ensureApi().listMediaSessions(),
+        get_media_session_state: (_event, targetAppId) =>
+          ensureApi().getMediaSessionState(targetAppId),
+        set_media_repeat_mode: (_event, mode, targetAppId) =>
+          ensureApi().setMediaRepeatMode(mode, targetAppId),
+        save_profile: (_event, name, data) =>
+          ensureApi().saveProfile(name, data),
+        load_profile: (_event, name) => ensureApi().loadProfile(name),
+        list_profiles: () => ensureApi().listProfiles(),
+        delete_profile: (_event, name) => ensureApi().deleteProfile(name),
+        rename_profile: (_event, fromName, toName) =>
+          ensureApi().renameProfile(fromName, toName),
+        import_profile: (_event, filePath, options) =>
+          ensureApi().importProfile(filePath, options),
+        get_profile_template: (_event, options) =>
+          ensureApi().getProfileTemplate(options),
+        get_profiles_directory: () => ensureApi().getProfilesDirectory(),
+        get_application_icons: async (_event, applicationPaths = []) => {
+          const icons = {};
+          const uniquePaths = Array.isArray(applicationPaths)
+            ? [
+                ...new Set(
+                  applicationPaths.filter(
+                    (entry) => typeof entry === 'string' && entry.trim()
+                  )
+                )
+              ]
+            : [];
 
-      await Promise.all(uniquePaths.map(async (applicationPath) => {
-        try {
-          const cachedIconDataUrl = await readCachedApplicationIconDataUrl(applicationPath);
+          await Promise.all(
+            uniquePaths.map(async (applicationPath) => {
+              try {
+                const cachedIconDataUrl =
+                  await readCachedApplicationIconDataUrl(applicationPath);
 
-          if (cachedIconDataUrl) {
-            icons[applicationPath] = cachedIconDataUrl;
-            return;
+                if (cachedIconDataUrl) {
+                  icons[applicationPath] = cachedIconDataUrl;
+                  return;
+                }
+
+                const icon = await app.getFileIcon(applicationPath, {
+                  size: 'normal'
+                });
+                const iconDataUrl = await writeCachedApplicationIconDataUrl(
+                  applicationPath,
+                  icon
+                );
+
+                if (iconDataUrl) {
+                  icons[applicationPath] = iconDataUrl;
+                }
+              } catch {
+                // Some processes do not expose a retrievable shell icon; skip them silently.
+              }
+            })
+          );
+
+          return {
+            success: true,
+            icons
+          };
+        },
+        open_profiles_folder: async () => {
+          const { path: profilesPath } = ensureApi().getProfilesDirectory();
+          await shell.openPath(profilesPath);
+          return { success: true, path: profilesPath };
+        },
+        show_profile_in_folder: async (_event, profilePath) => {
+          if (profilePath) {
+            shell.showItemInFolder(profilePath);
           }
+          return { success: true };
+        },
+        pick_profile_file: async (event) => {
+          const window = getEventWindow(event) || mainWindow;
+          const result = await dialog.showOpenDialog(window, {
+            title: 'Import profile',
+            properties: ['openFile'],
+            filters: [
+              { name: 'JSON Profiles', extensions: ['json'] },
+              { name: 'All Files', extensions: ['*'] }
+            ]
+          });
 
-          const icon = await app.getFileIcon(applicationPath, { size: 'normal' });
-          const iconDataUrl = await writeCachedApplicationIconDataUrl(applicationPath, icon);
+          return {
+            success: !result.canceled,
+            canceled: result.canceled,
+            filePath: result.filePaths?.[0] || null
+          };
+        },
+        pick_action_file: async (event, mode = 'app') => {
+          const window = getEventWindow(event) || mainWindow;
+          const normalizedMode = String(mode || 'app')
+            .trim()
+            .toLowerCase();
+          const filters =
+            normalizedMode === 'script'
+              ? [
+                  {
+                    name: 'Scripts',
+                    extensions: [
+                      'ps1',
+                      'cmd',
+                      'bat',
+                      'js',
+                      'cjs',
+                      'mjs',
+                      'vbs',
+                      'wsf'
+                    ]
+                  },
+                  { name: 'All Files', extensions: ['*'] }
+                ]
+              : [
+                  {
+                    name: 'Applications',
+                    extensions: ['exe', 'lnk', 'cmd', 'bat', 'appref-ms']
+                  },
+                  { name: 'All Files', extensions: ['*'] }
+                ];
+          const result = await dialog.showOpenDialog(window, {
+            title:
+              normalizedMode === 'script'
+                ? 'Select script'
+                : 'Select application',
+            properties: ['openFile'],
+            filters
+          });
 
-          if (iconDataUrl) {
-            icons[applicationPath] = iconDataUrl;
-          }
-        } catch {
-          // Some processes do not expose a retrievable shell icon; skip them silently.
+          return {
+            success: !result.canceled,
+            canceled: result.canceled,
+            filePath: result.filePaths?.[0] || null
+          };
+        },
+        toggle_devtools: (event) => toggleDevTools(getEventWindow(event)),
+        set_close_to_tray_enabled: (_event, enabled) =>
+          setCloseToTrayEnabled(enabled),
+        exit_app: () => {
+          quitApplication();
+        },
+        windowControl: (event, action) =>
+          handleWindowControl(getEventWindow(event), action)
+      }).map(([methodName, handler]) => [
+        methodName,
+        createLoggedInvokeHandler(methodName, handler)
+      ])
+    )
+  );
+
+  registerIpcSendHandlers(
+    ipcMain,
+    Object.fromEntries(
+      Object.entries({
+        show_volume_hud: (_event, payload) => {
+          void showVolumeHud(payload);
         }
-      }));
-
-      return {
-        success: true,
-        icons
-      };
-    },
-    open_profiles_folder: async () => {
-      const { path: profilesPath } = ensureApi().getProfilesDirectory();
-      await shell.openPath(profilesPath);
-      return { success: true, path: profilesPath };
-    },
-    show_profile_in_folder: async (_event, profilePath) => {
-      if (profilePath) {
-        shell.showItemInFolder(profilePath);
-      }
-      return { success: true };
-    },
-    pick_profile_file: async (event) => {
-      const window = getEventWindow(event) || mainWindow;
-      const result = await dialog.showOpenDialog(window, {
-        title: 'Import profile',
-        properties: ['openFile'],
-        filters: [
-          { name: 'JSON Profiles', extensions: ['json'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-      });
-
-      return {
-        success: !result.canceled,
-        canceled: result.canceled,
-        filePath: result.filePaths?.[0] || null
-      };
-    },
-    pick_action_file: async (event, mode = 'app') => {
-      const window = getEventWindow(event) || mainWindow;
-      const normalizedMode = String(mode || 'app').trim().toLowerCase();
-      const filters = normalizedMode === 'script'
-        ? [
-          { name: 'Scripts', extensions: ['ps1', 'cmd', 'bat', 'js', 'cjs', 'mjs', 'vbs', 'wsf'] },
-          { name: 'All Files', extensions: ['*'] }
-        ]
-        : [
-          { name: 'Applications', extensions: ['exe', 'lnk', 'cmd', 'bat', 'appref-ms'] },
-          { name: 'All Files', extensions: ['*'] }
-        ];
-      const result = await dialog.showOpenDialog(window, {
-        title: normalizedMode === 'script' ? 'Select script' : 'Select application',
-        properties: ['openFile'],
-        filters
-      });
-
-      return {
-        success: !result.canceled,
-        canceled: result.canceled,
-        filePath: result.filePaths?.[0] || null
-      };
-    },
-    toggle_devtools: (event) => toggleDevTools(getEventWindow(event)),
-    set_close_to_tray_enabled: (_event, enabled) => setCloseToTrayEnabled(enabled),
-    exit_app: () => {
-      quitApplication();
-    },
-    windowControl: (event, action) => handleWindowControl(getEventWindow(event), action)
-    }).map(([methodName, handler]) => [methodName, createLoggedInvokeHandler(methodName, handler)])
-  ));
-
-  registerIpcSendHandlers(ipcMain, Object.fromEntries(
-    Object.entries({
-    show_volume_hud: (_event, payload) => {
-      void showVolumeHud(payload);
-    }
-    }).map(([methodName, handler]) => [methodName, createLoggedSendHandler(methodName, handler)])
-  ));
+      }).map(([methodName, handler]) => [
+        methodName,
+        createLoggedSendHandler(methodName, handler)
+      ])
+    )
+  );
 }
 
-app.whenReady().then(async () => {
-  Menu.setApplicationMenu(null);
-  ensureTray();
-  registerIpcHandlers();
-  await createMainWindow();
-  logger.info('application ready');
-}).catch((error) => {
-  logger.error('application bootstrap failed', error);
-  throw error;
-});
+app
+  .whenReady()
+  .then(async () => {
+    Menu.setApplicationMenu(null);
+    ensureTray();
+    registerIpcHandlers();
+    await createMainWindow();
+    logger.info('application ready');
+  })
+  .catch((error) => {
+    logger.error('application bootstrap failed', error);
+    throw error;
+  });
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {

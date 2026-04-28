@@ -105,7 +105,8 @@ function shouldSuppressMediaRequest(actionKey = '') {
   }
 
   const now = Date.now();
-  const lastTimestamp = Number(mediaOptionRuntimeState.byKey.get(normalizedKey)) || 0;
+  const lastTimestamp =
+    Number(mediaOptionRuntimeState.byKey.get(normalizedKey)) || 0;
 
   if (now - lastTimestamp < MEDIA_OPTION_DEBOUNCE_MS) {
     return true;
@@ -116,7 +117,9 @@ function shouldSuppressMediaRequest(actionKey = '') {
 }
 
 function normalizeMediaOptionCommand(command = '') {
-  const normalized = String(command || '').trim().toLowerCase();
+  const normalized = String(command || '')
+    .trim()
+    .toLowerCase();
 
   if (normalized === 'shuffle' || normalized === 'repeat') {
     return normalized;
@@ -126,7 +129,9 @@ function normalizeMediaOptionCommand(command = '') {
 }
 
 function normalizeRepeatMode(mode = '') {
-  const normalized = String(mode || '').trim().toLowerCase();
+  const normalized = String(mode || '')
+    .trim()
+    .toLowerCase();
 
   if (normalized === 'off' || normalized === 'none') {
     return REPEAT_MODES.off;
@@ -136,7 +141,11 @@ function normalizeRepeatMode(mode = '') {
     return REPEAT_MODES.track;
   }
 
-  if (normalized === 'list' || normalized === 'playlist' || normalized === 'on') {
+  if (
+    normalized === 'list' ||
+    normalized === 'playlist' ||
+    normalized === 'on'
+  ) {
     return REPEAT_MODES.list;
   }
 
@@ -144,13 +153,23 @@ function normalizeRepeatMode(mode = '') {
 }
 
 function normalizeMediaTransportCommand(command = '') {
-  const normalized = String(command || '').trim().toLowerCase();
+  const normalized = String(command || '')
+    .trim()
+    .toLowerCase();
 
-  if (normalized === 'next' || normalized === 'next-track' || normalized === 'skip-next') {
+  if (
+    normalized === 'next' ||
+    normalized === 'next-track' ||
+    normalized === 'skip-next'
+  ) {
     return MEDIA_TRANSPORT_COMMANDS.next;
   }
 
-  if (normalized === 'previous' || normalized === 'previous-track' || normalized === 'skip-previous') {
+  if (
+    normalized === 'previous' ||
+    normalized === 'previous-track' ||
+    normalized === 'skip-previous'
+  ) {
     return MEDIA_TRANSPORT_COMMANDS.previous;
   }
 
@@ -162,7 +181,11 @@ function normalizeMediaTransportCommand(command = '') {
     return MEDIA_TRANSPORT_COMMANDS.pause;
   }
 
-  if (normalized === 'toggle' || normalized === 'play-pause' || normalized === 'toggle-play-pause') {
+  if (
+    normalized === 'toggle' ||
+    normalized === 'play-pause' ||
+    normalized === 'toggle-play-pause'
+  ) {
     return MEDIA_TRANSPORT_COMMANDS.toggle;
   }
 
@@ -174,7 +197,11 @@ function normalizeMediaTransportCommand(command = '') {
     return MEDIA_TRANSPORT_COMMANDS.rewind;
   }
 
-  if (normalized === 'fast-forward' || normalized === 'fastforward' || normalized === 'forward') {
+  if (
+    normalized === 'fast-forward' ||
+    normalized === 'fastforward' ||
+    normalized === 'forward'
+  ) {
     return MEDIA_TRANSPORT_COMMANDS.fastForward;
   }
 
@@ -201,9 +228,9 @@ function getMediaTransportFallbackKey(command = '') {
   }
 
   if (
-    normalized === MEDIA_TRANSPORT_COMMANDS.play
-    || normalized === MEDIA_TRANSPORT_COMMANDS.pause
-    || normalized === MEDIA_TRANSPORT_COMMANDS.toggle
+    normalized === MEDIA_TRANSPORT_COMMANDS.play ||
+    normalized === MEDIA_TRANSPORT_COMMANDS.pause ||
+    normalized === MEDIA_TRANSPORT_COMMANDS.toggle
   ) {
     return 'MediaPlayPause';
   }
@@ -377,12 +404,14 @@ if ($null -ne $currentSession) {
 
             resolve({
               success: parsed.success !== false,
-              sessions: sessions.map((session) => ({
-                appId: String(session?.appId || '').trim(),
-                label: String(session?.label || session?.appId || '').trim(),
-                playbackStatus: String(session?.playbackStatus || 'Closed'),
-                isCurrent: Boolean(session?.isCurrent)
-              })).filter((session) => session.appId)
+              sessions: sessions
+                .map((session) => ({
+                  appId: String(session?.appId || '').trim(),
+                  label: String(session?.label || session?.appId || '').trim(),
+                  playbackStatus: String(session?.playbackStatus || 'Closed'),
+                  isCurrent: Boolean(session?.isCurrent)
+                }))
+                .filter((session) => session.appId)
             });
           } catch (parseError) {
             reject(parseError);
@@ -403,7 +432,9 @@ if ($null -ne $currentSession) {
       };
     }
 
-    if (shouldSuppressMediaRequest(`${normalizedCommand}:${Boolean(enabled)}`)) {
+    if (
+      shouldSuppressMediaRequest(`${normalizedCommand}:${Boolean(enabled)}`)
+    ) {
       return {
         success: true,
         suppressed: true,
@@ -412,7 +443,12 @@ if ($null -ne $currentSession) {
       };
     }
 
-    this._log('set_media_option', normalizedCommand, Boolean(enabled), normalizedTargetAppId || 'current');
+    this._log(
+      'set_media_option',
+      normalizedCommand,
+      Boolean(enabled),
+      normalizedTargetAppId || 'current'
+    );
 
     return new Promise((resolve, reject) => {
       execFile(
@@ -492,7 +528,11 @@ if ($command -eq 'shuffle') {
       };
     }
 
-    this._log('set_media_repeat_mode', normalizedMode, normalizedTargetAppId || 'current');
+    this._log(
+      'set_media_repeat_mode',
+      normalizedMode,
+      normalizedTargetAppId || 'current'
+    );
 
     return new Promise((resolve, reject) => {
       execFile(
@@ -568,7 +608,11 @@ $targetMode = switch ($repeatMode) {
       };
     }
 
-    this._log('send_media_transport', normalizedCommand, normalizedTargetAppId || 'global');
+    this._log(
+      'send_media_transport',
+      normalizedCommand,
+      normalizedTargetAppId || 'global'
+    );
 
     if (!normalizedTargetAppId) {
       const globalMediaKey = getMediaTransportFallbackKey(normalizedCommand);
@@ -621,7 +665,9 @@ $targetMode = switch ($repeatMode) {
           command: normalizedCommand,
           fallback: true,
           fallbackKey,
-          error: fallbackResponse?.success ? '' : (fallbackReason || 'fallback-failed')
+          error: fallbackResponse?.success
+            ? ''
+            : fallbackReason || 'fallback-failed'
         };
       } catch (fallbackError) {
         return {
@@ -720,10 +766,12 @@ $result = switch ($command) {
             }
 
             fallbackToSystemMediaKey(normalizedResponse.error)
-              .then((fallbackResponse) => resolve({
-                ...normalizedResponse,
-                ...fallbackResponse
-              }))
+              .then((fallbackResponse) =>
+                resolve({
+                  ...normalizedResponse,
+                  ...fallbackResponse
+                })
+              )
               .catch((fallbackError) => reject(fallbackError));
           } catch (parseError) {
             reject(parseError);

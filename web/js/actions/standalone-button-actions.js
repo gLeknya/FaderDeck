@@ -68,43 +68,53 @@
   }
 
   function getActionTypes() {
-    return window.CHANNEL_BUTTON_ACTION_TYPES || {
-      none: 'none',
-      mute: 'mute',
-      solo: 'solo',
-      setVolume: 'set-volume',
-      toggleAppVisibility: 'toggle-app-visibility',
-      sendKey: 'send-key',
-      mediaPreviousTrack: 'media-previous-track',
-      mediaNextTrack: 'media-next-track',
-      mediaPlay: 'media-play',
-      mediaPause: 'media-pause',
-      mediaPlayPause: 'media-play-pause',
-      mediaRewind: 'media-rewind',
-      mediaFastForward: 'media-fast-forward',
-      mediaRepeat: 'media-repeat',
-      mediaShuffle: 'media-shuffle',
-      runUserScript: 'run-user-script',
-      launchApp: 'launch-app',
-      setDefaultOutputDevice: 'set-default-output-device',
-      setDefaultInputDevice: 'set-default-input-device'
-    };
+    return (
+      window.CHANNEL_BUTTON_ACTION_TYPES || {
+        none: 'none',
+        mute: 'mute',
+        solo: 'solo',
+        setVolume: 'set-volume',
+        toggleAppVisibility: 'toggle-app-visibility',
+        sendKey: 'send-key',
+        mediaPreviousTrack: 'media-previous-track',
+        mediaNextTrack: 'media-next-track',
+        mediaPlay: 'media-play',
+        mediaPause: 'media-pause',
+        mediaPlayPause: 'media-play-pause',
+        mediaRewind: 'media-rewind',
+        mediaFastForward: 'media-fast-forward',
+        mediaRepeat: 'media-repeat',
+        mediaShuffle: 'media-shuffle',
+        runUserScript: 'run-user-script',
+        launchApp: 'launch-app',
+        setDefaultOutputDevice: 'set-default-output-device',
+        setDefaultInputDevice: 'set-default-input-device'
+      }
+    );
   }
 
   function getInteractionModes() {
-    return window.CHANNEL_BUTTON_INTERACTION_MODES || {
-      push: 'push',
-      toggle: 'toggle',
-      trigger: 'trigger'
-    };
+    return (
+      window.CHANNEL_BUTTON_INTERACTION_MODES || {
+        push: 'push',
+        toggle: 'toggle',
+        trigger: 'trigger'
+      }
+    );
   }
 
   function getChannelTargetProcesses(channel = {}) {
-    if (getTargeting()?.getChannelTargetMode?.(channel) === window.CHANNEL_TARGET_MODES?.devices) {
+    if (
+      getTargeting()?.getChannelTargetMode?.(channel) ===
+      window.CHANNEL_TARGET_MODES?.devices
+    ) {
       return [];
     }
 
-    if (getTargeting()?.getChannelTargetMode?.(channel) === window.CHANNEL_TARGET_MODES?.focus) {
+    if (
+      getTargeting()?.getChannelTargetMode?.(channel) ===
+      window.CHANNEL_TARGET_MODES?.focus
+    ) {
       return [];
     }
 
@@ -171,10 +181,9 @@
 
   function isStandaloneButtonMediaOptionAction(actionType = '') {
     const actionTypes = getActionTypes();
-    return [
-      actionTypes.mediaRepeat,
-      actionTypes.mediaShuffle
-    ].includes(String(actionType || '').trim());
+    return [actionTypes.mediaRepeat, actionTypes.mediaShuffle].includes(
+      String(actionType || '').trim()
+    );
   }
 
   function getMediaTransportCommandForActionType(actionType = '') {
@@ -278,8 +287,13 @@
       return getTargeting().resolveChannelTargetBinding(linkedChannel, options);
     }
 
-    const appTargets = getLegacyButtonTargetProcesses(button)
-      .map((processName) => getTargeting()?.createAppTarget?.({ process: processName, name: processName }) || { process: processName, name: processName });
+    const appTargets = getLegacyButtonTargetProcesses(button).map(
+      (processName) =>
+        getTargeting()?.createAppTarget?.({
+          process: processName,
+          name: processName
+        }) || { process: processName, name: processName }
+    );
 
     return {
       mode: 'apps',
@@ -299,13 +313,15 @@
       return '';
     }
 
-    const availableApps = typeof window.getAvailableAudioApps === 'function'
-      ? window.getAvailableAudioApps()
-      : [];
-    const matchedApplication = availableApps.find((application) => (
-      targetProcesses.includes(String(application?.process || '').trim())
-      && String(application?.path || '').trim()
-    ));
+    const availableApps =
+      typeof window.getAvailableAudioApps === 'function'
+        ? window.getAvailableAudioApps()
+        : [];
+    const matchedApplication = availableApps.find(
+      (application) =>
+        targetProcesses.includes(String(application?.process || '').trim()) &&
+        String(application?.path || '').trim()
+    );
 
     return String(matchedApplication?.path || '').trim();
   }
@@ -331,19 +347,24 @@
       return phase !== 'release';
     }
 
-    const runtimeState = typeof window.getStandaloneButtonState === 'function'
-      ? window.getStandaloneButtonState(button?.id)
-      : null;
+    const runtimeState =
+      typeof window.getStandaloneButtonState === 'function'
+        ? window.getStandaloneButtonState(button?.id)
+        : null;
 
     return !Boolean(runtimeState?.latched);
   }
 
   function getAllProfileTargetProcesses() {
-    const channelProcesses = (window.getChannelsState?.() || []).flatMap((channel) => {
-      return getChannelTargetProcesses(channel);
-    });
+    const channelProcesses = (window.getChannelsState?.() || []).flatMap(
+      (channel) => {
+        return getChannelTargetProcesses(channel);
+      }
+    );
 
-    const standaloneProcesses = getButtons().flatMap((button) => getButtonTargetProcesses(button));
+    const standaloneProcesses = getButtons().flatMap((button) =>
+      getButtonTargetProcesses(button)
+    );
     return [...new Set([...channelProcesses, ...standaloneProcesses])];
   }
 
@@ -381,11 +402,13 @@
   }
 
   async function getProcessAudioStates(processes = []) {
-    const normalizedProcesses = [...new Set(
-      (Array.isArray(processes) ? processes : [])
-        .map((processName) => String(processName || '').trim())
-        .filter(Boolean)
-    )];
+    const normalizedProcesses = [
+      ...new Set(
+        (Array.isArray(processes) ? processes : [])
+          .map((processName) => String(processName || '').trim())
+          .filter(Boolean)
+      )
+    ];
     const api = getApi();
 
     if (!normalizedProcesses.length || !api?.get_audio_states) {
@@ -398,10 +421,14 @@
         ? response.applications
         : [];
 
-      return new Map(applications.map((application) => [
-        String(application?.process || '').trim().toLowerCase(),
-        application
-      ]));
+      return new Map(
+        applications.map((application) => [
+          String(application?.process || '')
+            .trim()
+            .toLowerCase(),
+          application
+        ])
+      );
     } catch (error) {
       console.error('get_audio_states error', error);
       return new Map();
@@ -413,12 +440,12 @@
     return targeting?.readBindingState
       ? targeting.readBindingState(binding, options)
       : {
-        hasTargets: false,
-        volume: 0,
-        muted: false,
-        appStateMap: new Map(),
-        deviceStateMap: new Map()
-      };
+          hasTargets: false,
+          volume: 0,
+          muted: false,
+          appStateMap: new Map(),
+          deviceStateMap: new Map()
+        };
   }
 
   function createBindingSnapshot(binding = {}, state = {}) {
@@ -457,18 +484,22 @@
   }
 
   function createProcessStateSnapshot(processStateMap = new Map()) {
-    return Array.from(processStateMap.values()).map((application) => ({
-      process: String(application?.process || '').trim(),
-      volume: Number(application?.volume) || 0,
-      muted: Boolean(application?.muted)
-    })).filter((entry) => entry.process);
+    return Array.from(processStateMap.values())
+      .map((application) => ({
+        process: String(application?.process || '').trim(),
+        volume: Number(application?.volume) || 0,
+        muted: Boolean(application?.muted)
+      }))
+      .filter((entry) => entry.process);
   }
 
   function createMuteStateSnapshot(processStateMap = new Map()) {
-    return Array.from(processStateMap.values()).map((application) => ({
-      process: String(application?.process || '').trim(),
-      muted: Boolean(application?.muted)
-    })).filter((entry) => entry.process);
+    return Array.from(processStateMap.values())
+      .map((application) => ({
+        process: String(application?.process || '').trim(),
+        muted: Boolean(application?.muted)
+      }))
+      .filter((entry) => entry.process);
   }
 
   async function restoreProcessStateSnapshot(snapshot = []) {
@@ -481,7 +512,11 @@
       .filter((entry) => entry.process);
     const api = getApi();
 
-    if (!normalizedSnapshot.length || !api?.set_app_volume || !api?.set_app_mute) {
+    if (
+      !normalizedSnapshot.length ||
+      !api?.set_app_volume ||
+      !api?.set_app_mute
+    ) {
       return [];
     }
 
@@ -507,7 +542,9 @@
     }
 
     return Promise.all(
-      normalizedSnapshot.map((entry) => api.set_app_mute(entry.process, Boolean(entry.muted)))
+      normalizedSnapshot.map((entry) =>
+        api.set_app_mute(entry.process, Boolean(entry.muted))
+      )
     );
   }
 
@@ -590,10 +627,11 @@
   }
 
   function updateStandaloneButton(buttonId, updater, meta = {}) {
-    const updatedButton = window.updateStandaloneButtonState?.(buttonId, updater, {
-      source: 'standalone-button-actions',
-      ...meta
-    }) || null;
+    const updatedButton =
+      window.updateStandaloneButtonState?.(buttonId, updater, {
+        source: 'standalone-button-actions',
+        ...meta
+      }) || null;
 
     if (!updatedButton) {
       return null;
@@ -608,11 +646,13 @@
   }
 
   function removeStandaloneButton(buttonId, meta = {}) {
-    const activeSoloKey = window.getActiveStandaloneSoloButtonRuntimeKey?.() || '';
-    const removedButton = window.removeStandaloneButtonState?.(buttonId, {
-      source: 'standalone-button-actions',
-      ...meta
-    }) || null;
+    const activeSoloKey =
+      window.getActiveStandaloneSoloButtonRuntimeKey?.() || '';
+    const removedButton =
+      window.removeStandaloneButtonState?.(buttonId, {
+        source: 'standalone-button-actions',
+        ...meta
+      }) || null;
 
     if (!removedButton) {
       return null;
@@ -634,70 +674,97 @@
     return removedButton;
   }
 
-  function addStandaloneButtonTarget(buttonId, appProcess, appName = '', meta = {}) {
-    return updateStandaloneButton(buttonId, (button) => {
-      const nextTarget = createButtonTarget(appProcess, appName);
+  function addStandaloneButtonTarget(
+    buttonId,
+    appProcess,
+    appName = '',
+    meta = {}
+  ) {
+    return updateStandaloneButton(
+      buttonId,
+      (button) => {
+        const nextTarget = createButtonTarget(appProcess, appName);
 
-      if (!nextTarget) {
-        return button;
+        if (!nextTarget) {
+          return button;
+        }
+
+        const nextTargets = Array.isArray(button.targets)
+          ? button.targets
+              .map((target) =>
+                createButtonTarget(target?.process, target?.name)
+              )
+              .filter(Boolean)
+          : [];
+
+        if (
+          !nextTargets.some((target) => target.process === nextTarget.process)
+        ) {
+          nextTargets.push(nextTarget);
+        }
+
+        button.targets = nextTargets;
+        return syncLegacyButtonTargetFields(button);
+      },
+      {
+        type: 'standalone-buttons/update',
+        appProcess,
+        ...meta
       }
-
-      const nextTargets = Array.isArray(button.targets)
-        ? button.targets
-            .map((target) => createButtonTarget(target?.process, target?.name))
-            .filter(Boolean)
-        : [];
-
-      if (!nextTargets.some((target) => target.process === nextTarget.process)) {
-        nextTargets.push(nextTarget);
-      }
-
-      button.targets = nextTargets;
-      return syncLegacyButtonTargetFields(button);
-    }, {
-      type: 'standalone-buttons/update',
-      appProcess,
-      ...meta
-    });
+    );
   }
 
   function removeStandaloneButtonTarget(buttonId, appProcess, meta = {}) {
-    return updateStandaloneButton(buttonId, (button) => {
-      button.targets = Array.isArray(button.targets)
-        ? button.targets.filter((target) => String(target?.process || '').trim() !== String(appProcess || '').trim())
-        : [];
-      return syncLegacyButtonTargetFields(button);
-    }, {
-      type: 'standalone-buttons/update',
-      appProcess,
-      ...meta
-    });
+    return updateStandaloneButton(
+      buttonId,
+      (button) => {
+        button.targets = Array.isArray(button.targets)
+          ? button.targets.filter(
+              (target) =>
+                String(target?.process || '').trim() !==
+                String(appProcess || '').trim()
+            )
+          : [];
+        return syncLegacyButtonTargetFields(button);
+      },
+      {
+        type: 'standalone-buttons/update',
+        appProcess,
+        ...meta
+      }
+    );
   }
 
   async function setProcessesMuted(processes = [], muted) {
     const api = getApi();
-    const normalizedProcesses = [...new Set(
-      (Array.isArray(processes) ? processes : [])
-        .map((processName) => String(processName || '').trim())
-        .filter(Boolean)
-    )];
+    const normalizedProcesses = [
+      ...new Set(
+        (Array.isArray(processes) ? processes : [])
+          .map((processName) => String(processName || '').trim())
+          .filter(Boolean)
+      )
+    ];
 
     if (!normalizedProcesses.length || !api?.set_app_mute) {
       return [];
     }
 
     return Promise.all(
-      normalizedProcesses.map((processName) => api.set_app_mute(processName, Boolean(muted)))
+      normalizedProcesses.map((processName) =>
+        api.set_app_mute(processName, Boolean(muted))
+      )
     );
   }
 
   async function setProcessesVolume(processes = [], volume) {
     const api = getApi();
-    const normalizedProcesses = [...new Set(
-      (Array.isArray(processes) ? processes : [])
-        .map((processName) => String(processName || '').trim())
-        .filter(Boolean)
-    )];
+    const normalizedProcesses = [
+      ...new Set(
+        (Array.isArray(processes) ? processes : [])
+          .map((processName) => String(processName || '').trim())
+          .filter(Boolean)
+      )
+    ];
     const nextVolume = Math.max(0, Math.min(100, Number(volume) || 0));
 
     if (!normalizedProcesses.length || !api?.set_app_volume) {
@@ -705,7 +772,9 @@
     }
 
     return Promise.all(
-      normalizedProcesses.map((processName) => api.set_app_volume(processName, nextVolume))
+      normalizedProcesses.map((processName) =>
+        api.set_app_volume(processName, nextVolume)
+      )
     );
   }
 
@@ -720,15 +789,25 @@
 
   async function executeSoloStandaloneButton(button) {
     const buttonKey = getButtonRuntimeKey(button.id);
-    const targetBinding = await resolveButtonTargetBinding(button, { force: true });
+    const targetBinding = await resolveButtonTargetBinding(button, {
+      force: true
+    });
     const channels = window.getChannelsState?.() || [];
     const resolvedChannelBindings = await Promise.all(
-      channels.map((channel) => getTargeting()?.resolveChannelTargetBinding?.(channel, { force: true }) || null)
+      channels.map(
+        (channel) =>
+          getTargeting()?.resolveChannelTargetBinding?.(channel, {
+            force: true
+          }) || null
+      )
     );
     const resolvedStandaloneBindings = await Promise.all(
-      getButtons().map((entry) => resolveButtonTargetBinding(entry, { force: true }))
+      getButtons().map((entry) =>
+        resolveButtonTargetBinding(entry, { force: true })
+      )
     );
-    const activeSoloKey = window.getActiveStandaloneSoloButtonRuntimeKey?.() || null;
+    const activeSoloKey =
+      window.getActiveStandaloneSoloButtonRuntimeKey?.() || null;
 
     if (activeSoloKey === buttonKey) {
       await window.restoreStandaloneSoloRuntime?.();
@@ -745,25 +824,52 @@
           })
       )
     ).flat();
-    const otherAppTargets = [...resolvedChannelBindings, ...resolvedStandaloneBindings]
+    const otherAppTargets = [
+      ...resolvedChannelBindings,
+      ...resolvedStandaloneBindings
+    ]
       .filter(Boolean)
-      .flatMap((binding) => Array.isArray(binding?.appTargets) ? binding.appTargets : [])
-      .filter((target) => !targetBinding.appTargets.some((selectedTarget) => selectedTarget.process === target.process));
-    const otherDeviceTargets = [...resolvedChannelBindings, ...resolvedStandaloneBindings]
+      .flatMap((binding) =>
+        Array.isArray(binding?.appTargets) ? binding.appTargets : []
+      )
+      .filter(
+        (target) =>
+          !targetBinding.appTargets.some(
+            (selectedTarget) => selectedTarget.process === target.process
+          )
+      );
+    const otherDeviceTargets = [
+      ...resolvedChannelBindings,
+      ...resolvedStandaloneBindings
+    ]
       .filter(Boolean)
-      .flatMap((binding) => Array.isArray(binding?.deviceTargets) ? binding.deviceTargets.map((target) => ({
-        ...target,
-        flow: target?.flow || binding.deviceFlow
-      })) : [])
-      .filter((target) => !targetBinding.deviceTargets.some((selectedTarget) => selectedTarget.id === target.id && (selectedTarget.flow || targetBinding.deviceFlow) === target.flow));
+      .flatMap((binding) =>
+        Array.isArray(binding?.deviceTargets)
+          ? binding.deviceTargets.map((target) => ({
+              ...target,
+              flow: target?.flow || binding.deviceFlow
+            }))
+          : []
+      )
+      .filter(
+        (target) =>
+          !targetBinding.deviceTargets.some(
+            (selectedTarget) =>
+              selectedTarget.id === target.id &&
+              (selectedTarget.flow || targetBinding.deviceFlow) === target.flow
+          )
+      );
 
     await window.restoreSoloChannelButtonRuntime?.();
     await window.restoreStandaloneSoloRuntime?.();
-    await setBindingMuted({
-      appTargets: otherAppTargets,
-      deviceTargets: otherDeviceTargets,
-      deviceFlow: targetBinding.deviceFlow
-    }, true);
+    await setBindingMuted(
+      {
+        appTargets: otherAppTargets,
+        deviceTargets: otherDeviceTargets,
+        deviceFlow: targetBinding.deviceFlow
+      },
+      true
+    );
     await setBindingMuted(targetBinding, false);
     window.activateStandaloneSoloRuntime?.(button.id, snapshot);
     return true;
@@ -771,7 +877,10 @@
 
   async function executeSetVolumeStandaloneButton(button) {
     const binding = await resolveButtonTargetBinding(button, { force: true });
-    const nextVolume = Math.max(0, Math.min(100, Number(button?.actionValue) || 0));
+    const nextVolume = Math.max(
+      0,
+      Math.min(100, Number(button?.actionValue) || 0)
+    );
 
     await setBindingVolume(binding, nextVolume);
     return true;
@@ -798,13 +907,17 @@
     const api = getApi();
     const binding = await resolveButtonTargetBinding(button, { force: true });
     const primaryProcess = binding.appTargets?.[0]?.process || '';
-    const executablePath = getBindingExecutablePath(binding) || getButtonExecutablePath(button);
+    const executablePath =
+      getBindingExecutablePath(binding) || getButtonExecutablePath(button);
 
     if (!primaryProcess && !executablePath) {
       const toastKey = Number.isFinite(Number(button?.linkedChannelId))
         ? 'editor.noTargetAssigned'
         : 'editor.buttonChannelRequired';
-      window.showToast?.('warn', window.t?.(toastKey) || 'Choose a fader first.');
+      window.showToast?.(
+        'warn',
+        window.t?.(toastKey) || 'Choose a fader first.'
+      );
       return false;
     }
 
@@ -812,7 +925,11 @@
       return false;
     }
 
-    const response = await api.set_process_window_visibility(primaryProcess, null, executablePath);
+    const response = await api.set_process_window_visibility(
+      primaryProcess,
+      null,
+      executablePath
+    );
     return Boolean(response?.success);
   }
 
@@ -870,7 +987,9 @@
 
   async function executeMediaStandaloneButton(button, meta = {}) {
     const api = getApi();
-    const mediaOptionCommand = getMediaOptionCommandForActionType(button?.actionType);
+    const mediaOptionCommand = getMediaOptionCommandForActionType(
+      button?.actionType
+    );
     const acquireMediaActionLock = getAcquireMediaActionLock();
 
     if (mediaOptionCommand) {
@@ -878,7 +997,9 @@
         return false;
       }
 
-      if (!acquireMediaActionLock(`standalone-option:${mediaOptionCommand}`, meta)) {
+      if (
+        !acquireMediaActionLock(`standalone-option:${mediaOptionCommand}`, meta)
+      ) {
         return false;
       }
 
@@ -886,26 +1007,42 @@
         button,
         meta?.phase === 'release' ? 'release' : 'press'
       );
-      const response = await api.set_media_option(mediaOptionCommand, enabled, getMediaControllerTargetAppId());
+      const response = await api.set_media_option(
+        mediaOptionCommand,
+        enabled,
+        getMediaControllerTargetAppId()
+      );
       return Boolean(response?.success);
     }
 
-    const mediaTransportCommand = getMediaTransportCommandForActionType(button?.actionType);
+    const mediaTransportCommand = getMediaTransportCommandForActionType(
+      button?.actionType
+    );
 
     if (!mediaTransportCommand || !api?.send_media_transport) {
       return false;
     }
 
-    if (!acquireMediaActionLock(`standalone-transport:${mediaTransportCommand}`, meta)) {
+    if (
+      !acquireMediaActionLock(
+        `standalone-transport:${mediaTransportCommand}`,
+        meta
+      )
+    ) {
       return false;
     }
 
-    const response = await api.send_media_transport(mediaTransportCommand, getMediaControllerTargetAppId());
+    const response = await api.send_media_transport(
+      mediaTransportCommand,
+      getMediaControllerTargetAppId()
+    );
     return Boolean(response?.success);
   }
 
   async function activatePushStandaloneButton(button) {
-    const targetBinding = await resolveButtonTargetBinding(button, { force: true });
+    const targetBinding = await resolveButtonTargetBinding(button, {
+      force: true
+    });
     const actionTypes = getActionTypes();
 
     if (button.actionType === actionTypes.solo) {
@@ -925,11 +1062,11 @@
     }
 
     if (
-      button.actionType === actionTypes.toggleAppVisibility
-      || button.actionType === actionTypes.runUserScript
-      || button.actionType === actionTypes.launchApp
-      || button.actionType === actionTypes.setDefaultOutputDevice
-      || button.actionType === actionTypes.setDefaultInputDevice
+      button.actionType === actionTypes.toggleAppVisibility ||
+      button.actionType === actionTypes.runUserScript ||
+      button.actionType === actionTypes.launchApp ||
+      button.actionType === actionTypes.setDefaultOutputDevice ||
+      button.actionType === actionTypes.setDefaultInputDevice
     ) {
       clearPushActionRuntime(button.id);
 
@@ -955,7 +1092,10 @@
         kind: 'binding-state',
         entries: createBindingSnapshot(targetBinding, bindingState)
       });
-      await setBindingVolume(targetBinding, Math.max(0, Math.min(100, Number(button?.actionValue) || 0)));
+      await setBindingVolume(
+        targetBinding,
+        Math.max(0, Math.min(100, Number(button?.actionValue) || 0))
+      );
       return true;
     }
 
@@ -993,11 +1133,11 @@
     }
 
     if (
-      button.actionType === actionTypes.toggleAppVisibility
-      || button.actionType === actionTypes.runUserScript
-      || button.actionType === actionTypes.launchApp
-      || button.actionType === actionTypes.setDefaultOutputDevice
-      || button.actionType === actionTypes.setDefaultInputDevice
+      button.actionType === actionTypes.toggleAppVisibility ||
+      button.actionType === actionTypes.runUserScript ||
+      button.actionType === actionTypes.launchApp ||
+      button.actionType === actionTypes.setDefaultOutputDevice ||
+      button.actionType === actionTypes.setDefaultInputDevice
     ) {
       clearPushActionRuntime(button.id);
       return false;
@@ -1018,10 +1158,14 @@
     const button = getButtonById(buttonId);
     const actionTypes = getActionTypes();
     const interactionModes = getInteractionModes();
-    const actionMode = Object.values(interactionModes).includes(button?.actionMode)
+    const actionMode = Object.values(interactionModes).includes(
+      button?.actionMode
+    )
       ? button.actionMode
       : interactionModes.trigger;
-    const indicatorMode = Object.values(interactionModes).includes(button?.indicatorMode)
+    const indicatorMode = Object.values(interactionModes).includes(
+      button?.indicatorMode
+    )
       ? button.indicatorMode
       : interactionModes.trigger;
     const indicatorEnabled = button?.indicatorEnabled !== false;
@@ -1041,9 +1185,9 @@
       : null;
 
     if (
-      actionEnabled
-      && isStandaloneButtonChannelAction(button.actionType)
-      && !actionTargetBinding?.hasTargets
+      actionEnabled &&
+      isStandaloneButtonChannelAction(button.actionType) &&
+      !actionTargetBinding?.hasTargets
     ) {
       const toastKey = Number.isFinite(Number(button?.linkedChannelId))
         ? 'editor.noTargetAssigned'
@@ -1055,20 +1199,25 @@
     if (phase === 'press') {
       if (indicatorEnabled && indicatorMode === interactionModes.push) {
         window.setStandaloneButtonPressedRuntime?.(buttonId, true);
-      } else if (indicatorEnabled && indicatorMode === interactionModes.trigger) {
+      } else if (
+        indicatorEnabled &&
+        indicatorMode === interactionModes.trigger
+      ) {
         window.triggerStandaloneButtonPressRuntime?.(buttonId);
       }
 
       if (
-        meta?.source !== 'midi-runtime'
-        && (
-          indicatorMode === interactionModes.push
-          || actionMode === interactionModes.push
-        )
+        meta?.source !== 'midi-runtime' &&
+        (indicatorMode === interactionModes.push ||
+          actionMode === interactionModes.push)
       ) {
         scheduleUiPushRelease(buttonId, meta);
       }
-    } else if (phase === 'release' && indicatorEnabled && indicatorMode === interactionModes.push) {
+    } else if (
+      phase === 'release' &&
+      indicatorEnabled &&
+      indicatorMode === interactionModes.push
+    ) {
       window.setStandaloneButtonPressedRuntime?.(buttonId, false);
     }
 
@@ -1094,7 +1243,11 @@
     }
 
     if (!actionEnabled || button.actionType === actionTypes.none) {
-      if (phase === 'press' && indicatorEnabled && indicatorMode === interactionModes.toggle) {
+      if (
+        phase === 'press' &&
+        indicatorEnabled &&
+        indicatorMode === interactionModes.toggle
+      ) {
         window.toggleStandaloneButtonLatchRuntime?.(buttonId, indicatorMode);
       }
 
@@ -1129,15 +1282,19 @@
       } else if (button.actionType === actionTypes.launchApp) {
         await executeLaunchAppStandaloneButton(button);
       } else if (
-        button.actionType === actionTypes.setDefaultOutputDevice
-        || button.actionType === actionTypes.setDefaultInputDevice
+        button.actionType === actionTypes.setDefaultOutputDevice ||
+        button.actionType === actionTypes.setDefaultInputDevice
       ) {
         await executeSetDefaultAudioDeviceStandaloneButton(button);
       } else {
         await executeMuteStandaloneButton(button);
       }
 
-      if (phase === 'press' && indicatorEnabled && indicatorMode === interactionModes.toggle) {
+      if (
+        phase === 'press' &&
+        indicatorEnabled &&
+        indicatorMode === interactionModes.toggle
+      ) {
         window.toggleStandaloneButtonLatchRuntime?.(buttonId, indicatorMode);
       }
     } catch (error) {

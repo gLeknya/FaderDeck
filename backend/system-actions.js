@@ -138,12 +138,15 @@ Start-Process -FilePath $targetPath | Out-Null
     return this.launchApplication(resolvedPath);
   }
 
-  async setProcessWindowVisibility(processName = '', visible = null, executablePath = '') {
+  async setProcessWindowVisibility(
+    processName = '',
+    visible = null,
+    executablePath = ''
+  ) {
     const normalizedProcessName = String(processName || '').trim();
     const normalizedExecutablePath = normalizeFilePath(executablePath);
-    const visibilityMode = visible === null
-      ? 'toggle'
-      : (visible ? 'show' : 'hide');
+    const visibilityMode =
+      visible === null ? 'toggle' : visible ? 'show' : 'hide';
 
     if (!normalizedProcessName && !normalizedExecutablePath) {
       return {
@@ -152,7 +155,11 @@ Start-Process -FilePath $targetPath | Out-Null
       };
     }
 
-    this._log('set_process_window_visibility', normalizedProcessName, visibilityMode);
+    this._log(
+      'set_process_window_visibility',
+      normalizedProcessName,
+      visibilityMode
+    );
 
     return new Promise((resolve, reject) => {
       execFile(

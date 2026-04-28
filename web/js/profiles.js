@@ -53,10 +53,14 @@ function sanitizeProfileName(name = '') {
 }
 
 function getUniqueDraftProfileName(baseLabel) {
-  return getUniqueProfileDraftNameState?.(
-    baseLabel,
-    profileEditingState?.mode === 'create' ? [profileEditingState.originalName] : []
-  ) || baseLabel;
+  return (
+    getUniqueProfileDraftNameState?.(
+      baseLabel,
+      profileEditingState?.mode === 'create'
+        ? [profileEditingState.originalName]
+        : []
+    ) || baseLabel
+  );
 }
 
 function syncToolbarProfilePickerVisibility() {
@@ -66,9 +70,10 @@ function syncToolbarProfilePickerVisibility() {
     return;
   }
 
-  const isEnabled = typeof isToolbarProfilePickerEnabled === 'function'
-    ? isToolbarProfilePickerEnabled()
-    : true;
+  const isEnabled =
+    typeof isToolbarProfilePickerEnabled === 'function'
+      ? isToolbarProfilePickerEnabled()
+      : true;
   picker.classList.toggle('hidden', !isEnabled);
 }
 
@@ -79,20 +84,28 @@ function syncToolbarProfileSelect() {
     return;
   }
 
-  const visibleProfiles = getProfilesList().filter((profile) => isProfileVisibleInToolbar(profile.name));
+  const visibleProfiles = getProfilesList().filter((profile) =>
+    isProfileVisibleInToolbar(profile.name)
+  );
   const currentProfileName = getCurrentProfileName();
-  const hasCurrentVisible = visibleProfiles.some((profile) => profile.name === currentProfileName);
+  const hasCurrentVisible = visibleProfiles.some(
+    (profile) => profile.name === currentProfileName
+  );
   const placeholderSelected = !currentProfileName || !hasCurrentVisible;
 
   select.innerHTML = `
     <option value="" ${placeholderSelected ? 'selected' : ''}>
       ${t('profiles.toolbarPlaceholder')}
     </option>
-    ${visibleProfiles.map((profile) => `
+    ${visibleProfiles
+      .map(
+        (profile) => `
       <option value="${escapeHtml(profile.name)}" ${profile.name === currentProfileName ? 'selected' : ''}>
         ${escapeHtml(profile.name)}
       </option>
-    `).join('')}
+    `
+      )
+      .join('')}
   `;
 
   enhanceCustomSelects?.(select);
@@ -100,11 +113,12 @@ function syncToolbarProfileSelect() {
 }
 
 function renderProfileRow(profile, options = {}) {
-  const isEditing = profileEditingState
-    && (
-      (profileEditingState.mode === 'rename' && profileEditingState.originalName === profile.name)
-      || (profileEditingState.mode === 'create' && profileEditingState.originalName === profile.name)
-    );
+  const isEditing =
+    profileEditingState &&
+    ((profileEditingState.mode === 'rename' &&
+      profileEditingState.originalName === profile.name) ||
+      (profileEditingState.mode === 'create' &&
+        profileEditingState.originalName === profile.name));
   const isCurrent = getCurrentProfileName() === profile.name;
   const nameMarkup = isEditing
     ? `
@@ -188,13 +202,16 @@ function renderProfilesPanel() {
     return;
   }
 
-  const draftProfiles = profileEditingState?.mode === 'create'
-    ? [{
-      name: profileEditingState.originalName,
-      path: '',
-      modified: Date.now()
-    }]
-    : [];
+  const draftProfiles =
+    profileEditingState?.mode === 'create'
+      ? [
+          {
+            name: profileEditingState.originalName,
+            path: '',
+            modified: Date.now()
+          }
+        ]
+      : [];
   const profileRows = [...draftProfiles, ...getProfilesList()];
 
   if (profileRows.length === 0) {
@@ -208,9 +225,13 @@ function renderProfilesPanel() {
   }
 
   list.innerHTML = profileRows
-    .map((profile) => renderProfileRow(profile, {
-      isDraft: profileEditingState?.mode === 'create' && profile.name === profileEditingState.originalName
-    }))
+    .map((profile) =>
+      renderProfileRow(profile, {
+        isDraft:
+          profileEditingState?.mode === 'create' &&
+          profile.name === profileEditingState.originalName
+      })
+    )
     .join('');
 
   focusProfileInputIfNeeded();
@@ -222,7 +243,9 @@ function focusProfileInputIfNeeded() {
   }
 
   requestAnimationFrame(() => {
-    const input = document.querySelector('.profile-name-input[data-profile-input="true"]');
+    const input = document.querySelector(
+      '.profile-name-input[data-profile-input="true"]'
+    );
 
     if (!input) {
       return;
@@ -291,9 +314,9 @@ async function commitProfileEditing() {
     return;
   }
 
-  const nameCollision = getProfilesList().some((profile) => (
-    profile.name === nextName && profile.name !== originalName
-  ));
+  const nameCollision = getProfilesList().some(
+    (profile) => profile.name === nextName && profile.name !== originalName
+  );
 
   if (nameCollision) {
     showToast('warn', t('profiles.nameExists'));
@@ -305,7 +328,10 @@ async function commitProfileEditing() {
     if (isCreate) {
       const result = await getProfileService()?.saveProfile?.(nextName);
       profileEditingState = null;
-      showToast('success', t('profiles.saved', { name: result?.name || nextName }));
+      showToast(
+        'success',
+        t('profiles.saved', { name: result?.name || nextName })
+      );
       return;
     }
 
@@ -314,12 +340,21 @@ async function commitProfileEditing() {
       return;
     }
 
-    const result = await getProfileService()?.renameProfile?.(originalName, nextName);
+    const result = await getProfileService()?.renameProfile?.(
+      originalName,
+      nextName
+    );
     profileEditingState = null;
-    showToast('success', t('profiles.renamed', { name: result?.name || nextName }));
+    showToast(
+      'success',
+      t('profiles.renamed', { name: result?.name || nextName })
+    );
   } catch (error) {
     console.error('commitProfileEditing error', error);
-    showToast('error', isCreate ? t('profiles.saveFailed') : t('profiles.renameFailed'));
+    showToast(
+      'error',
+      isCreate ? t('profiles.saveFailed') : t('profiles.renameFailed')
+    );
     focusProfileInputIfNeeded();
   }
 }
@@ -440,7 +475,10 @@ function handleProfilesListChange(event) {
     return;
   }
 
-  toggleProfileToolbarVisibility(toggle.dataset.profileToolbarToggle, toggle.checked);
+  toggleProfileToolbarVisibility(
+    toggle.dataset.profileToolbarToggle,
+    toggle.checked
+  );
 }
 
 function handleProfilesListDoubleClick(event) {
@@ -515,7 +553,11 @@ function handleProfilesDragStart(event) {
 function handleProfilesDragOver(event) {
   const row = event.target.closest('.profile-row');
 
-  if (!row || !draggedProfileName || row.dataset.profileName === draggedProfileName) {
+  if (
+    !row ||
+    !draggedProfileName ||
+    row.dataset.profileName === draggedProfileName
+  ) {
     return;
   }
 
@@ -542,9 +584,11 @@ function handleProfilesDrop(event) {
 
 function clearProfileDragState() {
   draggedProfileName = null;
-  document.querySelectorAll('.profile-row.dragging, .profile-row.drag-over').forEach((element) => {
-    element.classList.remove('dragging', 'drag-over');
-  });
+  document
+    .querySelectorAll('.profile-row.dragging, .profile-row.drag-over')
+    .forEach((element) => {
+      element.classList.remove('dragging', 'drag-over');
+    });
 }
 
 function bindProfilesUi() {
@@ -560,12 +604,18 @@ function bindProfilesUi() {
     loadProfileByName(event.target.value);
   });
 
-  document.getElementById('saveCurrentProfileButton')?.addEventListener('click', startCreateProfileFlow);
-  document.getElementById('openProfilesFolderButton')?.addEventListener('click', openProfilesFolder);
-  document.getElementById('profileImportToggle')?.addEventListener('click', (event) => {
-    event.stopPropagation();
-    toggleProfileImportMenu();
-  });
+  document
+    .getElementById('saveCurrentProfileButton')
+    ?.addEventListener('click', startCreateProfileFlow);
+  document
+    .getElementById('openProfilesFolderButton')
+    ?.addEventListener('click', openProfilesFolder);
+  document
+    .getElementById('profileImportToggle')
+    ?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      toggleProfileImportMenu();
+    });
 
   const profileList = getProfileListElement();
 

@@ -14,9 +14,11 @@
   function normalizeProfilePreferences(preferences = {}) {
     return {
       order: Array.isArray(preferences.order) ? [...preferences.order] : [],
-      toolbarVisible: preferences.toolbarVisible && typeof preferences.toolbarVisible === 'object'
-        ? { ...preferences.toolbarVisible }
-        : {}
+      toolbarVisible:
+        preferences.toolbarVisible &&
+        typeof preferences.toolbarVisible === 'object'
+          ? { ...preferences.toolbarVisible }
+          : {}
     };
   }
 
@@ -45,7 +47,9 @@
   }
 
   function persistProfilePreferences(preferences) {
-    profileStorage?.writeProfilePreferences(normalizeProfilePreferences(preferences));
+    profileStorage?.writeProfilePreferences(
+      normalizeProfilePreferences(preferences)
+    );
   }
 
   function readStoredCurrentProfileName() {
@@ -59,11 +63,13 @@
   // This slice is renderer session/local app state for profile UX and should
   // not be confused with the persisted renderer profile payload.
   function getProfileSlice() {
-    return window.getAppState?.().profile || {
-      currentName: '',
-      list: [],
-      preferences: createDefaultProfilePreferences()
-    };
+    return (
+      window.getAppState?.().profile || {
+        currentName: '',
+        list: [],
+        preferences: createDefaultProfilePreferences()
+      }
+    );
   }
 
   function getProfileSessionState() {
@@ -71,16 +77,20 @@
   }
 
   function getCurrentProfileNameRuntime() {
-    return window.getCurrentProfileState?.() || getProfileSlice().currentName || '';
+    return (
+      window.getCurrentProfileState?.() || getProfileSlice().currentName || ''
+    );
   }
 
   function setCurrentProfileNameRuntime(profileName, meta = {}) {
     const nextProfileName = profileName || '';
     persistCurrentProfileName(nextProfileName);
-    return window.setCurrentProfileState?.(nextProfileName, {
-      source: 'profile-store',
-      ...meta
-    }) || nextProfileName;
+    return (
+      window.setCurrentProfileState?.(nextProfileName, {
+        source: 'profile-store',
+        ...meta
+      }) || nextProfileName
+    );
   }
 
   function getProfilesListState() {
@@ -98,14 +108,17 @@
       const currentProfileSlice = {
         currentName: previousState.profile?.currentName || '',
         list: normalizeProfilesList(previousState.profile?.list),
-        preferences: normalizeProfilePreferences(previousState.profile?.preferences)
+        preferences: normalizeProfilePreferences(
+          previousState.profile?.preferences
+        )
       };
-      nextProfileSlice = typeof updater === 'function'
-        ? updater(currentProfileSlice) || currentProfileSlice
-        : {
-          ...currentProfileSlice,
-          ...(updater || {})
-        };
+      nextProfileSlice =
+        typeof updater === 'function'
+          ? updater(currentProfileSlice) || currentProfileSlice
+          : {
+              ...currentProfileSlice,
+              ...(updater || {})
+            };
 
       return {
         ...previousState,
@@ -121,28 +134,34 @@
 
   function setProfilesListState(profiles, meta = {}) {
     const nextProfiles = normalizeProfilesList(profiles);
-    updateProfileSlice((profile) => ({
-      ...profile,
-      list: nextProfiles
-    }), {
-      type: 'profiles/set-list',
-      source: 'profile-store',
-      ...meta
-    });
+    updateProfileSlice(
+      (profile) => ({
+        ...profile,
+        list: nextProfiles
+      }),
+      {
+        type: 'profiles/set-list',
+        source: 'profile-store',
+        ...meta
+      }
+    );
     return nextProfiles;
   }
 
   function setProfilePreferencesState(preferences, meta = {}) {
     const nextPreferences = normalizeProfilePreferences(preferences);
     persistProfilePreferences(nextPreferences);
-    updateProfileSlice((profile) => ({
-      ...profile,
-      preferences: nextPreferences
-    }), {
-      type: 'profiles/set-preferences',
-      source: 'profile-store',
-      ...meta
-    });
+    updateProfileSlice(
+      (profile) => ({
+        ...profile,
+        preferences: nextPreferences
+      }),
+      {
+        type: 'profiles/set-preferences',
+        source: 'profile-store',
+        ...meta
+      }
+    );
     return nextPreferences;
   }
 
@@ -151,21 +170,36 @@
   }
 
   function getProfileByNameState(profileName) {
-    return getProfilesListState().find((profile) => profile.name === profileName) || null;
+    return (
+      getProfilesListState().find((profile) => profile.name === profileName) ||
+      null
+    );
   }
 
-  function sortProfilesByPreferences(profiles, preferences = getProfilePreferencesState()) {
-    const orderIndex = new Map(preferences.order.map((name, index) => [name, index]));
+  function sortProfilesByPreferences(
+    profiles,
+    preferences = getProfilePreferencesState()
+  ) {
+    const orderIndex = new Map(
+      preferences.order.map((name, index) => [name, index])
+    );
 
     return normalizeProfilesList(profiles).sort((left, right) => {
-      const leftIndex = orderIndex.has(left.name) ? orderIndex.get(left.name) : Number.MAX_SAFE_INTEGER;
-      const rightIndex = orderIndex.has(right.name) ? orderIndex.get(right.name) : Number.MAX_SAFE_INTEGER;
+      const leftIndex = orderIndex.has(left.name)
+        ? orderIndex.get(left.name)
+        : Number.MAX_SAFE_INTEGER;
+      const rightIndex = orderIndex.has(right.name)
+        ? orderIndex.get(right.name)
+        : Number.MAX_SAFE_INTEGER;
 
       if (leftIndex !== rightIndex) {
         return leftIndex - rightIndex;
       }
 
-      return (right.modified || 0) - (left.modified || 0) || left.name.localeCompare(right.name);
+      return (
+        (right.modified || 0) - (left.modified || 0) ||
+        left.name.localeCompare(right.name)
+      );
     });
   }
 
@@ -175,7 +209,9 @@
     const nextPreferences = {
       order: [
         ...currentPreferences.order.filter((name) => existingNames.has(name)),
-        ...profileNames.filter((name) => !currentPreferences.order.includes(name))
+        ...profileNames.filter(
+          (name) => !currentPreferences.order.includes(name)
+        )
       ],
       toolbarVisible: { ...currentPreferences.toolbarVisible }
     };
@@ -224,12 +260,15 @@
   function renameProfilePreferencesState(oldName, newName, meta = {}) {
     const currentPreferences = getProfilePreferencesState();
     const nextPreferences = {
-      order: currentPreferences.order.map((name) => (name === oldName ? newName : name)),
+      order: currentPreferences.order.map((name) =>
+        name === oldName ? newName : name
+      ),
       toolbarVisible: { ...currentPreferences.toolbarVisible }
     };
 
     if (oldName in nextPreferences.toolbarVisible) {
-      nextPreferences.toolbarVisible[newName] = nextPreferences.toolbarVisible[oldName];
+      nextPreferences.toolbarVisible[newName] =
+        nextPreferences.toolbarVisible[oldName];
       delete nextPreferences.toolbarVisible[oldName];
     } else if (!(newName in nextPreferences.toolbarVisible)) {
       nextPreferences.toolbarVisible[newName] = true;
@@ -259,19 +298,26 @@
     });
   }
 
-  function toggleProfileToolbarVisibilityState(profileName, visible, meta = {}) {
+  function toggleProfileToolbarVisibilityState(
+    profileName,
+    visible,
+    meta = {}
+  ) {
     const currentPreferences = getProfilePreferencesState();
-    return setProfilePreferencesState({
-      ...currentPreferences,
-      toolbarVisible: {
-        ...currentPreferences.toolbarVisible,
-        [profileName]: Boolean(visible)
+    return setProfilePreferencesState(
+      {
+        ...currentPreferences,
+        toolbarVisible: {
+          ...currentPreferences.toolbarVisible,
+          [profileName]: Boolean(visible)
+        }
+      },
+      {
+        type: 'profiles/toggle-toolbar-visibility',
+        profileName,
+        ...meta
       }
-    }, {
-      type: 'profiles/toggle-toolbar-visibility',
-      profileName,
-      ...meta
-    });
+    );
   }
 
   function reorderProfilesState(draggedName, targetName, meta = {}) {
@@ -280,7 +326,9 @@
     }
 
     const currentPreferences = getProfilePreferencesState();
-    const nextOrder = currentPreferences.order.filter((name) => name !== draggedName);
+    const nextOrder = currentPreferences.order.filter(
+      (name) => name !== draggedName
+    );
     const targetIndex = nextOrder.indexOf(targetName);
 
     if (targetIndex === -1) {
@@ -289,16 +337,22 @@
       nextOrder.splice(targetIndex, 0, draggedName);
     }
 
-    const nextPreferences = setProfilePreferencesState({
-      ...currentPreferences,
-      order: nextOrder
-    }, {
-      type: 'profiles/reorder',
-      draggedName,
-      targetName,
-      ...meta
-    });
-    const sortedProfiles = sortProfilesByPreferences(getProfilesListState(), nextPreferences);
+    const nextPreferences = setProfilePreferencesState(
+      {
+        ...currentPreferences,
+        order: nextOrder
+      },
+      {
+        type: 'profiles/reorder',
+        draggedName,
+        targetName,
+        ...meta
+      }
+    );
+    const sortedProfiles = sortProfilesByPreferences(
+      getProfilesListState(),
+      nextPreferences
+    );
     setProfilesListState(sortedProfiles, {
       type: 'profiles/reorder-list',
       draggedName,
@@ -336,7 +390,10 @@
   }
 
   function subscribeProfileState(listener) {
-    if (typeof listener !== 'function' || typeof window.subscribeAppState !== 'function') {
+    if (
+      typeof listener !== 'function' ||
+      typeof window.subscribeAppState !== 'function'
+    ) {
       return () => {};
     }
 
@@ -358,24 +415,31 @@
     const storedCurrentProfile = readStoredCurrentProfileName();
 
     function hasMeaningfulPreferences(preferences = {}) {
-      return Boolean(
-        Array.isArray(preferences.order) && preferences.order.length
-      ) || Boolean(
-        preferences.toolbarVisible && Object.keys(preferences.toolbarVisible).length
+      return (
+        Boolean(Array.isArray(preferences.order) && preferences.order.length) ||
+        Boolean(
+          preferences.toolbarVisible &&
+          Object.keys(preferences.toolbarVisible).length
+        )
       );
     }
 
-    updateProfileSlice((profile) => ({
-      ...profile,
-      currentName: profile.currentName || storedCurrentProfile,
-      list: normalizeProfilesList(profile.list),
-      preferences: normalizeProfilePreferences(
-        hasMeaningfulPreferences(profile.preferences) ? profile.preferences : storedPreferences
-      )
-    }), {
-      type: 'profiles/init',
-      source: 'profile-store'
-    });
+    updateProfileSlice(
+      (profile) => ({
+        ...profile,
+        currentName: profile.currentName || storedCurrentProfile,
+        list: normalizeProfilesList(profile.list),
+        preferences: normalizeProfilePreferences(
+          hasMeaningfulPreferences(profile.preferences)
+            ? profile.preferences
+            : storedPreferences
+        )
+      }),
+      {
+        type: 'profiles/init',
+        source: 'profile-store'
+      }
+    );
 
     profileStoreInitialized = true;
     return getProfileSlice();
@@ -395,7 +459,8 @@
   window.ensureProfileOrderState = ensureProfileOrderState;
   window.renameProfilePreferencesState = renameProfilePreferencesState;
   window.removeProfilePreferencesState = removeProfilePreferencesState;
-  window.toggleProfileToolbarVisibilityState = toggleProfileToolbarVisibilityState;
+  window.toggleProfileToolbarVisibilityState =
+    toggleProfileToolbarVisibilityState;
   window.reorderProfilesState = reorderProfilesState;
   window.sanitizeProfileNameState = sanitizeProfileNameState;
   window.getUniqueProfileDraftNameState = getUniqueProfileDraftNameState;
