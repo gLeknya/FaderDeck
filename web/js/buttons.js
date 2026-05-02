@@ -2,9 +2,38 @@ const MAX_CHANNEL_BUTTONS = 4;
 const MAX_STANDALONE_BUTTONS = 24;
 let standaloneButtonsUiStateSyncInitialized = false;
 let buttonModalInitialized = false;
+let standaloneButtonsVisibilitySyncInitialized = false;
+let pendingStandaloneButtonsRenderWhileHidden = false;
 const buttonModalSessionState = {
   currentConfig: null
 };
+
+function isButtonsUiVisible() {
+  return document.visibilityState === 'visible';
+}
+
+function flushPendingStandaloneButtonsRender() {
+  if (!pendingStandaloneButtonsRenderWhileHidden || !isButtonsUiVisible()) {
+    return;
+  }
+
+  pendingStandaloneButtonsRenderWhileHidden = false;
+  renderStandaloneButtons();
+}
+
+function initStandaloneButtonsVisibilitySync() {
+  if (standaloneButtonsVisibilitySyncInitialized) {
+    return;
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      flushPendingStandaloneButtonsRender();
+    }
+  });
+
+  standaloneButtonsVisibilitySyncInitialized = true;
+}
 
 function getChannelButtonActionTypes() {
   return (
@@ -899,6 +928,12 @@ function addStandaloneButton() {
 }
 
 function renderStandaloneButtons() {
+  if (!isButtonsUiVisible()) {
+    pendingStandaloneButtonsRenderWhileHidden = true;
+    return;
+  }
+
+  pendingStandaloneButtonsRenderWhileHidden = false;
   const container = document.getElementById('standaloneButtons');
   const standaloneButtonsList = getRenderableStandaloneButtonsState();
   const layoutItems = getStandaloneLayoutItems();
@@ -1103,6 +1138,8 @@ function initStandaloneButtonsStateSync() {
     return;
   }
 
+  initStandaloneButtonsVisibilitySync();
+
   subscribeAppState((nextState, previousState) => {
     if (
       nextState.standaloneButtons === previousState.standaloneButtons &&
@@ -1226,6 +1263,8 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   let mediaControllerUiInitialized = false;
   let mediaControllerUiSyncInitialized = false;
   let mediaControllerRuntimeSyncInitialized = false;
+  let mediaControllerVisibilitySyncInitialized = false;
+  let pendingMediaControllerRenderWhileHidden = false;
   let ensuringButtons = false;
   const mediaSessionState = {
     snapshot: {
@@ -1252,6 +1291,35 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
     expiresAt: 0,
     timerId: null
   };
+
+  function flushPendingMediaControllerRender() {
+    if (!pendingMediaControllerRenderWhileHidden || !isButtonsUiVisible()) {
+      return;
+    }
+
+    pendingMediaControllerRenderWhileHidden = false;
+    renderMediaController();
+
+    if (window.getActiveModalId?.() === MEDIA_CONTROLLER_EDITOR_MODAL_ID) {
+      renderMediaControllerEditor({
+        buttonId: mediaControllerEditorState.selectedButtonId
+      });
+    }
+  }
+
+  function initMediaControllerVisibilitySync() {
+    if (mediaControllerVisibilitySyncInitialized) {
+      return;
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        flushPendingMediaControllerRender();
+      }
+    });
+
+    mediaControllerVisibilitySyncInitialized = true;
+  }
 
   function getCurrentControllerLanguage() {
     return typeof getCurrentLanguage === 'function'
@@ -2000,6 +2068,12 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function renderMediaController() {
+    if (!isButtonsUiVisible()) {
+      pendingMediaControllerRenderWhileHidden = true;
+      return;
+    }
+
+    pendingMediaControllerRenderWhileHidden = false;
     const shell = ensureMediaControllerShell();
     const container = document.getElementById('mediaController');
     const sessionSnapshot = getMediaSessionSnapshot();
@@ -2280,6 +2354,11 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function renderMediaControllerEditor(payload = {}) {
+    if (!isButtonsUiVisible()) {
+      pendingMediaControllerRenderWhileHidden = true;
+      return;
+    }
+
     const list = document.getElementById('mediaControllerEditorList');
     const title = document.getElementById('mediaControllerEditorTitle');
     const subtitle = document.getElementById('mediaControllerEditorSubtitle');
@@ -2614,6 +2693,7 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
   }
 
   function initMediaControllerUi() {
+    initMediaControllerVisibilitySync();
     ensureStandaloneButtonsTopRow();
     ensureMediaControllerShell();
     ensureMediaControllerEditorModal();

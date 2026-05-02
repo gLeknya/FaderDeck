@@ -5,6 +5,10 @@ const DEFAULT_MAIN_WINDOW_STATE = Object.freeze({
   y: null,
   isMaximized: false
 });
+const DEFAULT_APP_META = Object.freeze({
+  lastSeenVersion: '',
+  lastUpdatedAt: null
+});
 
 let storePromise = null;
 
@@ -44,6 +48,36 @@ function normalizeMainWindowState(state = {}) {
   };
 }
 
+function normalizeTimestamp(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalizedValue = value.trim();
+
+  if (!normalizedValue) {
+    return null;
+  }
+
+  const parsedTimestamp = Date.parse(normalizedValue);
+
+  if (Number.isNaN(parsedTimestamp)) {
+    return null;
+  }
+
+  return new Date(parsedTimestamp).toISOString();
+}
+
+function normalizeAppMeta(meta = {}) {
+  return {
+    lastSeenVersion:
+      typeof meta.lastSeenVersion === 'string'
+        ? meta.lastSeenVersion.trim()
+        : '',
+    lastUpdatedAt: normalizeTimestamp(meta.lastUpdatedAt)
+  };
+}
+
 async function getStoreInstance() {
   if (!storePromise) {
     storePromise = import('electron-store')
@@ -52,7 +86,8 @@ async function getStoreInstance() {
           new Store({
             name: 'app-state',
             defaults: {
-              mainWindow: DEFAULT_MAIN_WINDOW_STATE
+              mainWindow: DEFAULT_MAIN_WINDOW_STATE,
+              appMeta: DEFAULT_APP_META
             },
             schema: {
               mainWindow: {
@@ -75,6 +110,18 @@ async function getStoreInstance() {
                   },
                   isMaximized: {
                     type: 'boolean'
+                  }
+                }
+              },
+              appMeta: {
+                type: 'object',
+                additionalProperties: false,
+                properties: {
+                  lastSeenVersion: {
+                    type: 'string'
+                  },
+                  lastUpdatedAt: {
+                    type: ['string', 'null']
                   }
                 }
               }
@@ -112,8 +159,42 @@ async function saveMainWindowState(window) {
   return windowState;
 }
 
+async function getAppMeta() {
+  const store = await getStoreInstance();
+  return normalizeAppMeta(store.get('appMeta'));
+}
+
+async function touchAppVersion(version, updatedAt = new Date().toISOString()) {
+  const normalizedVersion = typeof version === 'string' ? version.trim() : '';
+
+  if (!normalizedVersion) {
+    return DEFAULT_APP_META;
+  }
+
+  const store = await getStoreInstance();
+  const currentMeta = normalizeAppMeta(store.get('appMeta'));
+  const normalizedUpdatedAt =
+    normalizeTimestamp(updatedAt) || new Date().toISOString();
+  const shouldRefreshTimestamp =
+    currentMeta.lastSeenVersion !== normalizedVersion ||
+    !currentMeta.lastUpdatedAt;
+  const nextMeta = normalizeAppMeta({
+    lastSeenVersion: normalizedVersion,
+    lastUpdatedAt: shouldRefreshTimestamp
+      ? normalizedUpdatedAt
+      : currentMeta.lastUpdatedAt
+  });
+
+  store.set('appMeta', nextMeta);
+
+  return nextMeta;
+}
+
 module.exports = {
+  DEFAULT_APP_META,
   DEFAULT_MAIN_WINDOW_STATE,
+  getAppMeta,
   getMainWindowState,
-  saveMainWindowState
+  saveMainWindowState,
+  touchAppVersion
 };

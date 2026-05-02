@@ -12,12 +12,14 @@ const fs = require('fs/promises');
 const os = require('os');
 const path = require('path');
 const crypto = require('crypto');
+const packageMetadata = require('./package.json');
 
 const { FaderDeckAPI } = require('./backend/api');
 const {
   DEFAULT_MAIN_WINDOW_STATE,
   getMainWindowState,
-  saveMainWindowState
+  saveMainWindowState,
+  touchAppVersion
 } = require('./backend/app-store');
 const { createLogger } = require('./backend/logger');
 const {
@@ -88,6 +90,8 @@ const IPC_QUERY_METHODS = new Set([
   'get_profile_template',
   'get_profiles_directory',
   'get_application_icons',
+  'get_app_info',
+  'check_for_updates',
   'pick_profile_file',
   'pick_action_file'
 ]);
@@ -99,8 +103,417 @@ const SUPPRESSED_IPC_LOG_METHODS = new Set([
 ]);
 const APPLICATION_ICON_CACHE_VERSION = 'v1';
 const STORAGE_ROOT_DIR_NAME = '.faderdeck';
+const UPDATE_CHECK_TIMEOUT_MS = 8000;
+const VALID_RELEASE_CHANNELS = new Set(['s', 'b', 'x']);
+const DEFAULT_BUG_REPORT_URL =
+  packageMetadata.bugs?.url || packageMetadata.homepage || '';
+const GITHUB_REPOSITORY_SLUG = parseGitHubRepositorySlug(
+  packageMetadata.repository?.url ||
+    packageMetadata.homepage ||
+    DEFAULT_BUG_REPORT_URL
+);
+const DEFAULT_RELEASES_URL = GITHUB_REPOSITORY_SLUG
+  ? `https://github.com/${GITHUB_REPOSITORY_SLUG}/releases`
+  : packageMetadata.homepage || DEFAULT_BUG_REPORT_URL || '';
 const applicationIconDataUrlCache = new Map();
 let applicationIconCacheDirectory = '';
+let appInfo = createAppInfo(null);
+
+function parseGitHubRepositorySlug(value) {
+  const normalizedValue = String(value || '')
+    .trim()
+    .replace(/^git\+/i, '')
+    .replace(/\.git$/i, '');
+
+  if (!normalizedValue) {
+    return '';
+  }
+
+  try {
+    const parsedUrl = new URL(normalizedValue);
+
+    if (parsedUrl.hostname.toLowerCase() !== 'github.com') {
+      return '';
+    }
+
+    const [owner, repository] = parsedUrl.pathname
+      .split('/')
+      .filter(Boolean)
+      .slice(0, 2);
+
+    return owner && repository ? `${owner}/${repository}` : '';
+  } catch {
+    const slugMatch = normalizedValue.match(
+      /github\.com[:/](?<owner>[^/]+)\/(?<repository>[^/]+)$/i
+    );
+
+    if (!slugMatch?.groups?.owner || !slugMatch?.groups?.repository) {
+      return '';
+    }
+
+    return `${slugMatch.groups.owner}/${slugMatch.groups.repository}`;
+  }
+}
+
+function normalizeReleaseChannel(value, fallback = 's') {
+  const normalizedValue = String(value || fallback)
+    .trim()
+    .toLowerCase()
+    .slice(0, 1);
+
+  return VALID_RELEASE_CHANNELS.has(normalizedValue)
+    ? normalizedValue
+    : fallback;
+}
+
+function parseSemverDescriptor(value) {
+  const versionMatch = String(value || '').match(/(\d+)\.(\d+)\.(\d+)/);
+
+  if (!versionMatch) {
+    return null;
+  }
+
+  return {
+    version: `${versionMatch[1]}.${versionMatch[2]}.${versionMatch[3]}`,
+    parts: versionMatch.slice(1, 4).map((entry) => Number.parseInt(entry, 10))
+  };
+}
+
+function formatReleaseStamp(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return '';
+  }
+
+  return `${String(parsedDate.getFullYear()).slice(-2)}${
+    parsedDate.getMonth() + 1
+  }${parsedDate.getDate()}`;
+}
+
+function createReleaseDescriptor({ channel = 's', version = '', stamp = '' }) {
+  const semverDescriptor = parseSemverDescriptor(version);
+
+  if (!semverDescriptor) {
+    return null;
+  }
+
+  const numericStamp = Number.parseInt(String(stamp || '').trim(), 10);
+
+  return Object.freeze({
+    channel: normalizeReleaseChannel(channel),
+    version: semverDescriptor.version,
+    parts: semverDescriptor.parts,
+    stamp: Number.isFinite(numericStamp) ? numericStamp : 0
+  });
+}
+
+function getCurrentReleaseDescriptor() {
+  return createReleaseDescriptor({
+    channel: packageMetadata.releaseChannel || 's',
+    version: app.getVersion() || packageMetadata.version || '',
+    stamp: formatReleaseStamp(packageMetadata.releaseDate)
+  });
+}
+
+function formatDisplayVersionFromDescriptor(releaseDescriptor) {
+  if (!releaseDescriptor) {
+    return '';
+  }
+
+  const versionPrefix =
+    releaseDescriptor.channel === 's' ? '' : releaseDescriptor.channel;
+  const versionLabel = `${versionPrefix}${releaseDescriptor.version}`;
+
+  return releaseDescriptor.stamp
+    ? `${versionLabel}:${releaseDescriptor.stamp}`
+    : versionLabel;
+}
+
+function getToolbarReleaseBadgeLabel(channel) {
+  const normalizedChannel = normalizeReleaseChannel(channel);
+
+  if (normalizedChannel === 'b') {
+    return 'beta';
+  }
+
+  if (normalizedChannel === 'x') {
+    return '+';
+  }
+
+  return '';
+}
+
+function compareSemverParts(leftParts = [], rightParts = []) {
+  for (let index = 0; index < 3; index += 1) {
+    const leftValue = Number(leftParts[index] || 0);
+    const rightValue = Number(rightParts[index] || 0);
+
+    if (leftValue !== rightValue) {
+      return leftValue - rightValue;
+    }
+  }
+
+  return 0;
+}
+
+function compareReleaseDescriptors(leftDescriptor, rightDescriptor) {
+  if (!leftDescriptor && !rightDescriptor) {
+    return 0;
+  }
+
+  if (!leftDescriptor) {
+    return -1;
+  }
+
+  if (!rightDescriptor) {
+    return 1;
+  }
+
+  const semverComparison = compareSemverParts(
+    leftDescriptor.parts,
+    rightDescriptor.parts
+  );
+
+  if (semverComparison !== 0) {
+    return semverComparison;
+  }
+
+  if (leftDescriptor.stamp !== rightDescriptor.stamp) {
+    return leftDescriptor.stamp - rightDescriptor.stamp;
+  }
+
+  const releaseChannelPriority = Object.freeze({
+    b: 0,
+    s: 1,
+    x: 2
+  });
+
+  return (
+    (releaseChannelPriority[leftDescriptor.channel] ?? 0) -
+    (releaseChannelPriority[rightDescriptor.channel] ?? 0)
+  );
+}
+
+function parseReleaseDescriptorFromText(value, fallbackChannel = 's') {
+  const normalizedValue = String(value || '')
+    .trim()
+    .replace(/^refs\/tags\//i, '')
+    .replace(/^v(?=\d)/i, '');
+  const releaseMatch = normalizedValue.match(
+    /([sbx])?(\d+\.\d+\.\d+)(?::(\d+))?/i
+  );
+
+  if (!releaseMatch) {
+    return null;
+  }
+
+  return createReleaseDescriptor({
+    channel: releaseMatch[1] || fallbackChannel,
+    version: releaseMatch[2],
+    stamp: releaseMatch[3] || ''
+  });
+}
+
+function normalizeGitHubReleaseDescriptor(release) {
+  if (!release || release.draft) {
+    return null;
+  }
+
+  const fallbackChannel = release.prerelease ? 'b' : 's';
+  const descriptor =
+    parseReleaseDescriptorFromText(release.tag_name, fallbackChannel) ||
+    parseReleaseDescriptorFromText(release.name, fallbackChannel);
+
+  if (!descriptor) {
+    return null;
+  }
+
+  const publishedReleaseStamp = Number.parseInt(
+    formatReleaseStamp(release.published_at),
+    10
+  );
+
+  return Object.freeze({
+    ...descriptor,
+    stamp:
+      descriptor.stamp ||
+      (Number.isFinite(publishedReleaseStamp) ? publishedReleaseStamp : 0),
+    releaseUrl:
+      typeof release.html_url === 'string' && release.html_url.trim()
+        ? release.html_url.trim()
+        : DEFAULT_RELEASES_URL,
+    publishedAt:
+      typeof release.published_at === 'string' ? release.published_at : null
+  });
+}
+
+async function fetchGitHubReleases() {
+  if (!GITHUB_REPOSITORY_SLUG) {
+    return [];
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(
+    () => controller.abort(),
+    UPDATE_CHECK_TIMEOUT_MS
+  );
+
+  try {
+    const response = await fetch(
+      `https://api.github.com/repos/${GITHUB_REPOSITORY_SLUG}/releases?per_page=12`,
+      {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'FaderDeck'
+        },
+        signal: controller.signal
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`GitHub releases request failed (${response.status})`);
+    }
+
+    const releases = await response.json();
+
+    return Array.isArray(releases) ? releases : [];
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function checkForUpdates(options = {}) {
+  const checkedAt = new Date().toISOString();
+  const includeBeta = options?.includeBeta === true;
+
+  if (!GITHUB_REPOSITORY_SLUG) {
+    return {
+      success: false,
+      checkedAt,
+      updateAvailable: false,
+      latestVersion: null,
+      latestReleaseChannel: null,
+      releaseUrl: DEFAULT_RELEASES_URL,
+      error: 'GitHub repository is not configured'
+    };
+  }
+
+  try {
+    const releases = await fetchGitHubReleases();
+    let latestReleaseDescriptor = null;
+
+    releases.forEach((release) => {
+      if (release?.draft || (!includeBeta && release?.prerelease)) {
+        return;
+      }
+
+      const normalizedRelease = normalizeGitHubReleaseDescriptor(release);
+
+      if (
+        normalizedRelease &&
+        (!latestReleaseDescriptor ||
+          compareReleaseDescriptors(
+            normalizedRelease,
+            latestReleaseDescriptor
+          ) > 0)
+      ) {
+        latestReleaseDescriptor = normalizedRelease;
+      }
+    });
+
+    const currentReleaseDescriptor = getCurrentReleaseDescriptor();
+
+    return {
+      success: true,
+      checkedAt,
+      updateAvailable:
+        compareReleaseDescriptors(
+          latestReleaseDescriptor,
+          currentReleaseDescriptor
+        ) > 0,
+      latestVersion: latestReleaseDescriptor
+        ? formatDisplayVersionFromDescriptor(latestReleaseDescriptor)
+        : null,
+      latestReleaseChannel: latestReleaseDescriptor?.channel || null,
+      releaseUrl: latestReleaseDescriptor?.releaseUrl || DEFAULT_RELEASES_URL,
+      error: null
+    };
+  } catch (error) {
+    logger.warn('update check failed', error);
+
+    return {
+      success: false,
+      checkedAt,
+      updateAvailable: false,
+      latestVersion: null,
+      latestReleaseChannel: null,
+      releaseUrl: DEFAULT_RELEASES_URL,
+      error:
+        error?.name === 'AbortError'
+          ? 'Update check timed out'
+          : error?.message || 'Update check failed'
+    };
+  }
+}
+
+function createAppInfo(lastUpdatedAt) {
+  const releaseDescriptor = getCurrentReleaseDescriptor();
+  const releaseChannel = releaseDescriptor?.channel || 's';
+
+  return Object.freeze({
+    version: formatDisplayVersionFromDescriptor(releaseDescriptor),
+    releaseChannel,
+    releaseBadgeLabel: getToolbarReleaseBadgeLabel(releaseChannel),
+    updatedAt: typeof lastUpdatedAt === 'string' ? lastUpdatedAt : null,
+    bugReportUrl: DEFAULT_BUG_REPORT_URL,
+    releasesUrl: DEFAULT_RELEASES_URL
+  });
+}
+
+function parseSupportedExternalUrl(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return null;
+  }
+
+  try {
+    const parsedUrl = new URL(value);
+
+    return parsedUrl.protocol === 'http:' || parsedUrl.protocol === 'https:'
+      ? parsedUrl
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+async function openExternalAppUrl(targetUrl) {
+  const supportedUrl = parseSupportedExternalUrl(targetUrl);
+
+  if (!supportedUrl) {
+    return {
+      success: false,
+      error: 'Unsupported URL'
+    };
+  }
+
+  await shell.openExternal(supportedUrl.toString());
+
+  return { success: true };
+}
+
+async function initializeAppInfo() {
+  const nextAppInfo = createAppInfo(null);
+  const appMeta = await touchAppVersion(nextAppInfo.version);
+
+  appInfo = createAppInfo(appMeta?.lastUpdatedAt || null);
+
+  return appInfo;
+}
 
 function trimLogString(value, maxLength = 140) {
   const normalized = String(value ?? '');
@@ -920,6 +1333,8 @@ function registerIpcHandlers() {
         get_profile_template: (_event, options) =>
           ensureApi().getProfileTemplate(options),
         get_profiles_directory: () => ensureApi().getProfilesDirectory(),
+        get_app_info: () => appInfo,
+        check_for_updates: (_event, options) => checkForUpdates(options),
         get_application_icons: async (_event, applicationPaths = []) => {
           const icons = {};
           const uniquePaths = Array.isArray(applicationPaths)
@@ -1038,6 +1453,7 @@ function registerIpcHandlers() {
             filePath: result.filePaths?.[0] || null
           };
         },
+        open_external_url: (_event, targetUrl) => openExternalAppUrl(targetUrl),
         toggle_devtools: (event) => toggleDevTools(getEventWindow(event)),
         set_close_to_tray_enabled: (_event, enabled) =>
           setCloseToTrayEnabled(enabled),
@@ -1072,6 +1488,7 @@ app
   .whenReady()
   .then(async () => {
     Menu.setApplicationMenu(null);
+    await initializeAppInfo();
     ensureTray();
     registerIpcHandlers();
     await createMainWindow();

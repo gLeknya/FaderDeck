@@ -114,6 +114,40 @@
     );
   }
 
+  function setAutoUpdateEnabled(value, meta = {}) {
+    return patchUiSettings(
+      { autoUpdateEnabled: Boolean(value) },
+      {
+        type: 'ui-actions/settings-auto-update-enabled',
+        ...meta
+      }
+    );
+  }
+
+  function toggleAutoUpdateEnabled(meta = {}) {
+    return setAutoUpdateEnabled(
+      !(window.getAutoUpdateEnabledState?.() ?? true),
+      meta
+    );
+  }
+
+  function setInstallBetaVersions(value, meta = {}) {
+    return patchUiSettings(
+      { installBetaVersions: Boolean(value) },
+      {
+        type: 'ui-actions/settings-install-beta-versions',
+        ...meta
+      }
+    );
+  }
+
+  function toggleInstallBetaVersions(meta = {}) {
+    return setInstallBetaVersions(
+      !(window.getInstallBetaVersionsState?.() ?? false),
+      meta
+    );
+  }
+
   function setFaderInterpolationEnabled(value, meta = {}) {
     return patchUiSettings(
       { faderInterpolationEnabled: Boolean(value) },
@@ -416,6 +450,10 @@
     toggleDeveloperMode,
     setCloseToTrayEnabled,
     toggleCloseToTrayEnabled,
+    setAutoUpdateEnabled,
+    toggleAutoUpdateEnabled,
+    setInstallBetaVersions,
+    toggleInstallBetaVersions,
     setFaderInterpolationEnabled,
     toggleFaderInterpolation,
     setSoftTakeoverEnabled,

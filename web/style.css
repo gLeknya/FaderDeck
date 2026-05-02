@@ -120,6 +120,7 @@ body.menu-open .toolbar::after {
 
 .toolbar-right {
   margin-left: auto;
+  gap: 10px;
 }
 
 .toolbar-icon {
@@ -130,6 +131,53 @@ body.menu-open .toolbar::after {
 .toolbar-title {
   font-size: 13px;
   font-weight: 500;
+}
+
+.toolbar-release-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 16px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(239, 182, 75, 0.16);
+  color: rgba(255, 215, 128, 0.92);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.toolbar-update-button {
+  height: 22px;
+  padding: 0 10px;
+  border: 1px solid rgba(112, 183, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(90, 148, 255, 0.12);
+  color: rgba(214, 234, 255, 0.92);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  -webkit-app-region: no-drag;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.toolbar-update-button:hover,
+.toolbar-update-button:focus-visible {
+  background: rgba(90, 148, 255, 0.18);
+  border-color: rgba(131, 194, 255, 0.42);
+  color: rgba(237, 246, 255, 0.98);
+}
+
+.toolbar-update-button[hidden],
+.toolbar-release-badge[hidden] {
+  display: none !important;
 }
 
 .toolbar select {
@@ -4865,6 +4913,76 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   font-size: 11px;
   line-height: 1.45;
   color: var(--color-text-secondary);
+}
+
+.settings-about-shell {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.settings-about {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.settings-about-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.44);
+}
+
+.settings-about-value {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.62);
+  text-align: right;
+}
+
+.settings-about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 12px;
+  padding-top: 2px;
+}
+
+.settings-about-link {
+  width: fit-content;
+  font-size: 11px;
+  font-weight: 500;
+  color: rgba(155, 190, 222, 0.64);
+  text-decoration: none;
+  transition:
+    color 0.18s ease,
+    opacity 0.18s ease;
+}
+
+.settings-about-link:hover,
+.settings-about-link:focus-visible {
+  color: rgba(196, 223, 246, 0.82);
+}
+
+.settings-about-link.is-disabled {
+  opacity: 0.34;
+  pointer-events: none;
+}
+
+.settings-about-link.is-static {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.settings-about-footer {
+  padding-top: 4px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: rgba(255, 255, 255, 0.32);
 }
 
 .settings-help {

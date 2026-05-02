@@ -1,10 +1,12 @@
 (function initStandaloneButtonRuntimeModule(window) {
   const STANDALONE_BUTTON_PRESS_MS = 180;
   const STANDALONE_BUTTON_RUNTIME_REFRESH_MS = 45;
+  const STANDALONE_BUTTON_RUNTIME_BACKGROUND_REFRESH_MS = 180;
 
   const standaloneButtonRuntimeState = {
     initialized: false,
     pollTimerId: null,
+    pollIntervalMs: 0,
     refreshInFlight: null,
     refreshQueued: false,
     byKey: new Map(),
@@ -13,6 +15,16 @@
     activeSoloKey: null,
     soloSnapshot: null
   };
+
+  function isRendererUiVisible() {
+    return document.visibilityState === 'visible';
+  }
+
+  function getStandaloneButtonRuntimeRefreshIntervalMs() {
+    return isRendererUiVisible()
+      ? STANDALONE_BUTTON_RUNTIME_REFRESH_MS
+      : STANDALONE_BUTTON_RUNTIME_BACKGROUND_REFRESH_MS;
+  }
 
   function getStandaloneButtons() {
     return typeof window.getStandaloneButtonsState === 'function'
@@ -485,6 +497,10 @@
   }
 
   function refreshStandaloneButtonRuntimeDom() {
+    if (!isRendererUiVisible()) {
+      return;
+    }
+
     document
       .querySelectorAll('[data-standalone-button-runtime-key]')
       .forEach((element) => {
@@ -922,22 +938,33 @@
 
   function syncStandaloneButtonRuntimePolling() {
     const hasStandaloneButtons = getStandaloneButtons().length > 0;
+    const nextPollIntervalMs = getStandaloneButtonRuntimeRefreshIntervalMs();
 
     if (!hasStandaloneButtons) {
       if (standaloneButtonRuntimeState.pollTimerId) {
         clearInterval(standaloneButtonRuntimeState.pollTimerId);
         standaloneButtonRuntimeState.pollTimerId = null;
+        standaloneButtonRuntimeState.pollIntervalMs = 0;
       }
       return;
     }
 
-    if (standaloneButtonRuntimeState.pollTimerId) {
+    if (
+      standaloneButtonRuntimeState.pollTimerId &&
+      standaloneButtonRuntimeState.pollIntervalMs === nextPollIntervalMs
+    ) {
       return;
+    }
+
+    if (standaloneButtonRuntimeState.pollTimerId) {
+      clearInterval(standaloneButtonRuntimeState.pollTimerId);
+      standaloneButtonRuntimeState.pollTimerId = null;
     }
 
     standaloneButtonRuntimeState.pollTimerId = window.setInterval(() => {
       requestStandaloneButtonRuntimeRefresh();
-    }, STANDALONE_BUTTON_RUNTIME_REFRESH_MS);
+    }, nextPollIntervalMs);
+    standaloneButtonRuntimeState.pollIntervalMs = nextPollIntervalMs;
   }
 
   function initStandaloneButtonsRuntime() {
@@ -974,7 +1001,10 @@
     });
 
     document.addEventListener('visibilitychange', () => {
+      syncStandaloneButtonRuntimePolling();
+
       if (document.visibilityState === 'visible') {
+        refreshStandaloneButtonRuntimeDom();
         requestStandaloneButtonRuntimeRefresh({ force: true });
       }
     });

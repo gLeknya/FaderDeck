@@ -14,6 +14,20 @@ const channelFaderDomCache = new Map();
 const channelAudioRuntimeState = new Map();
 let channelUiStateSyncInitialized = false;
 let channelPickupUiInitialized = false;
+let pendingMixerRenderWhileHidden = false;
+
+function isChannelUiVisible() {
+  return document.visibilityState === 'visible';
+}
+
+function flushPendingMixerRender() {
+  if (!pendingMixerRenderWhileHidden || !isChannelUiVisible()) {
+    return;
+  }
+
+  pendingMixerRenderWhileHidden = false;
+  renderMixer();
+}
 
 function getChannels() {
   return typeof getChannelsState === 'function' ? getChannelsState() : [];
@@ -1553,6 +1567,128 @@ function getVolumeFromPointer(track, clientY, rectOverride = null) {
   return clampVolume(volume);
 }
 
+function getChannelOutputVolumeForFaderPosition(channel, faderPosition) {
+  if (!channel) {
+    return clampVolume(faderPosition);
+  }
+
+  const channelSettings = getChannelRuntimeSettings(channel);
+
+  if (typeof mapFaderPositionToVolume === 'function') {
+    return clampVolume(
+      mapFaderPositionToVolume(faderPosition, channelSettings)
+    );
+  }
+
+  return clampVolume(faderPosition);
+}
+
+function renderChannelFaderUiState(
+  channel,
+  faderPosition,
+  outputVolume = null
+) {
+  const domRefs = getChannelFaderDom(channel?.id);
+
+  if (!channel || !domRefs) {
+    return;
+  }
+
+  const channelSettings = getChannelRuntimeSettings(channel);
+  const resolvedOutputVolume =
+    outputVolume ??
+    getChannelOutputVolumeForFaderPosition(channel, faderPosition);
+  const thumbBottom = `calc(${faderPosition}% - 25px)`;
+  const fillHeight = `${faderPosition}%`;
+  const valueText = formatVolumeValue(resolvedOutputVolume, channelSettings);
+
+  if (domRefs.thumb.style.bottom !== thumbBottom) {
+    domRefs.thumb.style.bottom = thumbBottom;
+  }
+
+  if (domRefs.fill.style.height !== fillHeight) {
+    domRefs.fill.style.height = fillHeight;
+  }
+
+  if (domRefs.value.textContent !== valueText) {
+    domRefs.value.textContent = valueText;
+  }
+}
+
+function flushActiveFaderDragFrame() {
+  if (!activeFaderDrag) {
+    return;
+  }
+
+  activeFaderDrag.frameId = null;
+
+  if (activeFaderDrag.pendingVolume === null) {
+    return;
+  }
+
+  const nextVolume = activeFaderDrag.pendingVolume;
+  activeFaderDrag.pendingVolume = null;
+
+  if (
+    activeFaderDrag.lastCommittedVolume !== null &&
+    Math.abs(activeFaderDrag.lastCommittedVolume - nextVolume) < 0.001
+  ) {
+    return;
+  }
+
+  activeFaderDrag.lastCommittedVolume = nextVolume;
+  applyVolumeToChannel(activeFaderDrag.channelId, nextVolume, {
+    interaction: 'drag'
+  });
+}
+
+function scheduleActiveFaderDragFrame() {
+  if (!activeFaderDrag || activeFaderDrag.frameId !== null) {
+    return;
+  }
+
+  if (typeof window.requestAnimationFrame === 'function') {
+    activeFaderDrag.frameId = window.requestAnimationFrame(() => {
+      flushActiveFaderDragFrame();
+    });
+    return;
+  }
+
+  activeFaderDrag.frameId = window.setTimeout(() => {
+    flushActiveFaderDragFrame();
+  }, 16);
+}
+
+function updateActiveFaderDrag(volume) {
+  if (!activeFaderDrag) {
+    return;
+  }
+
+  const normalizedVolume = clampVolume(volume);
+
+  if (
+    activeFaderDrag.previewVolume !== null &&
+    Math.abs(activeFaderDrag.previewVolume - normalizedVolume) < 0.001
+  ) {
+    return;
+  }
+
+  activeFaderDrag.previewVolume = normalizedVolume;
+  activeFaderDrag.pendingVolume = normalizedVolume;
+
+  const channel = getChannelById(activeFaderDrag.channelId);
+
+  if (channel) {
+    renderChannelFaderUiState(
+      channel,
+      normalizedVolume,
+      getChannelOutputVolumeForFaderPosition(channel, normalizedVolume)
+    );
+  }
+
+  scheduleActiveFaderDragFrame();
+}
+
 function startFaderDrag(event) {
   const track = event.target.closest('.fader-track');
 
@@ -1566,15 +1702,15 @@ function startFaderDrag(event) {
   activeFaderDrag = {
     channelId: Number.parseInt(track.dataset.channel, 10),
     track,
-    trackRect: track.getBoundingClientRect()
+    trackRect: track.getBoundingClientRect(),
+    previewVolume: null,
+    pendingVolume: null,
+    lastCommittedVolume: null,
+    frameId: null
   };
   activeFaderDrag.track.classList.add('is-dragging');
-  applyVolumeToChannel(
-    activeFaderDrag.channelId,
-    getVolumeFromPointer(track, event.clientY, activeFaderDrag.trackRect),
-    {
-      interaction: 'drag'
-    }
+  updateActiveFaderDrag(
+    getVolumeFromPointer(track, event.clientY, activeFaderDrag.trackRect)
   );
 }
 
@@ -1583,16 +1719,12 @@ function handleFaderDrag(event) {
     return;
   }
 
-  applyVolumeToChannel(
-    activeFaderDrag.channelId,
+  updateActiveFaderDrag(
     getVolumeFromPointer(
       activeFaderDrag.track,
       event.clientY,
       activeFaderDrag.trackRect
-    ),
-    {
-      interaction: 'drag'
-    }
+    )
   );
 }
 
@@ -1601,6 +1733,17 @@ function stopFaderDrag() {
     return;
   }
 
+  if (activeFaderDrag.frameId !== null) {
+    if (typeof window.cancelAnimationFrame === 'function') {
+      window.cancelAnimationFrame(activeFaderDrag.frameId);
+    } else {
+      clearTimeout(activeFaderDrag.frameId);
+    }
+
+    activeFaderDrag.frameId = null;
+  }
+
+  flushActiveFaderDragFrame();
   const completedChannelId = activeFaderDrag.channelId;
   activeFaderDrag.track?.classList.remove('is-dragging');
   activeFaderDrag = null;
@@ -1634,29 +1777,11 @@ function setupFaderDrag() {
 }
 
 function updateChannelFaderUi(channel) {
-  const domRefs = getChannelFaderDom(channel.id);
-
-  if (!domRefs) {
-    return;
-  }
-
-  const outputVolume = getChannelDisplayedOutputVolume(channel);
-  const channelSettings = getChannelRuntimeSettings(channel);
-  const thumbBottom = `calc(${channel.volume}% - 25px)`;
-  const fillHeight = `${channel.volume}%`;
-  const valueText = formatVolumeValue(outputVolume, channelSettings);
-
-  if (domRefs.thumb.style.bottom !== thumbBottom) {
-    domRefs.thumb.style.bottom = thumbBottom;
-  }
-
-  if (domRefs.fill.style.height !== fillHeight) {
-    domRefs.fill.style.height = fillHeight;
-  }
-
-  if (domRefs.value.textContent !== valueText) {
-    domRefs.value.textContent = valueText;
-  }
+  renderChannelFaderUiState(
+    channel,
+    clampVolume(channel?.volume),
+    getChannelDisplayedOutputVolume(channel)
+  );
 }
 
 function updateFadersFromState() {
@@ -2184,6 +2309,12 @@ function initChannelUiStateSync() {
     return;
   }
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      flushPendingMixerRender();
+    }
+  });
+
   subscribeAppState((nextState, previousState, meta = {}) => {
     const channelsChanged = nextState.channels !== previousState.channels;
     const layoutChanged = nextState.layout !== previousState.layout;
@@ -2192,6 +2323,11 @@ function initChannelUiStateSync() {
       nextState.layoutEditor !== previousState.layoutEditor;
 
     if (!channelsChanged && !layoutChanged && !layoutEditorChanged) {
+      return;
+    }
+
+    if (!isChannelUiVisible()) {
+      pendingMixerRenderWhileHidden = true;
       return;
     }
 

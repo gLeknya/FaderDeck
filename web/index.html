@@ -65,6 +65,9 @@
           alt="FaderDeck"
         />
         <span class="toolbar-title">FaderDeck</span>
+        <span class="toolbar-release-badge" id="toolbarReleaseBadge" hidden
+          >beta</span
+        >
       </div>
 
       <div class="toolbar-section toolbar-right">
@@ -81,6 +84,16 @@
 
         <!-- Layout editor foundation is intentionally parked for now.
            Re-enable this control when the dormant layout editing UI is resumed. -->
+
+        <button
+          class="toolbar-update-button"
+          id="toolbarUpdateButton"
+          type="button"
+          data-i18n="toolbar.update"
+          hidden
+        >
+          Обновить
+        </button>
 
         <div class="window-controls">
           <button
@@ -1007,6 +1020,34 @@
                     </button>
                   </div>
 
+                  <div class="settings-item">
+                    <span data-i18n="settings.autoUpdates"
+                      >Авто обновления</span
+                    >
+                    <button
+                      class="settings-toggle"
+                      id="autoUpdateToggle"
+                      type="button"
+                      data-i18n="settings.on"
+                    >
+                      On
+                    </button>
+                  </div>
+
+                  <div class="settings-item">
+                    <span data-i18n="settings.installBetaVersions"
+                      >Устанавливать бета версии</span
+                    >
+                    <button
+                      class="settings-toggle"
+                      id="betaUpdatesToggle"
+                      type="button"
+                      data-i18n="settings.off"
+                    >
+                      Off
+                    </button>
+                  </div>
+
                   <label class="settings-item">
                     <span data-i18n="settings.language">Язык</span>
                     <select id="languageSelect" class="settings-select">
@@ -1056,6 +1097,63 @@
                     </button>
                   </label>
                 </section>
+
+                <div class="settings-about-shell">
+                  <div class="settings-about" id="settingsAboutBlock">
+                    <div class="settings-about-row">
+                      <span data-i18n="settings.aboutVersion"
+                        >Текущая версия</span
+                      >
+                      <span
+                        class="settings-about-value"
+                        id="settingsAppVersionValue"
+                        >-</span
+                      >
+                    </div>
+
+                    <div class="settings-about-row">
+                      <span data-i18n="settings.aboutUpdatedAt"
+                        >Дата обновления</span
+                      >
+                      <span
+                        class="settings-about-value"
+                        id="settingsAppUpdatedAtValue"
+                        >-</span
+                      >
+                    </div>
+
+                    <a
+                      class="settings-about-link"
+                      href="#"
+                      id="settingsBugReportLink"
+                      data-i18n="settings.aboutBug"
+                    >
+                      Нашли баг?
+                    </a>
+
+                    <div class="settings-about-links">
+                      <span
+                        class="settings-about-link is-static"
+                        data-i18n="settings.aboutPolicy"
+                      >
+                        Политика
+                      </span>
+                      <span
+                        class="settings-about-link is-static"
+                        data-i18n="settings.aboutTerms"
+                      >
+                        Условия использования
+                      </span>
+                    </div>
+
+                    <div
+                      class="settings-about-footer"
+                      data-i18n="settings.aboutRights"
+                    >
+                      FaderDeck все права защищены
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>

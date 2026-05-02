@@ -7,6 +7,16 @@ function getProfileService() {
   return window.profileService || null;
 }
 
+function requireProfileService() {
+  const profileService = getProfileService();
+
+  if (!profileService) {
+    throw new Error('profile_service_unavailable');
+  }
+
+  return profileService;
+}
+
 function escapeHtml(value = '') {
   return String(value)
     .replaceAll('&', '&amp;')
@@ -256,13 +266,39 @@ function focusProfileInputIfNeeded() {
   });
 }
 
+async function confirmProfileDelete(profileName) {
+  const message = t('profiles.deleteConfirm', { name: profileName });
+
+  if (typeof window.showChoiceToast === 'function') {
+    const confirmed = await window.showChoiceToast('warn', message, {
+      closeable: true,
+      defaultValue: false,
+      actions: [
+        {
+          label: window.t?.('context.delete') || 'Delete',
+          value: true,
+          primary: true
+        },
+        {
+          label: window.t?.('common.cancel') || 'Cancel',
+          value: false
+        }
+      ]
+    });
+
+    return Boolean(confirmed);
+  }
+
+  return Boolean(window.confirm?.(message));
+}
+
 async function loadProfileByName(profileName) {
   if (!profileName) {
     return;
   }
 
   try {
-    await getProfileService()?.loadProfileByName?.(profileName);
+    await requireProfileService().loadProfileByName(profileName);
     showToast('success', t('profiles.loaded', { name: profileName }));
   } catch (error) {
     console.error('loadProfileByName error', error);
@@ -326,7 +362,7 @@ async function commitProfileEditing() {
 
   try {
     if (isCreate) {
-      const result = await getProfileService()?.saveProfile?.(nextName);
+      const result = await requireProfileService().saveProfile(nextName);
       profileEditingState = null;
       showToast(
         'success',
@@ -340,7 +376,7 @@ async function commitProfileEditing() {
       return;
     }
 
-    const result = await getProfileService()?.renameProfile?.(
+    const result = await requireProfileService().renameProfile(
       originalName,
       nextName
     );
@@ -364,14 +400,14 @@ async function deleteProfileByName(profileName) {
     return;
   }
 
-  const confirmed = confirm(t('profiles.deleteConfirm', { name: profileName }));
+  const confirmed = await confirmProfileDelete(profileName);
 
   if (!confirmed) {
     return;
   }
 
   try {
-    await getProfileService()?.deleteProfile?.(profileName);
+    await requireProfileService().deleteProfile(profileName);
     showToast('success', t('profiles.deleted', { name: profileName }));
   } catch (error) {
     console.error('deleteProfileByName error', error);
@@ -381,7 +417,7 @@ async function deleteProfileByName(profileName) {
 
 async function revealProfileInFolder(profileName) {
   try {
-    await getProfileService()?.revealProfileInFolder?.(profileName);
+    await requireProfileService().revealProfileInFolder(profileName);
   } catch (error) {
     console.error('revealProfileInFolder error', error);
   }
@@ -389,7 +425,7 @@ async function revealProfileInFolder(profileName) {
 
 async function openProfilesFolder() {
   try {
-    await getProfileService()?.openProfilesFolder?.();
+    await requireProfileService().openProfilesFolder();
   } catch (error) {
     console.error('openProfilesFolder error', error);
   }
@@ -397,7 +433,7 @@ async function openProfilesFolder() {
 
 async function importProfileFromFile() {
   try {
-    const result = await getProfileService()?.importProfileFromFile?.();
+    const result = await requireProfileService().importProfileFromFile();
 
     if (!result || result.canceled) {
       return;
@@ -662,7 +698,7 @@ async function initProfilesUi() {
   renderProfilesPanel();
 
   try {
-    await getProfileService()?.init?.();
+    await requireProfileService().init();
   } catch (error) {
     console.error('initProfilesUi error', error);
     showToast('error', t('profiles.failedToLoad'));

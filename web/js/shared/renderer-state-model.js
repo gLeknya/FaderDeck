@@ -26,7 +26,9 @@
     volumeHudShowMeter: true,
     mediaControllerVisible: true,
     mediaControllerTargetAppId: '',
-    closeToTrayEnabled: true
+    closeToTrayEnabled: true,
+    autoUpdateEnabled: true,
+    installBetaVersions: false
   });
 
   const DEFAULT_SESSION_UI_MENU = Object.freeze({

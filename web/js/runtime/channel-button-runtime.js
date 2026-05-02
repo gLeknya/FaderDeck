@@ -1,12 +1,14 @@
 (function initChannelButtonRuntimeModule(window) {
   const CHANNEL_BUTTON_PRESS_MS = 180;
   const CHANNEL_BUTTON_RUNTIME_REFRESH_MS = 45;
+  const CHANNEL_BUTTON_RUNTIME_BACKGROUND_REFRESH_MS = 180;
 
   // Runtime-only channel-button state. This stays outside persisted renderer
   // state and is owned by the dedicated runtime layer instead of buttons.js.
   const channelButtonRuntimeState = {
     initialized: false,
     pollTimerId: null,
+    pollIntervalMs: 0,
     refreshInFlight: null,
     refreshQueued: false,
     byKey: new Map(),
@@ -15,6 +17,16 @@
     activeSoloKey: null,
     soloSnapshot: null
   };
+
+  function isRendererUiVisible() {
+    return document.visibilityState === 'visible';
+  }
+
+  function getChannelButtonRuntimeRefreshIntervalMs() {
+    return isRendererUiVisible()
+      ? CHANNEL_BUTTON_RUNTIME_REFRESH_MS
+      : CHANNEL_BUTTON_RUNTIME_BACKGROUND_REFRESH_MS;
+  }
 
   function getChannelButtonActionTypes() {
     return (
@@ -486,6 +498,10 @@
   }
 
   function refreshChannelButtonRuntimeDom() {
+    if (!isRendererUiVisible()) {
+      return;
+    }
+
     document
       .querySelectorAll('[data-channel-button-runtime-key]')
       .forEach((element) => {
@@ -919,22 +935,33 @@
     ).some(
       (channel) => Array.isArray(channel?.buttons) && channel.buttons.length > 0
     );
+    const nextPollIntervalMs = getChannelButtonRuntimeRefreshIntervalMs();
 
     if (!hasChannelButtons) {
       if (channelButtonRuntimeState.pollTimerId) {
         clearInterval(channelButtonRuntimeState.pollTimerId);
         channelButtonRuntimeState.pollTimerId = null;
+        channelButtonRuntimeState.pollIntervalMs = 0;
       }
       return;
     }
 
-    if (channelButtonRuntimeState.pollTimerId) {
+    if (
+      channelButtonRuntimeState.pollTimerId &&
+      channelButtonRuntimeState.pollIntervalMs === nextPollIntervalMs
+    ) {
       return;
+    }
+
+    if (channelButtonRuntimeState.pollTimerId) {
+      clearInterval(channelButtonRuntimeState.pollTimerId);
+      channelButtonRuntimeState.pollTimerId = null;
     }
 
     channelButtonRuntimeState.pollTimerId = window.setInterval(() => {
       requestChannelButtonRuntimeRefresh();
-    }, CHANNEL_BUTTON_RUNTIME_REFRESH_MS);
+    }, nextPollIntervalMs);
+    channelButtonRuntimeState.pollIntervalMs = nextPollIntervalMs;
   }
 
   function initChannelButtonsRuntime() {
@@ -985,7 +1012,10 @@
     });
 
     document.addEventListener('visibilitychange', () => {
+      syncChannelButtonRuntimePolling();
+
       if (document.visibilityState === 'visible') {
+        refreshChannelButtonRuntimeDom();
         requestChannelButtonRuntimeRefresh({ force: true });
       }
     });

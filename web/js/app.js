@@ -32,6 +32,15 @@ const appSessionState = {
   settingsTooltip: {
     activeTarget: null
   },
+  aboutPanel: {
+    info: null,
+    infoPromise: null,
+    linksBound: false
+  },
+  updatePanel: {
+    status: null,
+    checkPromise: null
+  },
   volumeCurveDemo: {
     position: 0,
     timerId: null,
@@ -62,7 +71,9 @@ const DEFAULT_UI_SETTINGS =
     volumeHudShowPercent: true,
     volumeHudShowMeter: true,
     mediaControllerVisible: true,
-    closeToTrayEnabled: true
+    closeToTrayEnabled: true,
+    autoUpdateEnabled: true,
+    installBetaVersions: false
   };
 const DEFAULT_UI_MENU = sharedUiStateModel.DEFAULT_SESSION_UI_MENU || {
   open: false,
@@ -267,6 +278,8 @@ function cacheDomElements() {
   dom.advancedModeToggle = $('advancedModeToggle');
   dom.developerModeToggle = $('developerModeToggle');
   dom.closeToTrayToggle = $('closeToTrayToggle');
+  dom.autoUpdateToggle = $('autoUpdateToggle');
+  dom.betaUpdatesToggle = $('betaUpdatesToggle');
   dom.faderInterpolationToggle = $('faderInterpolationToggle');
   dom.softTakeoverToggle = $('softTakeoverToggle');
   dom.softTakeoverAdvanced = $('softTakeoverAdvanced');
@@ -328,7 +341,13 @@ function cacheDomElements() {
   dom.layoutEditModeToggle = $('layoutEditModeToggle');
   dom.menuTabs = Array.from(document.querySelectorAll('.menu-icon-tab'));
   dom.menuViews = Array.from(document.querySelectorAll('.menu-panel-view'));
+  dom.toolbarReleaseBadge = $('toolbarReleaseBadge');
+  dom.toolbarUpdateButton = $('toolbarUpdateButton');
   dom.languageSelect = $('languageSelect');
+  dom.settingsAboutBlock = $('settingsAboutBlock');
+  dom.settingsAppVersionValue = $('settingsAppVersionValue');
+  dom.settingsAppUpdatedAtValue = $('settingsAppUpdatedAtValue');
+  dom.settingsBugReportLink = $('settingsBugReportLink');
   dom.settingsContent = $('settingsContent');
   dom.settingsSections = Array.from(
     document.querySelectorAll('.settings-section')
@@ -380,6 +399,14 @@ function getDeveloperModeEnabled() {
 
 function getCloseToTrayEnabled() {
   return getCloseToTrayEnabledState?.() ?? getUiSettings().closeToTrayEnabled;
+}
+
+function getAutoUpdateEnabled() {
+  return getAutoUpdateEnabledState?.() ?? getUiSettings().autoUpdateEnabled;
+}
+
+function getInstallBetaVersionsEnabled() {
+  return getInstallBetaVersionsState?.() ?? getUiSettings().installBetaVersions;
 }
 
 function getShowFractionalNumbersEnabled() {
@@ -1002,6 +1029,30 @@ function syncCloseToTrayUi() {
     : t('settings.off');
 }
 
+function syncAutoUpdateUi() {
+  if (!dom.autoUpdateToggle) {
+    return;
+  }
+
+  const autoUpdateEnabled = getAutoUpdateEnabled();
+  dom.autoUpdateToggle.classList.toggle('on', autoUpdateEnabled);
+  dom.autoUpdateToggle.textContent = autoUpdateEnabled
+    ? t('settings.on')
+    : t('settings.off');
+}
+
+function syncInstallBetaVersionsUi() {
+  if (!dom.betaUpdatesToggle) {
+    return;
+  }
+
+  const installBetaVersionsEnabled = getInstallBetaVersionsEnabled();
+  dom.betaUpdatesToggle.classList.toggle('on', installBetaVersionsEnabled);
+  dom.betaUpdatesToggle.textContent = installBetaVersionsEnabled
+    ? t('settings.on')
+    : t('settings.off');
+}
+
 function syncMediaControllerUi() {
   const mediaControllerVisible = getMediaControllerVisible();
   dom.mediaControllerShell =
@@ -1599,6 +1650,216 @@ function syncLanguageUi() {
     dom.languageSelect.value = getCurrentLanguage();
     enhanceCustomSelects?.(dom.languageSelect);
   }
+
+  void syncAboutAppUi();
+  syncToolbarUpdateButtonUi();
+}
+
+function getAboutAppLocale() {
+  return getCurrentLanguage() === 'ru' ? 'ru-RU' : 'en-US';
+}
+
+function formatAboutAppUpdatedAt(value) {
+  if (typeof value !== 'string' || !value.trim()) {
+    return '-';
+  }
+
+  const parsedDate = new Date(value);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat(getAboutAppLocale(), {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(parsedDate);
+}
+
+function applyAboutAppLinkState(link, href) {
+  if (!link) {
+    return;
+  }
+
+  const normalizedHref = typeof href === 'string' ? href.trim() : '';
+
+  link.dataset.href = normalizedHref;
+  link.href = normalizedHref || '#';
+  link.tabIndex = normalizedHref ? 0 : -1;
+  link.setAttribute('aria-disabled', normalizedHref ? 'false' : 'true');
+  link.classList.toggle('is-disabled', !normalizedHref);
+}
+
+function syncToolbarReleaseBadgeUi(info = appSessionState.aboutPanel.info) {
+  if (!dom.toolbarReleaseBadge) {
+    return;
+  }
+
+  const badgeLabel = String(info?.releaseBadgeLabel || '').trim();
+
+  dom.toolbarReleaseBadge.textContent = badgeLabel;
+  dom.toolbarReleaseBadge.hidden = !badgeLabel;
+}
+
+function applyAboutAppInfo(info) {
+  if (dom.settingsAppVersionValue) {
+    dom.settingsAppVersionValue.textContent = info?.version || '-';
+  }
+
+  if (dom.settingsAppUpdatedAtValue) {
+    dom.settingsAppUpdatedAtValue.textContent = formatAboutAppUpdatedAt(
+      info?.updatedAt
+    );
+  }
+
+  applyAboutAppLinkState(dom.settingsBugReportLink, info?.bugReportUrl);
+  syncToolbarReleaseBadgeUi(info);
+}
+
+async function ensureAboutAppInfo() {
+  if (appSessionState.aboutPanel.info) {
+    return appSessionState.aboutPanel.info;
+  }
+
+  if (appSessionState.aboutPanel.infoPromise) {
+    return appSessionState.aboutPanel.infoPromise;
+  }
+
+  const infoPromise = Promise.resolve(getApi()?.get_app_info?.())
+    .then((info) => {
+      const normalizedInfo =
+        info && typeof info === 'object' ? { ...info } : null;
+
+      appSessionState.aboutPanel.info = normalizedInfo;
+
+      return normalizedInfo;
+    })
+    .catch((error) => {
+      console.warn('Failed to load app info', error);
+      return null;
+    })
+    .finally(() => {
+      appSessionState.aboutPanel.infoPromise = null;
+    });
+
+  appSessionState.aboutPanel.infoPromise = infoPromise;
+
+  return infoPromise;
+}
+
+function bindAboutAppLinks() {
+  if (appSessionState.aboutPanel.linksBound) {
+    return;
+  }
+
+  dom.settingsBugReportLink?.addEventListener('click', async (event) => {
+    const targetUrl = dom.settingsBugReportLink?.dataset.href?.trim();
+
+    event.preventDefault();
+
+    if (!targetUrl) {
+      return;
+    }
+
+    try {
+      await getApi()?.open_external_url?.(targetUrl);
+    } catch (error) {
+      console.warn('Failed to open app about link', error);
+    }
+  });
+
+  appSessionState.aboutPanel.linksBound = true;
+}
+
+function setAppUpdateStatus(status) {
+  appSessionState.updatePanel.status =
+    status && typeof status === 'object' ? { ...status } : null;
+  syncToolbarUpdateButtonUi();
+}
+
+function syncToolbarUpdateButtonUi() {
+  if (!dom.toolbarUpdateButton) {
+    return;
+  }
+
+  const updateStatus = appSessionState.updatePanel.status;
+  const updateAvailable = Boolean(
+    updateStatus?.updateAvailable && updateStatus?.releaseUrl
+  );
+
+  dom.toolbarUpdateButton.textContent = t('toolbar.update');
+  dom.toolbarUpdateButton.hidden = !updateAvailable;
+  dom.toolbarUpdateButton.title =
+    updateAvailable && updateStatus?.latestVersion
+      ? `${t('toolbar.update')} ${updateStatus.latestVersion}`
+      : t('toolbar.update');
+}
+
+async function checkForAppUpdates(options = {}) {
+  const forceCheck = options?.force === true;
+
+  if (!forceCheck && !getAutoUpdateEnabled()) {
+    setAppUpdateStatus(null);
+    return null;
+  }
+
+  if (appSessionState.updatePanel.checkPromise) {
+    return appSessionState.updatePanel.checkPromise;
+  }
+
+  const checkPromise = Promise.resolve(
+    getApi()?.check_for_updates?.({
+      includeBeta: getInstallBetaVersionsEnabled()
+    })
+  )
+    .then((status) => {
+      const normalizedStatus =
+        status && typeof status === 'object' ? { ...status } : null;
+
+      setAppUpdateStatus(normalizedStatus);
+
+      return normalizedStatus;
+    })
+    .catch((error) => {
+      console.warn('Failed to check for updates', error);
+      setAppUpdateStatus(null);
+      return null;
+    })
+    .finally(() => {
+      appSessionState.updatePanel.checkPromise = null;
+    });
+
+  appSessionState.updatePanel.checkPromise = checkPromise;
+
+  return checkPromise;
+}
+
+function bindToolbarUpdateButton() {
+  dom.toolbarUpdateButton?.addEventListener('click', async () => {
+    const targetUrl = appSessionState.updatePanel.status?.releaseUrl?.trim();
+
+    if (!targetUrl) {
+      return;
+    }
+
+    try {
+      await getApi()?.open_external_url?.(targetUrl);
+    } catch (error) {
+      console.warn('Failed to open update release URL', error);
+    }
+  });
+}
+
+async function syncAboutAppUi() {
+  bindAboutAppLinks();
+
+  const info =
+    appSessionState.aboutPanel.info || (await ensureAboutAppInfo()) || null;
+
+  applyAboutAppInfo(info);
 }
 
 function refreshCurveDrivenUi() {
@@ -1891,6 +2152,14 @@ function setupSettings() {
     window.uiActions?.toggleCloseToTrayEnabled({ source: 'ui' });
   });
 
+  dom.autoUpdateToggle?.addEventListener('click', () => {
+    window.uiActions?.toggleAutoUpdateEnabled({ source: 'ui' });
+  });
+
+  dom.betaUpdatesToggle?.addEventListener('click', () => {
+    window.uiActions?.toggleInstallBetaVersions({ source: 'ui' });
+  });
+
   dom.faderInterpolationToggle?.addEventListener('click', () => {
     window.uiActions?.toggleFaderInterpolation({ source: 'ui' });
   });
@@ -2056,6 +2325,22 @@ function hideContextMenu(options = {}) {
   }
 }
 
+function readContextNumericId(element, ...datasetKeys) {
+  if (!element?.dataset) {
+    return null;
+  }
+
+  for (const datasetKey of datasetKeys) {
+    const numericValue = Number.parseInt(element.dataset[datasetKey] || '', 10);
+
+    if (Number.isFinite(numericValue)) {
+      return numericValue;
+    }
+  }
+
+  return null;
+}
+
 function syncContextMenuUi(target = null) {
   if (!dom.contextMenu) {
     return;
@@ -2116,24 +2401,56 @@ function onContextMenu(event) {
         mediaControllerButtonEl?.dataset.mediaControllerSlot || ''
       ).trim()
     };
-  } else if (buttonEl && buttonEl.dataset.buttonId) {
+  } else if (buttonEl) {
+    const channelId = readContextNumericId(
+      buttonEl,
+      'channelId',
+      'previewChannelId'
+    );
+    const buttonId = readContextNumericId(
+      buttonEl,
+      'buttonId',
+      'previewButtonId'
+    );
+
+    if (!Number.isFinite(channelId) || !Number.isFinite(buttonId)) {
+      return;
+    }
+
     appSessionState.contextMenu.target = {
       type: 'button',
-      channelId: Number.parseInt(
-        buttonEl.closest('.channel-strip').dataset.channelId,
-        10
-      ),
-      buttonId: Number.parseInt(buttonEl.dataset.buttonId, 10)
+      channelId,
+      buttonId
     };
   } else if (standaloneEl) {
+    const buttonId = readContextNumericId(
+      standaloneEl,
+      'buttonId',
+      'previewStandaloneButtonId'
+    );
+
+    if (!Number.isFinite(buttonId)) {
+      return;
+    }
+
     appSessionState.contextMenu.target = {
       type: 'standalone',
-      buttonId: Number.parseInt(standaloneEl.dataset.buttonId, 10)
+      buttonId
     };
   } else if (channelEl) {
+    const channelId = readContextNumericId(
+      channelEl,
+      'channelId',
+      'previewChannelId'
+    );
+
+    if (!Number.isFinite(channelId)) {
+      return;
+    }
+
     appSessionState.contextMenu.target = {
       type: 'channel',
-      channelId: Number.parseInt(channelEl.dataset.channelId, 10)
+      channelId
     };
   } else {
     return;
@@ -2205,7 +2522,9 @@ function handleContextAction(action, explicitTarget = null) {
 
     if (action === 'remap') remapButton(channelId, buttonId);
     if (action === 'edit') {
-      if (typeof configureChannel === 'function') {
+      if (typeof configureButton === 'function') {
+        configureButton(channelId, buttonId);
+      } else if (typeof configureChannel === 'function') {
         configureChannel(channelId);
       } else {
         editChannelTitle(channelId);
@@ -2300,6 +2619,26 @@ function initUiStateSync() {
     ) {
       syncCloseToTrayUi();
       syncCloseToTrayRuntime();
+    }
+
+    if (nextSettings.autoUpdateEnabled !== previousSettings.autoUpdateEnabled) {
+      syncAutoUpdateUi();
+
+      if (nextSettings.autoUpdateEnabled) {
+        void checkForAppUpdates({ force: true });
+      } else {
+        setAppUpdateStatus(null);
+      }
+    }
+
+    if (
+      nextSettings.installBetaVersions !== previousSettings.installBetaVersions
+    ) {
+      syncInstallBetaVersionsUi();
+
+      if (nextSettings.autoUpdateEnabled) {
+        void checkForAppUpdates({ force: true });
+      }
     }
 
     if (
@@ -2415,6 +2754,8 @@ function handleLanguageChanged() {
   syncLayoutEditModeUi();
   syncLanguageUi();
   syncCloseToTrayUi();
+  syncAutoUpdateUi();
+  syncInstallBetaVersionsUi();
   syncAdvancedModeUi();
   syncDeveloperModeUi();
   syncFaderInterpolationUi();
@@ -2518,11 +2859,14 @@ function initializeAppShell() {
   setupSettings();
   setupSettingsTooltips();
   setupWindowControls();
+  bindToolbarUpdateButton();
   setupMenuTabs();
   syncMenuShellUi();
   syncCloseToTrayRuntime();
   syncAdvancedModeUi();
   syncCloseToTrayUi();
+  syncAutoUpdateUi();
+  syncInstallBetaVersionsUi();
   syncDeveloperModeUi();
   syncFaderInterpolationUi();
   syncSoftTakeoverUi();
@@ -2543,6 +2887,7 @@ function initializeAppShell() {
   window.requestAudioAppsRefresh?.('init', { force: true });
   initWebMIDI();
   scheduleContentMetricsUpdate();
+  void checkForAppUpdates();
 }
 
 function toggleLayoutEditModeShell() {

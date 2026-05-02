@@ -117,6 +117,14 @@ const IPC_METHODS = Object.freeze({
     channel: 'api:get_application_icons',
     transport: 'invoke'
   }),
+  get_app_info: Object.freeze({
+    channel: 'api:get_app_info',
+    transport: 'invoke'
+  }),
+  check_for_updates: Object.freeze({
+    channel: 'api:check_for_updates',
+    transport: 'invoke'
+  }),
   open_profiles_folder: Object.freeze({
     channel: 'api:open_profiles_folder',
     transport: 'invoke'
@@ -131,6 +139,10 @@ const IPC_METHODS = Object.freeze({
   }),
   pick_action_file: Object.freeze({
     channel: 'api:pick_action_file',
+    transport: 'invoke'
+  }),
+  open_external_url: Object.freeze({
+    channel: 'api:open_external_url',
     transport: 'invoke'
   }),
   show_volume_hud: Object.freeze({

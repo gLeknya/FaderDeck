@@ -27,7 +27,9 @@
     volumeHudShowMeter: 'faderdeck_volume_hud_show_meter',
     mediaControllerVisible: 'faderdeck_media_controller_visible',
     mediaControllerTargetAppId: 'faderdeck_media_controller_target_app_id',
-    closeToTrayEnabled: 'faderdeck_close_to_tray_enabled'
+    closeToTrayEnabled: 'faderdeck_close_to_tray_enabled',
+    autoUpdateEnabled: 'faderdeck_auto_update_enabled',
+    installBetaVersions: 'faderdeck_install_beta_versions'
   });
 
   const HUD_POSITIONS = Object.freeze([
@@ -130,6 +132,14 @@
       closeToTrayEnabled: Boolean(
         settings.closeToTrayEnabled ??
         DEFAULT_PERSISTED_UI_SETTINGS.closeToTrayEnabled
+      ),
+      autoUpdateEnabled: Boolean(
+        settings.autoUpdateEnabled ??
+        DEFAULT_PERSISTED_UI_SETTINGS.autoUpdateEnabled
+      ),
+      installBetaVersions: Boolean(
+        settings.installBetaVersions ??
+        DEFAULT_PERSISTED_UI_SETTINGS.installBetaVersions
       ),
       volumeCurveType: nextType,
       volumeCurveAmount: Math.max(
@@ -393,6 +403,20 @@
       );
     }
 
+    if ('autoUpdateEnabled' in (patch || {})) {
+      saveUiBooleanSetting(
+        UI_STORAGE_KEYS.autoUpdateEnabled,
+        nextSettings.autoUpdateEnabled
+      );
+    }
+
+    if ('installBetaVersions' in (patch || {})) {
+      saveUiBooleanSetting(
+        UI_STORAGE_KEYS.installBetaVersions,
+        nextSettings.installBetaVersions
+      );
+    }
+
     return setUiSettingsState(nextSettings, meta);
   }
 
@@ -577,6 +601,14 @@
         closeToTrayEnabled: readUiBooleanSetting(
           UI_STORAGE_KEYS.closeToTrayEnabled,
           true
+        ),
+        autoUpdateEnabled: readUiBooleanSetting(
+          UI_STORAGE_KEYS.autoUpdateEnabled,
+          true
+        ),
+        installBetaVersions: readUiBooleanSetting(
+          UI_STORAGE_KEYS.installBetaVersions,
+          false
         )
       },
       {
@@ -688,6 +720,14 @@
 
   function getCloseToTrayEnabledState() {
     return getUiSettingsState().closeToTrayEnabled;
+  }
+
+  function getAutoUpdateEnabledState() {
+    return getUiSettingsState().autoUpdateEnabled;
+  }
+
+  function getInstallBetaVersionsState() {
+    return getUiSettingsState().installBetaVersions;
   }
 
   function getIsMenuOpenState() {
@@ -918,6 +958,26 @@
     );
   }
 
+  function setAutoUpdateEnabledState(value, meta = {}) {
+    return patchUiSettingsState(
+      { autoUpdateEnabled: Boolean(value) },
+      {
+        type: 'ui/settings/auto-update-enabled',
+        ...meta
+      }
+    );
+  }
+
+  function setInstallBetaVersionsState(value, meta = {}) {
+    return patchUiSettingsState(
+      { installBetaVersions: Boolean(value) },
+      {
+        type: 'ui/settings/install-beta-versions',
+        ...meta
+      }
+    );
+  }
+
   function setMenuOpenState(value, meta = {}) {
     return patchUiMenuState(
       { open: Boolean(value) },
@@ -975,6 +1035,8 @@
   window.getMediaControllerTargetAppIdState =
     getMediaControllerTargetAppIdState;
   window.getCloseToTrayEnabledState = getCloseToTrayEnabledState;
+  window.getAutoUpdateEnabledState = getAutoUpdateEnabledState;
+  window.getInstallBetaVersionsState = getInstallBetaVersionsState;
   window.getIsMenuOpenState = getIsMenuOpenState;
   window.getActiveMenuTabState = getActiveMenuTabState;
   window.setAdvancedModeState = setAdvancedModeState;
@@ -1001,6 +1063,8 @@
   window.setMediaControllerTargetAppIdState =
     setMediaControllerTargetAppIdState;
   window.setCloseToTrayEnabledState = setCloseToTrayEnabledState;
+  window.setAutoUpdateEnabledState = setAutoUpdateEnabledState;
+  window.setInstallBetaVersionsState = setInstallBetaVersionsState;
   window.setMenuOpenState = setMenuOpenState;
   window.setActiveMenuTabState = setActiveMenuTabState;
 })(window);

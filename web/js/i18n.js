@@ -2,6 +2,7 @@ const TRANSLATIONS = Object.freeze({
   ru: {
     toolbar: {
       menu: 'Меню',
+      update: 'Обновить',
       selectMidi: 'Найти устройства',
       scanningMidi: 'Поиск MIDI-устройств...',
       disableMidi: 'Выключить'
@@ -30,7 +31,8 @@ const TRANSLATIONS = Object.freeze({
         visual: 'Визуал',
         volumeHud: 'Volume HUD',
         system: 'Система',
-        advanced: 'Дополнительно'
+        advanced: 'Дополнительно',
+        about: 'О приложении'
       },
       developerMode: 'Режим разработчика',
       advancedMode: 'Расширенный режим',
@@ -76,7 +78,15 @@ const TRANSLATIONS = Object.freeze({
       curveEaseInOut: 'Ease in out',
       startOnBoot: 'Запуск с системой',
       closeToTray: 'Сворачивать в трей при закрытии',
+      autoUpdates: 'Авто обновления',
+      installBetaVersions: 'Устанавливать бета версии',
       language: 'Язык',
+      aboutVersion: 'Текущая версия',
+      aboutUpdatedAt: 'Дата обновления',
+      aboutBug: 'Нашли баг?',
+      aboutPolicy: 'Политика',
+      aboutTerms: 'Условия использования',
+      aboutRights: 'FaderDeck все права защищены',
       on: 'Вкл',
       off: 'Выкл'
     },
@@ -332,6 +342,7 @@ const TRANSLATIONS = Object.freeze({
   en: {
     toolbar: {
       menu: 'Menu',
+      update: 'Update',
       selectMidi: 'Find devices',
       scanningMidi: 'Scanning MIDI devices...',
       disableMidi: 'Turn off'
@@ -360,7 +371,8 @@ const TRANSLATIONS = Object.freeze({
         visual: 'Visual',
         volumeHud: 'Volume HUD',
         system: 'System',
-        advanced: 'Advanced'
+        advanced: 'Advanced',
+        about: 'About'
       },
       developerMode: 'Developer mode',
       advancedMode: 'Advanced mode',
@@ -406,7 +418,15 @@ const TRANSLATIONS = Object.freeze({
       curveEaseInOut: 'Ease in out',
       startOnBoot: 'Start on boot',
       closeToTray: 'Hide to tray on close',
+      autoUpdates: 'Auto updates',
+      installBetaVersions: 'Install beta versions',
       language: 'Language',
+      aboutVersion: 'Current version',
+      aboutUpdatedAt: 'Updated on',
+      aboutBug: 'Found a bug?',
+      aboutPolicy: 'Policy',
+      aboutTerms: 'Terms of use',
+      aboutRights: 'FaderDeck all rights reserved',
       on: 'On',
       off: 'Off'
     },

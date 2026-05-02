@@ -4,6 +4,7 @@
   const MIDI_HIGH_RES_COMBINE_DELAY_MS = 12;
   const MIDI_CONTROL_LSB_OFFSET = 32;
   const MIDI_HEALTH_REFRESH_MS = 15000;
+  const MIDI_BACKGROUND_HEALTH_REFRESH_MS = 60000;
   const MIDI_DISABLED_OPTION_VALUE = '__disabled__';
   const MIDI_STATUS = Object.freeze({
     noteOff: 0x80,
@@ -28,6 +29,7 @@
   let midiWakeRefreshInitialized = false;
   let midiButtonIndicatorSyncInitialized = false;
   let midiHealthRefreshTimerId = null;
+  let midiHealthRefreshIntervalMs = 0;
   let midiButtonIndicatorSyncFrameId = null;
   let midiIndicatorTestState = null;
   const midiIndicatorOutputCache = {
@@ -1192,6 +1194,33 @@
     }).catch(() => []);
   }
 
+  function getMidiHealthRefreshIntervalMs() {
+    return document.visibilityState === 'visible'
+      ? MIDI_HEALTH_REFRESH_MS
+      : MIDI_BACKGROUND_HEALTH_REFRESH_MS;
+  }
+
+  function syncMidiHealthRefreshTimer() {
+    const nextIntervalMs = getMidiHealthRefreshIntervalMs();
+
+    if (
+      midiHealthRefreshTimerId &&
+      midiHealthRefreshIntervalMs === nextIntervalMs
+    ) {
+      return;
+    }
+
+    if (midiHealthRefreshTimerId) {
+      window.clearInterval(midiHealthRefreshTimerId);
+      midiHealthRefreshTimerId = null;
+    }
+
+    midiHealthRefreshTimerId = window.setInterval(() => {
+      refreshMidiInputsOnWake({ reason: 'periodic-health-refresh' });
+    }, nextIntervalMs);
+    midiHealthRefreshIntervalMs = nextIntervalMs;
+  }
+
   function initMidiWakeRefresh() {
     if (midiWakeRefreshInitialized) {
       return;
@@ -1202,6 +1231,8 @@
     });
 
     document.addEventListener('visibilitychange', () => {
+      syncMidiHealthRefreshTimer();
+
       if (document.visibilityState !== 'visible') {
         return;
       }
@@ -1209,10 +1240,7 @@
       refreshMidiInputsOnWake({ reason: 'document-visible' });
     });
 
-    midiHealthRefreshTimerId = window.setInterval(() => {
-      refreshMidiInputsOnWake({ reason: 'periodic-health-refresh' });
-    }, MIDI_HEALTH_REFRESH_MS);
-
+    syncMidiHealthRefreshTimer();
     midiWakeRefreshInitialized = true;
   }
 
