@@ -8,6 +8,7 @@ tests/
 node_modules/
 .codex/
 CLAUDE.md
+.claude/
 dist/
 out/
 build/
