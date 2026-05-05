@@ -12,6 +12,8 @@ const channelPickupFlashTimers = new Map();
 const channelEntranceAnimatedIds = new Set();
 const channelFaderDomCache = new Map();
 const channelAudioRuntimeState = new Map();
+const pendingChannelVolumeHudMeta = new Map();
+let channelVolumeHudFrameId = null;
 let channelUiStateSyncInitialized = false;
 let channelPickupUiInitialized = false;
 let pendingMixerRenderWhileHidden = false;
@@ -629,18 +631,6 @@ function resolveChannelVolumeHudIcon(channel, context = {}) {
   return '';
 }
 
-function isFaderDeckWindowForeground() {
-  if (typeof document === 'undefined') {
-    return false;
-  }
-
-  const isVisible = document.visibilityState === 'visible';
-  const hasFocus =
-    typeof document.hasFocus === 'function' ? document.hasFocus() : true;
-
-  return isVisible && hasFocus;
-}
-
 async function buildChannelVolumeHudPayload(channel, meta = {}) {
   if (!channel) {
     return null;
@@ -706,18 +696,7 @@ async function buildChannelVolumeHudPayload(channel, meta = {}) {
   };
 }
 
-async function emitChannelVolumeHud(channel, meta = {}) {
-  // External volume sources (MIDI hardware, system events) should always
-  // surface the HUD — the user may have FaderDeck visible/focused on a second
-  // monitor or simply want feedback for a physical fader move. Internal
-  // mouse-drag changes still suppress the HUD when FaderDeck is foreground
-  // because the on-screen fader already shows the change.
-  const isExternalVolumeSource = meta?.source === 'midi-runtime';
-
-  if (!isExternalVolumeSource && isFaderDeckWindowForeground()) {
-    return;
-  }
-
+async function performChannelVolumeHudEmit(channel, meta) {
   const payload = await buildChannelVolumeHudPayload(channel, meta);
   const api =
     typeof getApi === 'function' ? getApi() : (window.getNativeApi?.() ?? null);
@@ -731,6 +710,60 @@ async function emitChannelVolumeHud(channel, meta = {}) {
   } catch (error) {
     console.error('emitChannelVolumeHud error', error);
   }
+}
+
+function flushPendingChannelVolumeHud() {
+  channelVolumeHudFrameId = null;
+
+  if (pendingChannelVolumeHudMeta.size === 0) {
+    return;
+  }
+
+  const entries = Array.from(pendingChannelVolumeHudMeta.entries());
+  pendingChannelVolumeHudMeta.clear();
+
+  entries.forEach(([channelId, meta]) => {
+    const channel = getChannelById(channelId);
+
+    if (!channel) {
+      return;
+    }
+
+    void performChannelVolumeHudEmit(channel, meta);
+  });
+}
+
+function emitChannelVolumeHud(channel, meta = {}) {
+  if (!channel?.id) {
+    return;
+  }
+
+  // The HUD is shown unconditionally on every volume change — the user wants
+  // visual feedback regardless of whether FaderDeck is the foreground window
+  // (e.g. they're driving a hardware fader while another app is focused, or
+  // they simply prefer the explicit overlay).
+  //
+  // Coalesce per-channel emissions onto a single requestAnimationFrame tick.
+  // Mouse drag and MIDI both push volume changes at 60–500 Hz; without this
+  // batching, every change would trigger a fresh `show_volume_hud` IPC,
+  // saturating the main process and the HUD window. The most recent meta
+  // wins, which is the correct behaviour for an absolute-position overlay.
+  pendingChannelVolumeHudMeta.set(channel.id, meta);
+
+  if (channelVolumeHudFrameId !== null) {
+    return;
+  }
+
+  if (typeof window.requestAnimationFrame === 'function') {
+    channelVolumeHudFrameId = window.requestAnimationFrame(() => {
+      flushPendingChannelVolumeHud();
+    });
+    return;
+  }
+
+  channelVolumeHudFrameId = window.setTimeout(() => {
+    flushPendingChannelVolumeHud();
+  }, 16);
 }
 
 function getChannelOutputVolume(channel) {
@@ -1491,17 +1524,11 @@ function queueChannelVolumePush(channel) {
 
   state.pendingVolume = nextVolume;
 
-  // During active drag — send immediately without waiting for the debounce timer
-  const isDragging = state.dragVolume !== null;
-  if (isDragging) {
-    if (state.timerId) {
-      clearTimeout(state.timerId);
-      state.timerId = null;
-    }
-    flushChannelVolumePush(channel.id);
-    return;
-  }
-
+  // If a flush is already in-flight, the finally{} block will pick up the
+  // latest pendingVolume after the current PowerShell call completes. Do NOT
+  // invoke flushChannelVolumePush here — even during drag — because that
+  // bypassed the inFlight guard and spawned concurrent PowerShell calls at
+  // ~60 Hz, saturating the audio backend and causing visible drag lag.
   if (state.inFlight || state.timerId) {
     return;
   }
