@@ -972,7 +972,16 @@ function commitChannelAudioRuntimeState(
     return null;
   }
 
-  const entry = getChannelAudioRuntimeEntry(channel.id);
+  // Callers may pass a stale `channel` snapshot that was captured before an
+  // `await` (e.g. inside flushChannelVolumePush, where the local reference is
+  // captured before PowerShell completes and the user keeps moving the
+  // fader/MIDI). Re-fetch the live channel from the store so `channel.volume`
+  // reflects the latest local position. Without this, the post-push UI refresh
+  // would render the fader at the volume that was just sent to the OS instead
+  // of the user's current position, causing visible backward jumps during
+  // continuous drag/MIDI movement.
+  const liveChannel = getChannelById(channel.id) || channel;
+  const entry = getChannelAudioRuntimeEntry(liveChannel.id);
   const resolvedBinding = binding ||
     entry.binding || {
       mode: 'apps',
@@ -1002,11 +1011,11 @@ function commitChannelAudioRuntimeState(
     entry.stateFetchedAt = Date.now();
   }
 
-  const snapshot = getChannelAudioRuntimeSnapshot(channel);
+  const snapshot = getChannelAudioRuntimeSnapshot(liveChannel);
 
   if (meta?.updatePushState) {
     syncChannelVolumePushStateFromRuntime(
-      channel.id,
+      liveChannel.id,
       snapshot?.committedVolume ?? 0,
       {
         clearPending: meta?.clearPending !== false
@@ -1015,11 +1024,11 @@ function commitChannelAudioRuntimeState(
   }
 
   if (meta?.syncFader !== false) {
-    syncChannelFaderWithAudioRuntime(channel, snapshot, meta);
+    syncChannelFaderWithAudioRuntime(liveChannel, snapshot, meta);
   }
 
   if (meta?.refreshUi !== false) {
-    updateChannelFaderUi(channel);
+    updateChannelFaderUi(liveChannel);
   }
 
   return snapshot;
@@ -1449,7 +1458,12 @@ async function flushChannelVolumePush(channelId) {
             reason: 'channel-volume-interpolation',
             syncFader: false,
             updatePushState: true,
-            clearPending: false
+            clearPending: false,
+            // The local fader position is authoritative during interaction;
+            // pushing to the OS does not change channel.volume. Skip the
+            // redundant UI refresh that would otherwise render a stale snapshot
+            // of `channel` captured before the await.
+            refreshUi: false
           }
         );
         syncLinkedAppChannelsFromBindingVolume(
@@ -1474,7 +1488,11 @@ async function flushChannelVolumePush(channelId) {
         reason: 'channel-volume-push',
         syncFader: false,
         updatePushState: true,
-        clearPending: false
+        clearPending: false,
+        // See interpolation branch above: the post-push UI refresh would render
+        // the captured (now stale) `channel` snapshot, causing visible backward
+        // jumps during continuous drag/MIDI movement.
+        refreshUi: false
       });
       syncLinkedAppChannelsFromBindingVolume(
         channel,

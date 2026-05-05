@@ -1,8 +1,8 @@
 {
   "name": "faderdeck",
-  "version": "0.7.10",
+  "version": "0.7.11",
   "releaseChannel": "b",
-  "releaseDate": "2026-05-01",
+  "releaseDate": "2026-05-05",
   "description": "FaderDeck - MIDI-based volume controller (Electron + WebMIDI)",
   "main": "main.js",
   "scripts": {
