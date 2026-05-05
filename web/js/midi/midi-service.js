@@ -2091,6 +2091,60 @@
     );
   }
 
+  // MIDI fader controllers commonly stream CC at 60–500 Hz. Forwarding every
+  // single message through setChannelVolume → setAppState → subscribers →
+  // queueChannelVolumePush → emitChannelVolumeHud (IPC) creates noticeable jank
+  // and saturates the volume HUD IPC, which can starve the HUD show timer.
+  // Coalesce per-channel updates onto a single requestAnimationFrame tick so
+  // the heavy work runs at most ~60 Hz while the latest volume value is always
+  // preserved.
+  const pendingMidiFaderVolumes = new Map();
+  let pendingMidiFaderFrameId = null;
+
+  function flushPendingMidiFaderVolumes() {
+    pendingMidiFaderFrameId = null;
+
+    if (pendingMidiFaderVolumes.size === 0) {
+      return;
+    }
+
+    const entries = Array.from(pendingMidiFaderVolumes.entries());
+    pendingMidiFaderVolumes.clear();
+
+    entries.forEach(([channelId, volume]) => {
+      if (typeof window.applyChannelVolumeRuntime === 'function') {
+        window.applyChannelVolumeRuntime(channelId, volume, {
+          source: 'midi-runtime',
+          type: 'channels/set-volume'
+        });
+        return;
+      }
+
+      window.setChannelVolumeState?.(channelId, volume, {
+        source: 'midi-runtime',
+        type: 'channels/set-volume'
+      });
+    });
+  }
+
+  function scheduleMidiFaderFlush() {
+    if (pendingMidiFaderFrameId !== null) {
+      return;
+    }
+
+    if (typeof window.requestAnimationFrame === 'function') {
+      pendingMidiFaderFrameId = window.requestAnimationFrame(
+        flushPendingMidiFaderVolumes
+      );
+      return;
+    }
+
+    pendingMidiFaderFrameId = window.setTimeout(
+      flushPendingMidiFaderVolumes,
+      16
+    );
+  }
+
   function applyMidiMessageToStore(message) {
     if (!isSelectedMidiMessage(message)) {
       return;
@@ -2108,17 +2162,8 @@
           return;
         }
 
-        if (typeof window.applyChannelVolumeRuntime === 'function') {
-          window.applyChannelVolumeRuntime(channel.id, resolvedVolume.volume, {
-            type: 'channels/set-volume'
-          });
-          return;
-        }
-
-        window.setChannelVolumeState?.(channel.id, resolvedVolume.volume, {
-          source: 'midi-runtime',
-          type: 'channels/set-volume'
-        });
+        pendingMidiFaderVolumes.set(channel.id, resolvedVolume.volume);
+        scheduleMidiFaderFlush();
       });
     }
 

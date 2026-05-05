@@ -707,7 +707,14 @@ async function buildChannelVolumeHudPayload(channel, meta = {}) {
 }
 
 async function emitChannelVolumeHud(channel, meta = {}) {
-  if (isFaderDeckWindowForeground()) {
+  // External volume sources (MIDI hardware, system events) should always
+  // surface the HUD — the user may have FaderDeck visible/focused on a second
+  // monitor or simply want feedback for a physical fader move. Internal
+  // mouse-drag changes still suppress the HUD when FaderDeck is foreground
+  // because the on-screen fader already shows the change.
+  const isExternalVolumeSource = meta?.source === 'midi-runtime';
+
+  if (!isExternalVolumeSource && isFaderDeckWindowForeground()) {
     return;
   }
 
