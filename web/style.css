@@ -5091,6 +5091,47 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   justify-content: flex-end;
 }
 
+.settings-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-icon-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid var(--color-border);
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  transition: color 0.12s, background 0.12s, border-color 0.12s;
+}
+
+.settings-icon-btn.visible {
+  display: flex;
+}
+
+.settings-icon-btn svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+}
+
+.settings-icon-btn:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.settings-icon-btn:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
 .settings-select {
   min-width: 120px;
   background: rgba(255, 255, 255, 0.06);

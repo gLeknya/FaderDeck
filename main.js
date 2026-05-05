@@ -28,6 +28,10 @@ const {
 } = require('./shared/ipc-contract');
 const VOLUME_HUD_UPDATE_CHANNEL = 'volume-hud:update';
 const VOLUME_HUD_VISIBILITY_CHANNEL = 'volume-hud:visibility';
+const DEBUG_PANEL_UPDATE_CHANNEL = 'debug-panel:update';
+const DEBUG_PANEL_CLOSE_CHANNEL = 'debug-panel:close';
+const DEBUG_PANEL_REFRESH_MS = 1500;
+const DEBUG_PANEL_SEND_DELAY_MS = 250;
 const VOLUME_HUD_HIDE_DELAY_MS = 1350;
 const VOLUME_HUD_HIDE_ANIMATION_MS = 180;
 const VOLUME_HUD_WINDOW_MARGIN = 32;
@@ -74,6 +78,11 @@ let volumeHudWindow = null;
 let volumeHudReadyPromise = null;
 let volumeHudHideTimer = null;
 let volumeHudHideCommitTimer = null;
+let debugPanelWindow = null;
+let debugPanelReadyPromise = null;
+let debugPanelRefreshTimer = null;
+let debugPanelPendingRefresh = null;
+let debugPanelActive = false; // true while dev mode is enabled
 let mainWindowStateSaveTimer = null;
 let api = null;
 let tray = null;
@@ -1117,63 +1126,339 @@ async function ensureVolumeHudWindow() {
   return window;
 }
 
-function scheduleVolumeHudHide() {
+async function showVolumeHud(payload) {
+  const normalized = normalizeVolumeHudPayload(payload);
+  if (!normalized.presentation.enabled) {
+    return;
+  }
+  const win = await ensureVolumeHudWindow();
+  if (win.isDestroyed()) {
+    return;
+  }
+
+  win.webContents.send(VOLUME_HUD_UPDATE_CHANNEL, normalized);
+  win.show();
   clearVolumeHudTimers();
-
-  volumeHudHideTimer = setTimeout(() => {
-    if (!volumeHudWindow || volumeHudWindow.isDestroyed()) {
-      return;
-    }
-
-    volumeHudWindow.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, {
-      visible: false
-    });
-
-    volumeHudHideCommitTimer = setTimeout(() => {
-      if (volumeHudWindow && !volumeHudWindow.isDestroyed()) {
-        volumeHudWindow.hide();
-      }
-    }, VOLUME_HUD_HIDE_ANIMATION_MS);
-  }, VOLUME_HUD_HIDE_DELAY_MS);
+  if (VOLUME_HUD_HIDE_DELAY_MS > 0) {
+    volumeHudHideTimer = setTimeout(() => {
+      hideVolumeHud();
+    }, VOLUME_HUD_HIDE_DELAY_MS);
+  }
 }
 
-async function showVolumeHud(payload = {}) {
-  const normalizedPayload = normalizeVolumeHudPayload(payload);
-  const presentation = normalizedPayload.presentation;
-
-  if (
-    !presentation.enabled ||
-    (!presentation.showIcon &&
-      !presentation.showTitle &&
-      !presentation.showSubtitle &&
-      !presentation.showPercent &&
-      !presentation.showMeter) ||
-    (!normalizedPayload.title && !normalizedPayload.valueText)
-  ) {
-    return { success: false };
-  }
-
-  const window = await ensureVolumeHudWindow();
-
-  if (!window || window.isDestroyed()) {
-    return { success: false };
-  }
-
+function hideVolumeHud() {
   clearVolumeHudTimers();
-  window.setBounds(getVolumeHudBounds(presentation), false);
-  window.webContents.send(VOLUME_HUD_UPDATE_CHANNEL, normalizedPayload);
+  if (volumeHudWindow && !volumeHudWindow.isDestroyed()) {
+    volumeHudWindow.hide();
+  }
+}
 
-  if (!window.isVisible()) {
-    window.showInactive();
+// ── Debug Panel ────────────────────────────────────────────────────────
+
+function createDebugPanelWindow() {
+  if (debugPanelWindow && !debugPanelWindow.isDestroyed()) {
+    return debugPanelWindow;
   }
 
-  window.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, { visible: true });
-  scheduleVolumeHudHide();
+  debugPanelWindow = new BrowserWindow({
+    width: 440,
+    height: 700,
+    show: false,
+    frame: false,
+    transparent: false,
+    resizable: false,
+    minimizable: true,
+    maximizable: false,
+    closable: true,
+    skipTaskbar: false,
+    focusable: true,
+    hasShadow: true,
+    backgroundColor: '#0c0c0c',
+    webPreferences: {
+      preload: path.join(__dirname, 'overlay-preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      backgroundThrottling: false
+    }
+  });
 
-  return { success: true };
+  debugPanelWindow.removeMenu();
+  debugPanelWindow.loadFile(
+    path.join(__dirname, 'web', 'overlay', 'debug-panel.html')
+  );
+
+  debugPanelReadyPromise = new Promise((resolve) => {
+    debugPanelWindow.webContents.once('did-finish-load', () => {
+      resolve(debugPanelWindow);
+    });
+  });
+
+  debugPanelWindow.on('closed', () => {
+    clearDebugPanelTimer();
+    debugPanelWindow = null;
+    debugPanelReadyPromise = null;
+  });
+
+  return debugPanelWindow;
+}
+
+async function ensureDebugPanelWindow() {
+  const win = createDebugPanelWindow();
+  await debugPanelReadyPromise;
+  return win;
+}
+
+function clearDebugPanelTimer() {
+  if (debugPanelRefreshTimer !== null) {
+    clearInterval(debugPanelRefreshTimer);
+    debugPanelRefreshTimer = null;
+  }
+  if (debugPanelPendingRefresh !== null) {
+    clearTimeout(debugPanelPendingRefresh);
+    debugPanelPendingRefresh = null;
+  }
+}
+
+async function buildDebugPanelPayload() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    logger.warn('buildDebugPanelPayload: no main window');
+    return null;
+  }
+
+  let stateSnapshot = null;
+  let runtimeSnapshot = null;
+
+  try {
+    stateSnapshot = await mainWindow.webContents.executeJavaScript(
+      'typeof window.getAppState === "function" ? JSON.parse(JSON.stringify(window.getAppState())) : null',
+      true
+    );
+    logger.debug('appState snapshot', { keys: stateSnapshot ? Object.keys(stateSnapshot) : null });
+  } catch (err) {
+    logger.warn('appState snapshot failed', err);
+  }
+
+  try {
+    runtimeSnapshot = await mainWindow.webContents.executeJavaScript(
+      'typeof window.getAudioRuntimeState === "function" ? JSON.parse(JSON.stringify(window.getAudioRuntimeState())) : null',
+      true
+    );
+    logger.debug('audioRuntime snapshot', { appCount: runtimeSnapshot?.apps?.length });
+  } catch (err) {
+    logger.warn('audioRuntime snapshot failed', err);
+  }
+
+  const mem = process.memoryUsage();
+  const now = Date.now();
+
+  // Gather backend data
+  let audioDevicesData = [];
+  let mediaSessionsData = [];
+  let focusedAppData = null;
+  try {
+    const api = ensureApi();
+    audioDevicesData = await api.listAudioDevices('all');
+  } catch (_) {}
+  try {
+    const api = ensureApi();
+    mediaSessionsData = await api.listMediaSessions();
+  } catch (_) {}
+  try {
+    const api = ensureApi();
+    const fa = await api.getFocusedApplication();
+    if (fa && fa.success === true && fa.application && typeof fa.application === 'object') {
+      focusedAppData = { ...fa.application, fetchedAt: now };
+    }
+  } catch (_) {}
+
+  let channelFadersActive = false;
+  let standaloneButtonsActive = false;
+  try {
+    channelFadersActive = await mainWindow.webContents.executeJavaScript(
+      'typeof window.channelButtonRuntime?.getPollingActive === "function" ? window.channelButtonRuntime.getPollingActive() : false',
+      true
+    );
+  } catch (_) {}
+  try {
+    standaloneButtonsActive = await mainWindow.webContents.executeJavaScript(
+      'typeof window.standaloneButtonRuntime?.getPollingActive === "function" ? window.standaloneButtonRuntime.getPollingActive() : false',
+      true
+    );
+  } catch (_) {}
+
+  const serializableChannels = Array.isArray(stateSnapshot?.channels)
+    ? stateSnapshot.channels.map((ch) => ({
+        id: ch?.id ?? null,
+        name: ch?.name ?? null,
+        volume: typeof ch?.volume === 'number' ? ch.volume : null,
+        muted: typeof ch?.muted === 'boolean' ? ch.muted : false,
+        binding: ch?.binding && typeof ch.binding === 'object'
+          ? { type: ch.binding?.type ?? null, name: ch.binding?.name ?? null, processName: ch.binding?.processName ?? null }
+          : null
+      }))
+    : [];
+
+  const serializableApps = Array.isArray(runtimeSnapshot?.apps)
+    ? runtimeSnapshot.apps.map((a) => ({
+        name: a?.name ?? null,
+        process: a?.process ?? null,
+        volume: typeof a?.volume === 'number' ? a.volume : null,
+        muted: typeof a?.muted === 'boolean' ? a.muted : false,
+        hasAudioSession: typeof a?.hasAudioSession === 'boolean' ? a.hasAudioSession : false,
+        sessionCount: typeof a?.sessionCount === 'number' ? a.sessionCount : 0
+      }))
+    : [];
+
+  return {
+    emittedAt: now,
+    updateSequence: now,
+    memory: {
+      rss: typeof mem.rss === 'number' ? mem.rss : 0,
+      heapUsed: typeof mem.heapUsed === 'number' ? mem.heapUsed : 0,
+      heapTotal: typeof mem.heapTotal === 'number' ? mem.heapTotal : 0
+    },
+    app: {
+      version: typeof packageMetadata.version === 'string' ? packageMetadata.version : '',
+      uptime: typeof process.uptime === 'number' ? process.uptime * 1000 : 0,
+      locale: typeof app.getLocale === 'function' ? app.getLocale() : '',
+      platform: typeof process.platform === 'string' ? process.platform : '',
+      electronVersion: typeof process.versions?.electron === 'string' ? process.versions.electron : ''
+    },
+    settings: {
+      developerMode: stateSnapshot?.ui?.settings?.developerMode === true,
+      advancedMode: stateSnapshot?.ui?.settings?.advancedMode === true,
+      faderInterpolationEnabled: stateSnapshot?.ui?.settings?.faderInterpolationEnabled === true,
+      softTakeoverEnabled: stateSnapshot?.ui?.settings?.softTakeoverEnabled === true,
+      softTakeoverThreshold: typeof stateSnapshot?.ui?.settings?.softTakeoverThreshold === 'number'
+        ? stateSnapshot.ui.settings.softTakeoverThreshold : 5,
+      volumeHudEnabled: stateSnapshot?.ui?.settings?.volumeHudEnabled !== false,
+      closeToTrayEnabled: stateSnapshot?.ui?.settings?.closeToTrayEnabled !== false,
+      autoUpdateEnabled: stateSnapshot?.ui?.settings?.autoUpdateEnabled !== false
+    },
+    channels: serializableChannels,
+    audioApps: serializableApps,
+    audioAppsAt: runtimeSnapshot ? now : 0,
+    audioDevices: audioDevicesData,
+    audioDevicesAt: audioDevicesData.length ? now : 0,
+    mediaSessions: mediaSessionsData,
+    mediaSessionsAt: mediaSessionsData.length ? now : 0,
+    runtime: {
+      audioAppsCount: serializableApps.length,
+      audioAppsRefreshing: runtimeSnapshot?.refreshing === true,
+      lastAudioRefreshAt: typeof runtimeSnapshot?.lastRefreshAt === 'number' ? runtimeSnapshot.lastRefreshAt : 0,
+      focusedApp: focusedAppData?.name ?? null,
+      focusedAppAt: focusedAppData?.fetchedAt ?? 0,
+      channelFadersActive,
+      standaloneButtonsActive
+    },
+    midi: {
+      supported: stateSnapshot?.midi?.webMidiSupported === true,
+      inputs: Array.isArray(stateSnapshot?.midi?.availableInputs) ? stateSnapshot.midi.availableInputs : [],
+      outputs: Array.isArray(stateSnapshot?.midi?.availableOutputs) ? stateSnapshot.midi.availableOutputs : [],
+      selectedInput: stateSnapshot?.midi?.selectedInput && typeof stateSnapshot.midi.selectedInput === 'object'
+        ? stateSnapshot.midi.selectedInput : null
+    },
+    rawState: stateSnapshot || {}
+  };
+}
+
+async function sendDebugPanelUpdate() {
+  if (!debugPanelWindow || debugPanelWindow.isDestroyed()) {
+    return;
+  }
+
+  try {
+    const payload = await buildDebugPanelPayload();
+    if (payload && !debugPanelWindow.isDestroyed()) {
+      debugPanelWindow.webContents.send(DEBUG_PANEL_UPDATE_CHANNEL, payload);
+      logger.debug('debug panel update sent', { emittedAt: payload.emittedAt, channels: payload.channels?.length, apps: payload.audioApps?.length });
+    } else {
+      logger.warn('debug panel update skipped, no payload');
+    }
+  } catch (error) {
+    logger.warn('debug panel update error', error);
+  }
+}
+
+async function scheduleDebugPanelRefresh() {
+  if (debugPanelPendingRefresh !== null) {
+    clearTimeout(debugPanelPendingRefresh);
+  }
+
+  debugPanelPendingRefresh = setTimeout(async () => {
+    debugPanelPendingRefresh = null;
+    await sendDebugPanelUpdate();
+  }, DEBUG_PANEL_SEND_DELAY_MS);
+}
+
+async function showDebugPanel() {
+  const win = await ensureDebugPanelWindow();
+  if (win.isDestroyed()) return;
+
+  win.show();
+  win.focus();
+
+  clearDebugPanelTimer();
+  debugPanelRefreshTimer = setInterval(() => {
+    sendDebugPanelUpdate();
+  }, DEBUG_PANEL_REFRESH_MS);
+
+  await sendDebugPanelUpdate();
+}
+
+async function hideDebugPanel() {
+  clearDebugPanelTimer();
+  if (debugPanelWindow && !debugPanelWindow.isDestroyed()) {
+    debugPanelWindow.hide();
+  }
+}
+
+function destroyDebugPanelWindow() {
+  clearDebugPanelTimer();
+  if (debugPanelWindow && !debugPanelWindow.isDestroyed()) {
+    debugPanelWindow.destroy();
+  }
+  debugPanelWindow = null;
+  debugPanelReadyPromise = null;
+  debugPanelActive = false;
+}
+
+async function showDebugPanelIfDeveloperModeEnabled() {
+  // Called from main process when dev mode state changes
+  if (debugPanelActive) {
+    return; // Already handled
+  }
+
+  debugPanelActive = true;
+  clearDebugPanelTimer();
+  debugPanelRefreshTimer = setInterval(() => {
+    sendDebugPanelUpdate();
+  }, DEBUG_PANEL_REFRESH_MS);
+
+  const win = await ensureDebugPanelWindow();
+  if (win.isDestroyed()) {
+    debugPanelActive = false;
+    clearDebugPanelTimer();
+    return;
+  }
+
+  win.show();
+  win.focus();
+  await sendDebugPanelUpdate();
+}
+
+async function hideDebugPanelIfInactive() {
+  // Called from main process when dev mode state changes; only hide if debug panel
+  // was previously opened by the watcher (not just toggled manually by the user).
+  if (!debugPanelActive) {
+    return;
+  }
+  debugPanelActive = false;
+  hideDebugPanel();
 }
 
 async function createMainWindow() {
+  clearVolumeHudTimers();
   ensureApi();
   ensureTray();
 
@@ -1455,6 +1740,27 @@ function registerIpcHandlers() {
         },
         open_external_url: (_event, targetUrl) => openExternalAppUrl(targetUrl),
         toggle_devtools: (event) => toggleDevTools(getEventWindow(event)),
+        notify_developer_mode_changed: (_event, enabled) => {
+          if (enabled) {
+            void showDebugPanelIfDeveloperModeEnabled();
+          } else {
+            void hideDebugPanelIfInactive();
+          }
+          return { success: true };
+        },
+        toggle_debug_panel: async () => {
+          const wasVisible =
+            debugPanelWindow &&
+            !debugPanelWindow.isDestroyed() &&
+            debugPanelWindow.isVisible();
+
+          if (wasVisible) {
+            hideDebugPanel();
+          } else {
+            await showDebugPanel();
+          }
+          return { success: true, visible: !wasVisible };
+        },
         set_close_to_tray_enabled: (_event, enabled) =>
           setCloseToTrayEnabled(enabled),
         exit_app: () => {
@@ -1475,6 +1781,9 @@ function registerIpcHandlers() {
       Object.entries({
         show_volume_hud: (_event, payload) => {
           void showVolumeHud(payload);
+        },
+        'debug-panel:close': () => {
+          void hideDebugPanel();
         }
       }).map(([methodName, handler]) => [
         methodName,
@@ -1508,6 +1817,7 @@ app.on('activate', () => {
 app.on('window-all-closed', () => {
   clearMainWindowStateSaveTimer();
   destroyVolumeHudWindow();
+  destroyDebugPanelWindow();
   shutdownApi();
 
   if (process.platform !== 'darwin') {

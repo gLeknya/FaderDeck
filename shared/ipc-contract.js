@@ -17,6 +17,10 @@ const IPC_METHODS = Object.freeze({
     channel: 'api:set_app_volume',
     transport: 'invoke'
   }),
+  set_app_volume_batch: Object.freeze({
+    channel: 'api:set_app_volume_batch',
+    transport: 'invoke'
+  }),
   toggle_app_mute: Object.freeze({
     channel: 'api:toggle_app_mute',
     transport: 'invoke'
@@ -151,6 +155,14 @@ const IPC_METHODS = Object.freeze({
   }),
   toggle_devtools: Object.freeze({
     channel: 'api:toggle_devtools',
+    transport: 'invoke'
+  }),
+  toggle_debug_panel: Object.freeze({
+    channel: 'api:toggle_debug_panel',
+    transport: 'invoke'
+  }),
+  notify_developer_mode_changed: Object.freeze({
+    channel: 'api:notify_developer_mode_changed',
     transport: 'invoke'
   }),
   set_close_to_tray_enabled: Object.freeze({

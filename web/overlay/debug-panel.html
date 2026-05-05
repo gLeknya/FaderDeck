@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:;"
+    />
+    <title>Debug Panel</title>
+    <link rel="stylesheet" href="debug-panel.css" />
+  </head>
+  <body>
+    <div class="debug-panel" id="debugPanel">
+      <div class="debug-panel__header" id="debugHeader">
+        <div class="debug-panel__title-row">
+          <span class="debug-panel__title">Debug Panel</span>
+          <span class="debug-panel__version" id="appVersion"></span>
+        </div>
+        <button class="debug-panel__close" id="debugCloseBtn" title="Close">&#x2715;</button>
+      </div>
+
+      <div class="debug-panel__body" id="debugBody">
+        <!-- Sections injected by JS -->
+      </div>
+    </div>
+
+    <script src="debug-panel.js"></script>
+  </body>
+</html>

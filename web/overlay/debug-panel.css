@@ -1,0 +1,425 @@
+html,
+body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  background: transparent;
+}
+
+body {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  height: 100%;
+  padding: 0;
+  font-family: 'Cascadia Code', 'Consolas', 'Courier New', monospace;
+  font-size: 11px;
+  color: #d4d4d4;
+  user-select: none;
+  pointer-events: all;
+  -webkit-app-region: drag;
+}
+
+.debug-panel {
+  position: relative;
+  width: 440px;
+  height: 700px;
+  max-width: 440px;
+  max-height: 700px;
+  box-sizing: border-box;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(12, 12, 12, 0.96);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.debug-panel.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+.debug-panel__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  gap: 8px;
+  pointer-events: all;
+  cursor: default;
+  -webkit-app-region: drag;
+}
+
+.debug-panel__title-row {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+}
+
+.debug-panel__title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #cccccc;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.debug-panel__version {
+  font-size: 10px;
+  color: #606060;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.debug-panel__close {
+  flex: 0 0 auto;
+  background: none;
+  border: none;
+  color: #606060;
+  font-size: 12px;
+  padding: 2px 4px;
+  cursor: pointer;
+  line-height: 1;
+  pointer-events: all;
+  border-radius: 3px;
+  transition: color 0.1s, background 0.1s;
+  -webkit-app-region: no-drag;
+}
+
+.debug-panel__close:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Body ────────────────────────────────────────────────────────────── */
+.debug-panel__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 6px 0;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) transparent;
+}
+
+.debug-panel__body::-webkit-scrollbar {
+  width: 5px;
+}
+
+.debug-panel__body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.debug-panel__body::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+
+/* ── Section ────────────────────────────────────────────────────────── */
+.debug-section {
+  padding: 6px 10px 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.debug-section:last-child {
+  border-bottom: none;
+}
+
+.debug-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: default;
+  padding: 2px 0 4px;
+  gap: 6px;
+}
+
+.debug-section__title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #888888;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.debug-section__badge {
+  font-size: 9px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #666666;
+}
+
+.debug-section__badge--on {
+  background: rgba(38, 166, 65, 0.25);
+  color: #4ec969;
+}
+
+.debug-section__badge--off {
+  background: rgba(239, 83, 80, 0.2);
+  color: #f07171;
+}
+
+.debug-section__badge--warn {
+  background: rgba(255, 179, 46, 0.2);
+  color: #ffb32e;
+}
+
+.debug-section__badge--info {
+  background: rgba(86, 156, 214, 0.2);
+  color: #569cd6;
+}
+
+.debug-section__toggle {
+  font-size: 9px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: none;
+  color: #888888;
+  cursor: pointer;
+  pointer-events: all;
+  transition: all 0.1s;
+}
+
+.debug-section__toggle:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: #cccccc;
+}
+
+/* ── Key-Value Rows ──────────────────────────────────────────────────── */
+.debug-kv {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 1.5px 0;
+  min-height: 16px;
+}
+
+.debug-kv__key {
+  flex: 0 0 auto;
+  min-width: 110px;
+  color: #6a9955;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.debug-kv__sep {
+  flex: 0 0 auto;
+  color: #3c3c3c;
+  user-select: none;
+}
+
+.debug-kv__val {
+  flex: 1 1 auto;
+  color: #ce9178;
+  font-size: 11px;
+  word-break: break-all;
+}
+
+.debug-kv__val--null {
+  color: #569cd6;
+}
+
+.debug-kv__val--bool-true {
+  color: #4ec969;
+}
+
+.debug-kv__val--bool-false {
+  color: #f07171;
+}
+
+.debug-kv__val--num {
+  color: #b5cea8;
+}
+
+.debug-kv__val--str {
+  color: #ce9178;
+}
+
+/* ── List Items ──────────────────────────────────────────────────────── */
+.debug-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.debug-list__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  font-size: 11px;
+}
+
+.debug-list__item-dot {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #6a9955;
+}
+
+.debug-list__item-name {
+  flex: 0 0 auto;
+  color: #9cdcfe;
+  min-width: 100px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-list__item-val {
+  flex: 1 1 auto;
+  color: #ce9178;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.debug-list__item-badge {
+  flex: 0 0 auto;
+  font-size: 9px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #888888;
+}
+
+/* ── Tags / Badges ──────────────────────────────────────────────────── */
+.debug-tag {
+  display: inline-block;
+  font-size: 9px;
+  padding: 0 5px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #888888;
+  vertical-align: middle;
+  line-height: 14px;
+}
+
+.debug-tag--green { background: rgba(38, 166, 65, 0.25); color: #4ec969; }
+.debug-tag--red { background: rgba(239, 83, 80, 0.2); color: #f07171; }
+.debug-tag--yellow { background: rgba(255, 179, 46, 0.2); color: #ffb32e; }
+.debug-tag--blue { background: rgba(86, 156, 214, 0.2); color: #569cd6; }
+.debug-tag--purple { background: rgba(197, 134, 192, 0.2); color: #c586c0; }
+
+/* ── Table ──────────────────────────────────────────────────────────── */
+.debug-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 10px;
+  margin-top: 3px;
+}
+
+.debug-table th {
+  text-align: left;
+  color: #6a9955;
+  padding: 1px 4px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.debug-table td {
+  padding: 1px 4px;
+  color: #9cdcfe;
+}
+
+.debug-table tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.debug-table td:first-child {
+  color: #ce9178;
+  width: 40%;
+}
+
+/* ── Divider ────────────────────────────────────────────────────────── */
+.debug-divider {
+  border: none;
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  margin: 4px 0;
+}
+
+/* ── Empty State ─────────────────────────────────────────────────────── */
+.debug-empty {
+  color: #4a4a4a;
+  font-size: 10px;
+  padding: 2px 0;
+}
+
+/* ── Timestamp bar ────────────────────────────────────────────────────── */
+.debug-ts-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 9px;
+  color: #555555;
+}
+
+.debug-ts-bar__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #4ec969;
+  flex: 0 0 auto;
+  box-shadow: 0 0 4px rgba(78, 201, 105, 0.5);
+}
+
+.debug-ts-bar__dot--stale {
+  background: #ffb32e;
+  box-shadow: 0 0 4px rgba(255, 179, 46, 0.5);
+}
+
+.debug-ts-bar__dot--error {
+  background: #f07171;
+  box-shadow: 0 0 4px rgba(240, 113, 113, 0.5);
+}
+
+/* ── Collapsible sections ────────────────────────────────────────────── */
+.debug-section--collapsed .debug-section__content {
+  display: none;
+}
+
+/* ── Sub-row padding for nested data ─────────────────────────────────── */
+.debug-sub-row {
+  padding-left: 16px;
+}
+
+/* ── Mini progress bars ──────────────────────────────────────────────── */
+.debug-bar {
+  display: inline-block;
+  width: 60px;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+  overflow: hidden;
+  vertical-align: middle;
+}
+
+.debug-bar__fill {
+  height: 100%;
+  background: linear-gradient(90deg, #569cd6, #4ec969);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}

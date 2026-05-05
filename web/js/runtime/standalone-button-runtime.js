@@ -1029,7 +1029,8 @@
     flashBinding: flashStandaloneButtonBindingRuntime,
     activateSolo: activateStandaloneSoloRuntime,
     restoreSolo: restoreStandaloneSoloRuntime,
-    getActiveSoloKey: getActiveStandaloneSoloButtonRuntimeKey
+    getActiveSoloKey: getActiveStandaloneSoloButtonRuntimeKey,
+    getPollingActive: () => standaloneButtonRuntimeState.pollTimerId !== null
   };
 
   window.requestStandaloneButtonRuntimeRefresh =

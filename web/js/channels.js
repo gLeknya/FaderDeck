@@ -1,5 +1,5 @@
 let activeFaderDrag = null;
-const CHANNEL_VOLUME_PUSH_DELAY_MS = 18;
+const CHANNEL_VOLUME_PUSH_DELAY_MS = 4;
 const CHANNEL_INTERPOLATION_STEPS = 4;
 const CHANNEL_INTERPOLATION_STEP_DELAY_MS = 24;
 const CHANNEL_PICKUP_FLASH_DURATION_MS = 380;
@@ -1314,7 +1314,8 @@ function getChannelVolumePushState(channelId) {
       timerId: null,
       inFlight: false,
       pendingVolume: null,
-      lastSentVolume: null
+      lastSentVolume: null,
+      dragVolume: null
     });
   }
 
@@ -1377,10 +1378,14 @@ async function flushChannelVolumePush(channelId) {
       return;
     }
 
+    // Skip slow interpolation during active drag — send the target volume directly
+    const state2 = getChannelVolumePushState(channelId);
+    const isDragActive = state2 && state2.dragVolume !== null;
     const shouldInterpolate =
       channelSettings.faderInterpolationEnabled &&
       state.lastSentVolume !== null &&
-      Math.abs(volumeToSend - state.lastSentVolume) > 1;
+      Math.abs(volumeToSend - state.lastSentVolume) > 1 &&
+      !isDragActive;
 
     if (shouldInterpolate) {
       const startVolume = state.lastSentVolume;
@@ -1478,6 +1483,17 @@ function queueChannelVolumePush(channel) {
   }
 
   state.pendingVolume = nextVolume;
+
+  // During active drag — send immediately without waiting for the debounce timer
+  const isDragging = state.dragVolume !== null;
+  if (isDragging) {
+    if (state.timerId) {
+      clearTimeout(state.timerId);
+      state.timerId = null;
+    }
+    flushChannelVolumePush(channel.id);
+    return;
+  }
 
   if (state.inFlight || state.timerId) {
     return;
@@ -1637,7 +1653,12 @@ function flushActiveFaderDragFrame() {
   }
 
   activeFaderDrag.lastCommittedVolume = nextVolume;
-  applyVolumeToChannel(activeFaderDrag.channelId, nextVolume, {
+
+  const channelId = activeFaderDrag.channelId;
+  const pushState = getChannelVolumePushState(channelId);
+  pushState.dragVolume = nextVolume;
+
+  applyVolumeToChannel(channelId, nextVolume, {
     interaction: 'drag'
   });
 }
@@ -1745,6 +1766,11 @@ function stopFaderDrag() {
 
   flushActiveFaderDragFrame();
   const completedChannelId = activeFaderDrag.channelId;
+
+  // Clear drag flag so interpolation can resume after drag ends
+  const pushState = getChannelVolumePushState(completedChannelId);
+  pushState.dragVolume = null;
+
   activeFaderDrag.track?.classList.remove('is-dragging');
   activeFaderDrag = null;
   window.flushDeferredMixerRenderRuntime?.();

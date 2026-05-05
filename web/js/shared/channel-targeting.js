@@ -849,7 +849,13 @@
     ];
     const tasks = [];
 
-    if (api?.set_app_volume) {
+    if (api?.set_app_volume_batch && processNames.length > 1) {
+      const volumeMap = {};
+      processNames.forEach((name) => {
+        volumeMap[name] = normalizedVolume;
+      });
+      tasks.push(api.set_app_volume_batch(volumeMap));
+    } else if (api?.set_app_volume) {
       processNames.forEach((processName) => {
         tasks.push(api.set_app_volume(processName, normalizedVolume));
       });

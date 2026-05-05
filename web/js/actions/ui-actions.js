@@ -97,6 +97,21 @@
     );
   }
 
+  /**
+   * Watches developerMode setting changes and notifies the main process
+   * so it can show/hide the debug panel window without loading it eagerly.
+   */
+  function watchDeveloperModeDebugPanel() {
+    window.subscribeUiState?.((nextSettings, prevSettings) => {
+      const wasEnabled = prevSettings?.settings?.developerMode ?? false;
+      const isEnabled = nextSettings?.settings?.developerMode ?? false;
+
+      if (wasEnabled !== isEnabled) {
+        window.faderDeck?.notify_developer_mode_changed?.(isEnabled);
+      }
+    });
+  }
+
   function setCloseToTrayEnabled(value, meta = {}) {
     return patchUiSettings(
       { closeToTrayEnabled: Boolean(value) },
@@ -448,6 +463,7 @@
     toggleAdvancedMode,
     setDeveloperMode,
     toggleDeveloperMode,
+    watchDeveloperModeDebugPanel,
     setCloseToTrayEnabled,
     toggleCloseToTrayEnabled,
     setAutoUpdateEnabled,
@@ -488,4 +504,7 @@
     setVolumeCurveType,
     setVolumeCurveAmount
   };
+
+  // Auto-start developer-mode → debug panel watcher after store is initialized
+  watchDeveloperModeDebugPanel();
 })(window);

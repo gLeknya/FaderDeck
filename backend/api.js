@@ -216,6 +216,10 @@ class FaderDeckAPI {
     return this.setAppVolume(processName, volume);
   }
 
+  set_app_volume_batch(volumeMap) {
+    return this.setAppVolumeBatch(volumeMap);
+  }
+
   list_running_applications() {
     return this.listRunningApplications();
   }

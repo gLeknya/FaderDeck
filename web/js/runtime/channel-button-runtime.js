@@ -1038,7 +1038,8 @@
     flashBinding: flashChannelButtonBindingRuntime,
     activateSolo: activateSoloChannelButtonRuntime,
     restoreSolo: restoreSoloChannelButtonRuntime,
-    getActiveSoloKey: getActiveSoloChannelButtonKeyRuntime
+    getActiveSoloKey: getActiveSoloChannelButtonKeyRuntime,
+    getPollingActive: () => channelButtonRuntimeState.pollTimerId !== null
   };
 
   // Compatibility bridge: keep the existing globals while moving ownership

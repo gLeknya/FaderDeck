@@ -207,6 +207,15 @@ class AudioManager {
       });
   }
 
+  setAppVolumeBatch(volumeMap = {}) {
+    const entries = Object.entries(volumeMap);
+    if (!entries.length) {
+      return Promise.resolve({ success: true, updatedCount: 0 });
+    }
+
+    return this._audioSessions.setVolumeBatch(entries);
+  }
+
   toggleMute(processName) {
     this._log('toggle_mute', processName);
 

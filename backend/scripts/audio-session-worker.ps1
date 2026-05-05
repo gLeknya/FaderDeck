@@ -489,6 +489,25 @@ function Invoke-CommandPayload {
       }
     }
 
+    'SetVolumeBatch' {
+      $volumeMap = @{}
+      if ($Command.volumeMap -is [PSCustomObject]) {
+        foreach ($prop in $Command.volumeMap.PSObject.Properties) {
+          $volumeMap[$prop.Name] = [double]$prop.Value
+        }
+      }
+
+      $totalUpdated = 0
+      foreach ($name in $volumeMap.Keys) {
+        $totalUpdated += [FaderDeck.Audio.AudioSessionNative]::SetVolume($name, [float]$volumeMap[$name])
+      }
+
+      return [PSCustomObject]@{
+        success = $true
+        updatedCount = $totalUpdated
+      }
+    }
+
     'SetMute' {
       $updatedCount = [FaderDeck.Audio.AudioSessionNative]::SetMute($processName, $mute)
 

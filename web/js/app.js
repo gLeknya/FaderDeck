@@ -277,6 +277,7 @@ function cacheDomElements() {
   dom.settingsScrollShell = document.querySelector('.settings-scroll-shell');
   dom.advancedModeToggle = $('advancedModeToggle');
   dom.developerModeToggle = $('developerModeToggle');
+  dom.openDebugPanelBtn = $('openDebugPanelBtn');
   dom.closeToTrayToggle = $('closeToTrayToggle');
   dom.autoUpdateToggle = $('autoUpdateToggle');
   dom.betaUpdatesToggle = $('betaUpdatesToggle');
@@ -1015,6 +1016,11 @@ function syncDeveloperModeUi() {
   dom.developerModeToggle.textContent = developerMode
     ? t('settings.on')
     : t('settings.off');
+
+  // Show/hide the debug panel open button
+  if (dom.openDebugPanelBtn) {
+    dom.openDebugPanelBtn.classList.toggle('visible', developerMode);
+  }
 }
 
 function syncCloseToTrayUi() {
@@ -2146,6 +2152,10 @@ function setupSettings() {
 
   dom.developerModeToggle?.addEventListener('click', () => {
     window.uiActions?.toggleDeveloperMode({ source: 'ui' });
+  });
+
+  dom.openDebugPanelBtn?.addEventListener('click', () => {
+    window.faderDeck?.toggle_debug_panel?.();
   });
 
   dom.closeToTrayToggle?.addEventListener('click', () => {
