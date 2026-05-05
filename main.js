@@ -1328,17 +1328,29 @@ async function buildDebugPanelPayload() {
   const mem = process.memoryUsage();
   const now = Date.now();
 
-  // Gather backend data
+  // Gather backend data. Note: listAudioDevices and listMediaSessions both
+  // wrap their results — { success, devices: [...] } and { success, sessions: [...] }
+  // respectively — so unwrap to plain arrays for the renderer.
   let audioDevicesData = [];
   let mediaSessionsData = [];
   let focusedAppData = null;
   try {
-    audioDevicesData = await ensureApi().listAudioDevices('all');
+    const response = await ensureApi().listAudioDevices('all');
+    if (Array.isArray(response)) {
+      audioDevicesData = response;
+    } else if (response && Array.isArray(response.devices)) {
+      audioDevicesData = response.devices;
+    }
   } catch (err) {
     logger.debug('debug panel listAudioDevices failed', err);
   }
   try {
-    mediaSessionsData = await ensureApi().listMediaSessions();
+    const response = await ensureApi().listMediaSessions();
+    if (Array.isArray(response)) {
+      mediaSessionsData = response;
+    } else if (response && Array.isArray(response.sessions)) {
+      mediaSessionsData = response.sessions;
+    }
   } catch (err) {
     logger.debug('debug panel listMediaSessions failed', err);
   }
@@ -1375,17 +1387,74 @@ async function buildDebugPanelPayload() {
     logger.debug('debug panel standaloneButtonRuntime probe failed', err);
   }
 
+  // Channels in the renderer store don't have a `binding` object — they have
+  // `targetMode` ('apps' | 'devices' | 'focus') and a `targets` array of
+  // `{ name, process }` entries. Surface those so the debug panel actually
+  // shows what each channel is bound to.
   const serializableChannels = Array.isArray(stateSnapshot?.channels)
     ? stateSnapshot.channels.map((ch) => ({
         id: ch?.id ?? null,
         name: ch?.name ?? null,
         volume: typeof ch?.volume === 'number' ? ch.volume : null,
         muted: typeof ch?.muted === 'boolean' ? ch.muted : false,
-        binding: ch?.binding && typeof ch.binding === 'object'
-          ? { type: ch.binding?.type ?? null, name: ch.binding?.name ?? null, processName: ch.binding?.processName ?? null }
-          : null
+        targetMode: typeof ch?.targetMode === 'string' ? ch.targetMode : null,
+        targets: Array.isArray(ch?.targets)
+          ? ch.targets.map((t) => ({
+              name: typeof t?.name === 'string' ? t.name : '',
+              process: typeof t?.process === 'string' ? t.process : ''
+            }))
+          : [],
+        deviceTargetsCount: Array.isArray(ch?.deviceTargets) ? ch.deviceTargets.length : 0,
+        focusExcludedCount: Array.isArray(ch?.focusExcludedTargets) ? ch.focusExcludedTargets.length : 0,
+        buttonsCount: Array.isArray(ch?.buttons) ? ch.buttons.length : 0
       }))
     : [];
+
+  // MIDI runtime state lives in window.midiService (renderer-only) and isn't
+  // mirrored into the persistable app state, so query it through the main
+  // window's webContents the same way we probe other renderer runtimes.
+  let midiRuntime = null;
+  try {
+    midiRuntime = await mainWindow.webContents.executeJavaScript(
+      `(() => {
+        const svc = window.midiService;
+        if (!svc || typeof svc.getState !== 'function') return null;
+        const state = svc.getState() || {};
+        const inputs = Array.isArray(state.inputs)
+          ? state.inputs.map((i) => ({
+              id: i.id || '',
+              name: i.name || '',
+              manufacturer: i.manufacturer || '',
+              state: i.state || ''
+            }))
+          : [];
+        const outputs = typeof svc.getOutputs === 'function'
+          ? svc.getOutputs().map((o) => ({
+              id: o.id || '',
+              name: o.name || '',
+              manufacturer: o.manufacturer || '',
+              state: o.state || ''
+            }))
+          : [];
+        const selectedId = typeof svc.getSelectedInputId === 'function' ? svc.getSelectedInputId() : '';
+        const selectedName = typeof svc.getSelectedInputName === 'function' ? svc.getSelectedInputName() : '';
+        return {
+          supported: state.supported === true,
+          accessReady: state.accessReady === true,
+          scanning: state.scanning === true,
+          error: state.error ? String(state.error.message || state.error) : null,
+          inputs,
+          outputs,
+          selectedInput: selectedId
+            ? { id: selectedId, name: selectedName || '' }
+            : null
+        };
+      })()`,
+      true
+    );
+  } catch (err) {
+    logger.debug('debug panel midi runtime probe failed', err);
+  }
 
   const serializableApps = Array.isArray(runtimeSnapshot?.apps)
     ? runtimeSnapshot.apps.map((a) => ({
@@ -1408,7 +1477,7 @@ async function buildDebugPanelPayload() {
     },
     app: {
       version: typeof packageMetadata.version === 'string' ? packageMetadata.version : '',
-      uptime: typeof process.uptime === 'number' ? process.uptime * 1000 : 0,
+      uptime: typeof process.uptime === 'function' ? Math.round(process.uptime() * 1000) : 0,
       locale: typeof app.getLocale === 'function' ? app.getLocale() : '',
       platform: typeof process.platform === 'string' ? process.platform : '',
       electronVersion: typeof process.versions?.electron === 'string' ? process.versions.electron : ''
@@ -1440,12 +1509,14 @@ async function buildDebugPanelPayload() {
       channelFadersActive,
       standaloneButtonsActive
     },
-    midi: {
-      supported: stateSnapshot?.midi?.webMidiSupported === true,
-      inputs: Array.isArray(stateSnapshot?.midi?.availableInputs) ? stateSnapshot.midi.availableInputs : [],
-      outputs: Array.isArray(stateSnapshot?.midi?.availableOutputs) ? stateSnapshot.midi.availableOutputs : [],
-      selectedInput: stateSnapshot?.midi?.selectedInput && typeof stateSnapshot.midi.selectedInput === 'object'
-        ? stateSnapshot.midi.selectedInput : null
+    midi: midiRuntime || {
+      supported: false,
+      accessReady: false,
+      scanning: false,
+      error: null,
+      inputs: [],
+      outputs: [],
+      selectedInput: null
     },
     rawState: stateSnapshot || {}
   };

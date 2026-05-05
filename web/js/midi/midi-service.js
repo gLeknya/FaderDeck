@@ -2329,6 +2329,7 @@
     selectInput: selectMidiInput,
     getState: getMidiServiceState,
     getInputs: getMidiInputs,
+    getOutputs: getMidiOutputs,
     subscribe: subscribeMidiService,
     addMessageListener: addMidiMessageListener,
     getDisabledOptionValue() {
