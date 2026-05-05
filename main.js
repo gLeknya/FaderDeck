@@ -1864,15 +1864,22 @@ function registerIpcHandlers() {
       Object.entries({
         show_volume_hud: (_event, payload) => {
           void showVolumeHud(payload);
-        },
-        'debug-panel:close': () => {
-          void hideDebugPanel();
         }
       }).map(([methodName, handler]) => [
         methodName,
         createLoggedSendHandler(methodName, handler)
       ])
     )
+  );
+
+  // The debug panel's close button uses a dedicated channel that lives outside
+  // the IPC contract because the overlay preload talks to main directly.
+  // Register it on ipcMain by hand so the X button actually closes the window.
+  ipcMain.on(
+    'debug-panel:close',
+    createLoggedSendHandler('debug-panel:close', () => {
+      void hideDebugPanel();
+    })
   );
 }
 
