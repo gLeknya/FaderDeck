@@ -44,6 +44,11 @@
   const HUD_ORIENTATIONS = Object.freeze(['horizontal', 'vertical']);
 
   let uiStoreInitialized = false;
+  // Snapshot of developerMode taken when the UI store first initializes. All
+  // runtime feature gates (debug panel availability, dev tooling) read this
+  // “active” value so that toggling the persisted setting does not change
+  // behavior until the next app launch.
+  let developerModeActive = false;
 
   function readUiBooleanSetting(key, fallback = false) {
     return uiPreferencesStorage?.readBoolean(key, fallback) ?? fallback;
@@ -623,6 +628,7 @@
     });
 
     uiStoreInitialized = true;
+    developerModeActive = getUiSettingsState().developerMode === true;
     return getUiState();
   }
 
@@ -640,6 +646,13 @@
 
   function getDeveloperModeEnabledState() {
     return getUiSettingsState().developerMode;
+  }
+
+  // Returns the developerMode value that was in effect at app launch. This is
+  // what runtime consumers should consult when deciding whether to expose dev
+  // affordances — changing the persisted setting only takes effect on restart.
+  function getDeveloperModeActiveState() {
+    return developerModeActive === true;
   }
 
   function getFaderInterpolationEnabledState() {
@@ -1013,6 +1026,7 @@
   window.resetSessionUiMenuState = resetSessionUiMenuState;
   window.getAdvancedModeEnabledState = getAdvancedModeEnabledState;
   window.getDeveloperModeEnabledState = getDeveloperModeEnabledState;
+  window.getDeveloperModeActiveState = getDeveloperModeActiveState;
   window.getFaderInterpolationEnabledState = getFaderInterpolationEnabledState;
   window.getSoftTakeoverEnabledState = getSoftTakeoverEnabledState;
   window.getSoftTakeoverThresholdState = getSoftTakeoverThresholdState;

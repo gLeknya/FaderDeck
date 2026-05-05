@@ -98,16 +98,43 @@
   }
 
   /**
-   * Watches developerMode setting changes and notifies the main process
-   * so it can show/hide the debug panel window without loading it eagerly.
+   * Watches developerMode setting changes. The persisted value flips
+   * immediately so the toggle UI feels responsive and survives a restart, but
+   * the runtime effect (debug panel access, dev affordances) is gated on the
+   * value snapshotted at app launch (`getDeveloperModeActiveState()`). When
+   * the user enables developer mode we show a toast explaining that the
+   * features will only become available after the next launch; turning it
+   * back off is silent.
    */
   function watchDeveloperModeDebugPanel() {
+    // The first invocation of the listener happens during initUiStore(),
+    // when the persisted value is hydrated from localStorage. That's not a
+    // user-driven toggle, so we skip toast/notify on it.
+    let initialized = false;
+
     window.subscribeUiState?.((nextSettings, prevSettings) => {
       const wasEnabled = prevSettings?.settings?.developerMode ?? false;
       const isEnabled = nextSettings?.settings?.developerMode ?? false;
 
-      if (wasEnabled !== isEnabled) {
-        window.faderDeck?.notify_developer_mode_changed?.(isEnabled);
+      if (!initialized) {
+        initialized = true;
+        return;
+      }
+
+      if (wasEnabled === isEnabled) {
+        return;
+      }
+
+      // Notify main process so it can keep its own bookkeeping in sync (it
+      // currently no-ops the live change, but keeping the call site lets
+      // future consumers hook in without reaching back into renderer state).
+      window.faderDeck?.notify_developer_mode_changed?.(isEnabled);
+
+      if (isEnabled) {
+        const message =
+          window.t?.('settings.developerModeRestartHint') ||
+          'Developer features will be available after the next app launch.';
+        window.showToast?.('info', message, { timeout: 5000 });
       }
     });
   }

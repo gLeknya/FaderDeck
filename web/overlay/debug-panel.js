@@ -344,8 +344,70 @@
   }
 
   // ── Main render ────────────────────────────────────────────────────
+  // Cache the last rendered HTML for each section so we only touch the DOM
+  // when a section actually changed between payloads. The whole body used to
+  // be replaced via innerHTML every ~1.5s, which thrashed layout, lost focus
+  // on inputs, and forced re-binding of every toggle handler. With diff-
+  // rendering only the section nodes whose HTML changed are replaced, and a
+  // single delegated click handler on dom.body covers all toggles.
+  const sectionHtmlCache = Object.create(null);
+  let sectionsContainer = null;
+  let sectionsContainerInitialized = false;
+
+  function ensureSectionsLayout() {
+    if (sectionsContainerInitialized && sectionsContainer && dom.body.contains(sectionsContainer)) {
+      return;
+    }
+    dom.body.innerHTML = '';
+    sectionsContainer = document.createElement('div');
+    sectionsContainer.className = 'debug-sections';
+    dom.body.appendChild(sectionsContainer);
+    sectionsContainerInitialized = true;
+    // Reset cache because the DOM was wiped.
+    for (const key of Object.keys(sectionHtmlCache)) delete sectionHtmlCache[key];
+
+    // One delegated click handler for every section toggle. Survives section
+    // node replacements because it lives on the long-lived body container.
+    dom.body.addEventListener('click', (e) => {
+      const btn = e.target.closest?.('.debug-section__toggle');
+      if (!btn || !dom.body.contains(btn)) return;
+      e.stopPropagation();
+      const secEl = btn.closest('.debug-section');
+      if (!secEl) return;
+      const title = secEl.dataset.section || '';
+      const willCollapse = !secEl.classList.contains('debug-section--collapsed');
+      secEl.classList.toggle('debug-section--collapsed', willCollapse);
+      btn.textContent = willCollapse ? '+' : '−';
+      if (!title) return;
+      if (willCollapse) {
+        userCollapsedSections.add(title);
+        userExpandedSections.delete(title);
+      } else {
+        userExpandedSections.add(title);
+        userCollapsedSections.delete(title);
+      }
+    });
+  }
+
+  function patchSection(key, html) {
+    if (sectionHtmlCache[key] === html) return;
+    sectionHtmlCache[key] = html;
+
+    let node = sectionsContainer.querySelector(`[data-section-slot="${key}"]`);
+    if (!node) {
+      node = document.createElement('div');
+      node.dataset.sectionSlot = key;
+      sectionsContainer.appendChild(node);
+    }
+    // Replace just this slot's HTML. The browser reparses the small fragment
+    // instead of the whole body, and other slots keep their DOM identity
+    // (so e.g. the user's text selection / scroll position aren't disturbed).
+    node.innerHTML = html;
+  }
+
   function render(data) {
     if (!dom.body) return;
+    ensureSectionsLayout();
 
     if (dom.version) {
       const version = data?.app?.version ? `v${data.app.version}` : '';
@@ -354,49 +416,22 @@
       }
     }
 
-    const html = [
-      renderAppSection(data),
-      renderMemorySection(data),
-      renderBackendSection(data),
-      divider(),
-      renderRuntimeSection(data),
-      renderAudioAppsSection(data),
-      renderAudioDevicesSection(data),
-      divider(),
-      renderChannelsSection(data),
-      divider(),
-      renderMidiSection(data),
-      renderMediaSection(data),
-      divider(),
-      renderStateSection(data)
-    ].join('\n');
-
-    dom.body.innerHTML = html;
-
-    // Attach collapsible toggles. The renderer rebuilds the entire body on
-    // every payload (every ~1.5s), so each toggle click also persists the
-    // user's intent into userCollapsed/ExpandedSections so it survives the
-    // next re-render instead of snapping back to the section's default.
-    dom.body.querySelectorAll('.debug-section__toggle').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const secEl = btn.closest('.debug-section');
-        if (!secEl) return;
-        const title = secEl.dataset.section || '';
-        const willCollapse = !secEl.classList.contains('debug-section--collapsed');
-        secEl.classList.toggle('debug-section--collapsed', willCollapse);
-        btn.textContent = willCollapse ? '+' : '−';
-        if (title) {
-          if (willCollapse) {
-            userCollapsedSections.add(title);
-            userExpandedSections.delete(title);
-          } else {
-            userExpandedSections.add(title);
-            userCollapsedSections.delete(title);
-          }
-        }
-      });
-    });
+    // Each slot is a small chunk of DOM. We rebuild only the slots whose HTML
+    // has actually changed; the rest of the panel is left alone.
+    patchSection('app', renderAppSection(data));
+    patchSection('memory', renderMemorySection(data));
+    patchSection('backend', renderBackendSection(data));
+    patchSection('div-1', divider());
+    patchSection('runtime', renderRuntimeSection(data));
+    patchSection('audio-apps', renderAudioAppsSection(data));
+    patchSection('audio-devices', renderAudioDevicesSection(data));
+    patchSection('div-2', divider());
+    patchSection('channels', renderChannelsSection(data));
+    patchSection('div-3', divider());
+    patchSection('midi', renderMidiSection(data));
+    patchSection('media', renderMediaSection(data));
+    patchSection('div-4', divider());
+    patchSection('state', renderStateSection(data));
   }
 
   // ── Cache DOM ──────────────────────────────────────────────────────

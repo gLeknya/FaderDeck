@@ -398,6 +398,17 @@ function getDeveloperModeEnabled() {
   return getDeveloperModeEnabledState?.() ?? getUiSettings().developerMode;
 }
 
+// "Active" developer mode = the value of the persisted setting at app launch.
+// Runtime feature gates (Open Debug Panel button visibility, etc.) consult
+// this snapshot so that toggling the setting in the UI does not change actual
+// behavior until the next launch.
+function getDeveloperModeActive() {
+  if (typeof window.getDeveloperModeActiveState === 'function') {
+    return window.getDeveloperModeActiveState();
+  }
+  return getDeveloperModeEnabled();
+}
+
 function getCloseToTrayEnabled() {
   return getCloseToTrayEnabledState?.() ?? getUiSettings().closeToTrayEnabled;
 }
@@ -1011,15 +1022,18 @@ function syncDeveloperModeUi() {
     return;
   }
 
+  // Toggle button reflects the *persisted* value so the user immediately sees
+  // their click stick. The Open Debug Panel button (and any other runtime dev
+  // affordance) gates on the *active* value snapshotted at launch, so a live
+  // toggle does not silently grant or revoke access until the next restart.
   const developerMode = getDeveloperModeEnabled();
   dom.developerModeToggle.classList.toggle('on', developerMode);
   dom.developerModeToggle.textContent = developerMode
     ? t('settings.on')
     : t('settings.off');
 
-  // Show/hide the debug panel open button
   if (dom.openDebugPanelBtn) {
-    dom.openDebugPanelBtn.classList.toggle('visible', developerMode);
+    dom.openDebugPanelBtn.classList.toggle('visible', getDeveloperModeActive());
   }
 }
 
