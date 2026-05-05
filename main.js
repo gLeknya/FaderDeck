@@ -29,9 +29,8 @@ const {
 const VOLUME_HUD_UPDATE_CHANNEL = 'volume-hud:update';
 const VOLUME_HUD_VISIBILITY_CHANNEL = 'volume-hud:visibility';
 const DEBUG_PANEL_UPDATE_CHANNEL = 'debug-panel:update';
-const DEBUG_PANEL_CLOSE_CHANNEL = 'debug-panel:close';
 const DEBUG_PANEL_REFRESH_MS = 1500;
-const DEBUG_PANEL_SEND_DELAY_MS = 250;
+const APP_FOCUS_STATE_CHANNEL = 'app:focus-state';
 const VOLUME_HUD_HIDE_DELAY_MS = 1350;
 const VOLUME_HUD_HIDE_ANIMATION_MS = 180;
 const VOLUME_HUD_WINDOW_MARGIN = 32;
@@ -88,6 +87,7 @@ let api = null;
 let tray = null;
 let isQuitting = false;
 let closeToTrayEnabled = true;
+let appHasFocus = false; // true when any FaderDeck-owned window or its devtools is focused
 const logger = createLogger('main');
 const IPC_QUERY_METHODS = new Set([
   'get_audio_applications',
@@ -798,6 +798,81 @@ function attachRendererConsoleIsolation(window, label = 'renderer') {
   logger.debug(`attached ${label} console isolation`);
 }
 
+// ── App focus tracking ────────────────────────────────────────────────
+// Reports whether any FaderDeck-owned window (main, debug panel, volume HUD)
+// or its DevTools currently has focus. The renderer uses this to skip the
+// expensive PowerShell foreground-window lookup whenever the OS-level focused
+// app is just FaderDeck itself.
+
+function isFaderDeckOwnedWindow(window) {
+  if (!window || typeof window.isDestroyed !== 'function' || window.isDestroyed()) {
+    return false;
+  }
+
+  return (
+    window === mainWindow ||
+    window === debugPanelWindow ||
+    window === volumeHudWindow
+  );
+}
+
+function computeAppHasFocus() {
+  for (const candidate of [mainWindow, debugPanelWindow, volumeHudWindow]) {
+    if (!candidate || candidate.isDestroyed()) {
+      continue;
+    }
+
+    if (typeof candidate.isFocused === 'function' && candidate.isFocused()) {
+      return true;
+    }
+
+    if (
+      candidate.webContents &&
+      typeof candidate.webContents.isDevToolsFocused === 'function' &&
+      candidate.webContents.isDevToolsFocused()
+    ) {
+      return true;
+    }
+  }
+
+  const focusedWindow = BrowserWindow.getFocusedWindow();
+  return isFaderDeckOwnedWindow(focusedWindow);
+}
+
+function broadcastAppFocusState() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(APP_FOCUS_STATE_CHANNEL, {
+    hasFocus: appHasFocus
+  });
+}
+
+function recomputeAppHasFocus() {
+  const next = computeAppHasFocus();
+  if (next === appHasFocus) {
+    return;
+  }
+
+  appHasFocus = next;
+  broadcastAppFocusState();
+}
+
+function attachAppFocusTrackingForWindow(window) {
+  if (!window || typeof window.on !== 'function') {
+    return;
+  }
+
+  window.on('focus', recomputeAppHasFocus);
+  window.on('blur', recomputeAppHasFocus);
+
+  if (window.webContents) {
+    window.webContents.on('devtools-focused', recomputeAppHasFocus);
+    window.webContents.on('devtools-closed', recomputeAppHasFocus);
+  }
+}
+
 function ensureApi() {
   if (!api) {
     api = new FaderDeckAPI();
@@ -1183,6 +1258,7 @@ function createDebugPanelWindow() {
   });
 
   debugPanelWindow.removeMenu();
+  attachAppFocusTrackingForWindow(debugPanelWindow);
   debugPanelWindow.loadFile(
     path.join(__dirname, 'web', 'overlay', 'debug-panel.html')
   );
@@ -1197,6 +1273,7 @@ function createDebugPanelWindow() {
     clearDebugPanelTimer();
     debugPanelWindow = null;
     debugPanelReadyPromise = null;
+    recomputeAppHasFocus();
   });
 
   return debugPanelWindow;
@@ -1256,20 +1333,28 @@ async function buildDebugPanelPayload() {
   let mediaSessionsData = [];
   let focusedAppData = null;
   try {
-    const api = ensureApi();
-    audioDevicesData = await api.listAudioDevices('all');
-  } catch (_) {}
+    audioDevicesData = await ensureApi().listAudioDevices('all');
+  } catch (err) {
+    logger.debug('debug panel listAudioDevices failed', err);
+  }
   try {
-    const api = ensureApi();
-    mediaSessionsData = await api.listMediaSessions();
-  } catch (_) {}
-  try {
-    const api = ensureApi();
-    const fa = await api.getFocusedApplication();
-    if (fa && fa.success === true && fa.application && typeof fa.application === 'object') {
-      focusedAppData = { ...fa.application, fetchedAt: now };
+    mediaSessionsData = await ensureApi().listMediaSessions();
+  } catch (err) {
+    logger.debug('debug panel listMediaSessions failed', err);
+  }
+  // Skip the foreground-window lookup when any FaderDeck window already owns
+  // focus — the result would just be FaderDeck itself, and the lookup itself
+  // is a relatively expensive PowerShell round trip.
+  if (!appHasFocus) {
+    try {
+      const fa = await ensureApi().getFocusedApplication();
+      if (fa && fa.success === true && fa.application && typeof fa.application === 'object') {
+        focusedAppData = { ...fa.application, fetchedAt: now };
+      }
+    } catch (err) {
+      logger.debug('debug panel getFocusedApplication failed', err);
     }
-  } catch (_) {}
+  }
 
   let channelFadersActive = false;
   let standaloneButtonsActive = false;
@@ -1278,13 +1363,17 @@ async function buildDebugPanelPayload() {
       'typeof window.channelButtonRuntime?.getPollingActive === "function" ? window.channelButtonRuntime.getPollingActive() : false',
       true
     );
-  } catch (_) {}
+  } catch (err) {
+    logger.debug('debug panel channelButtonRuntime probe failed', err);
+  }
   try {
     standaloneButtonsActive = await mainWindow.webContents.executeJavaScript(
       'typeof window.standaloneButtonRuntime?.getPollingActive === "function" ? window.standaloneButtonRuntime.getPollingActive() : false',
       true
     );
-  } catch (_) {}
+  } catch (err) {
+    logger.debug('debug panel standaloneButtonRuntime probe failed', err);
+  }
 
   const serializableChannels = Array.isArray(stateSnapshot?.channels)
     ? stateSnapshot.channels.map((ch) => ({
@@ -1380,17 +1469,6 @@ async function sendDebugPanelUpdate() {
   }
 }
 
-async function scheduleDebugPanelRefresh() {
-  if (debugPanelPendingRefresh !== null) {
-    clearTimeout(debugPanelPendingRefresh);
-  }
-
-  debugPanelPendingRefresh = setTimeout(async () => {
-    debugPanelPendingRefresh = null;
-    await sendDebugPanelUpdate();
-  }, DEBUG_PANEL_SEND_DELAY_MS);
-}
-
 async function showDebugPanel() {
   const win = await ensureDebugPanelWindow();
   if (win.isDestroyed()) return;
@@ -1466,6 +1544,11 @@ async function createMainWindow() {
 
   mainWindow = new BrowserWindow(buildMainWindowOptions(windowState));
   attachRendererConsoleIsolation(mainWindow);
+  attachAppFocusTrackingForWindow(mainWindow);
+  mainWindow.webContents.on('did-finish-load', () => {
+    recomputeAppHasFocus();
+    broadcastAppFocusState();
+  });
   mainWindow.loadFile(path.join(__dirname, 'web', 'index.html'));
 
   if (windowState.isMaximized) {

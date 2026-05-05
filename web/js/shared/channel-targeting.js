@@ -31,6 +31,27 @@
     inFlight: null
   };
 
+  // Mirrors the main-process app focus tracker. True whenever any FaderDeck
+  // window (main, debug panel, volume HUD) or its DevTools owns focus.
+  // Updated via the `app:focus-state` IPC channel exposed through the preload
+  // bridge. Initialized to null until the first event arrives so we can fall
+  // back to the document-level heuristic instead of mistakenly treating an
+  // unfocused renderer as focused.
+  let mainProcessAppHasFocus = null;
+
+  function subscribeToMainProcessAppFocus() {
+    const subscriber = window.faderDeck?.onAppFocusStateChanged;
+    if (typeof subscriber !== 'function') {
+      return;
+    }
+
+    subscriber((payload) => {
+      mainProcessAppHasFocus = Boolean(payload?.hasFocus);
+    });
+  }
+
+  subscribeToMainProcessAppFocus();
+
   function getApi() {
     return typeof window.getApi === 'function'
       ? window.getApi()
@@ -38,6 +59,10 @@
   }
 
   function isFaderDeckWindowActive() {
+    if (mainProcessAppHasFocus === true) {
+      return true;
+    }
+
     if (typeof document === 'undefined') {
       return false;
     }

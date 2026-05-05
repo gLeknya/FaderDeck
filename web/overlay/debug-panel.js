@@ -332,6 +332,13 @@
     if (!dom.body) return;
     currentData = data;
 
+    if (dom.version) {
+      const version = data?.app?.version ? `v${data.app.version}` : '';
+      if (dom.version.textContent !== version) {
+        dom.version.textContent = version;
+      }
+    }
+
     const html = [
       renderAppSection(data),
       renderMemorySection(data),
