@@ -1,7 +1,12 @@
 (function initStandaloneButtonRuntimeModule(window) {
   const STANDALONE_BUTTON_PRESS_MS = 180;
   const STANDALONE_BUTTON_RUNTIME_REFRESH_MS = 45;
-  const STANDALONE_BUTTON_RUNTIME_BACKGROUND_REFRESH_MS = 180;
+  // When the main window is hidden (minimized to tray, behind another window,
+  // etc.) nobody can see the peak meters or button indicators, so this poll
+  // exists only to keep MIDI feedback LEDs roughly in sync with external OS
+  // changes (e.g. user mutes the app from the Windows volume mixer). 1 Hz is
+  // plenty for that and reduces background CPU/PowerShell load by ~5x.
+  const STANDALONE_BUTTON_RUNTIME_BACKGROUND_REFRESH_MS = 1000;
 
   const standaloneButtonRuntimeState = {
     initialized: false,
