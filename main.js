@@ -1204,31 +1204,74 @@ async function ensureVolumeHudWindow() {
   return window;
 }
 
-async function showVolumeHud(payload) {
-  const normalized = normalizeVolumeHudPayload(payload);
-  if (!normalized.presentation.enabled) {
-    return;
-  }
-  const win = await ensureVolumeHudWindow();
-  if (win.isDestroyed()) {
+function scheduleVolumeHudHide() {
+  clearVolumeHudTimers();
+
+  if (VOLUME_HUD_HIDE_DELAY_MS <= 0) {
     return;
   }
 
-  win.webContents.send(VOLUME_HUD_UPDATE_CHANNEL, normalized);
-  win.show();
-  clearVolumeHudTimers();
-  if (VOLUME_HUD_HIDE_DELAY_MS > 0) {
-    volumeHudHideTimer = setTimeout(() => {
-      hideVolumeHud();
-    }, VOLUME_HUD_HIDE_DELAY_MS);
-  }
+  volumeHudHideTimer = setTimeout(() => {
+    if (!volumeHudWindow || volumeHudWindow.isDestroyed()) {
+      return;
+    }
+
+    // Tell the HUD renderer to fade out (CSS transitions opacity 1 → 0).
+    volumeHudWindow.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, {
+      visible: false
+    });
+
+    // After the fade animation finishes, hide the BrowserWindow itself.
+    volumeHudHideCommitTimer = setTimeout(() => {
+      if (volumeHudWindow && !volumeHudWindow.isDestroyed()) {
+        volumeHudWindow.hide();
+      }
+    }, VOLUME_HUD_HIDE_ANIMATION_MS);
+  }, VOLUME_HUD_HIDE_DELAY_MS);
 }
 
-function hideVolumeHud() {
-  clearVolumeHudTimers();
-  if (volumeHudWindow && !volumeHudWindow.isDestroyed()) {
-    volumeHudWindow.hide();
+async function showVolumeHud(payload) {
+  const normalized = normalizeVolumeHudPayload(payload);
+  const presentation = normalized.presentation;
+
+  if (
+    !presentation.enabled ||
+    (!presentation.showIcon &&
+      !presentation.showTitle &&
+      !presentation.showSubtitle &&
+      !presentation.showPercent &&
+      !presentation.showMeter) ||
+    (!normalized.title && !normalized.valueText)
+  ) {
+    return;
   }
+
+  const win = await ensureVolumeHudWindow();
+  if (!win || win.isDestroyed()) {
+    return;
+  }
+
+  clearVolumeHudTimers();
+
+  // Resize and reposition before showing — orientation/position can change
+  // between calls (user toggles HUD position in settings) and the window is
+  // shared across all volume sources. setBounds is animated:false so there is
+  // no visible jump.
+  win.setBounds(getVolumeHudBounds(presentation), false);
+  win.webContents.send(VOLUME_HUD_UPDATE_CHANNEL, normalized);
+
+  if (!win.isVisible()) {
+    // showInactive() shows the window without taking focus from the user's
+    // current app — the HUD must never steal keyboard focus from games,
+    // streaming software, etc.
+    win.showInactive();
+  }
+
+  // The HUD content has CSS `opacity: 0` by default; sending visibility:true
+  // adds the `is-visible` class which transitions opacity to 1. Without this
+  // message the BrowserWindow is shown but its contents stay invisible.
+  win.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, { visible: true });
+  scheduleVolumeHudHide();
 }
 
 // ── Debug Panel ────────────────────────────────────────────────────────
