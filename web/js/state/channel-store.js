@@ -510,8 +510,9 @@
         };
       },
       {
+        ...meta,
         type: 'channels/set-volume',
-        ...meta
+        channelId
       }
     );
 

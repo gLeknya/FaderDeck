@@ -20,7 +20,10 @@ body {
   color: #d4d4d4;
   user-select: none;
   pointer-events: all;
-  -webkit-app-region: drag;
+  /* The body must NOT be draggable: -webkit-app-region inherits to children,
+     so a draggable body would swallow scroll, clicks, and the close button.
+     Only the .debug-panel__header opts back into drag. */
+  -webkit-app-region: no-drag;
 }
 
 .debug-panel {

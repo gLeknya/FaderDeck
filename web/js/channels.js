@@ -12,6 +12,8 @@ const channelPickupFlashTimers = new Map();
 const channelEntranceAnimatedIds = new Set();
 const channelFaderDomCache = new Map();
 const channelAudioRuntimeState = new Map();
+const pendingChannelVolumeHudMeta = new Map();
+let channelVolumeHudFrameId = null;
 let channelUiStateSyncInitialized = false;
 let channelPickupUiInitialized = false;
 let pendingMixerRenderWhileHidden = false;
@@ -629,18 +631,6 @@ function resolveChannelVolumeHudIcon(channel, context = {}) {
   return '';
 }
 
-function isFaderDeckWindowForeground() {
-  if (typeof document === 'undefined') {
-    return false;
-  }
-
-  const isVisible = document.visibilityState === 'visible';
-  const hasFocus =
-    typeof document.hasFocus === 'function' ? document.hasFocus() : true;
-
-  return isVisible && hasFocus;
-}
-
 async function buildChannelVolumeHudPayload(channel, meta = {}) {
   if (!channel) {
     return null;
@@ -706,11 +696,7 @@ async function buildChannelVolumeHudPayload(channel, meta = {}) {
   };
 }
 
-async function emitChannelVolumeHud(channel, meta = {}) {
-  if (isFaderDeckWindowForeground()) {
-    return;
-  }
-
+async function performChannelVolumeHudEmit(channel, meta) {
   const payload = await buildChannelVolumeHudPayload(channel, meta);
   const api =
     typeof getApi === 'function' ? getApi() : (window.getNativeApi?.() ?? null);
@@ -724,6 +710,60 @@ async function emitChannelVolumeHud(channel, meta = {}) {
   } catch (error) {
     console.error('emitChannelVolumeHud error', error);
   }
+}
+
+function flushPendingChannelVolumeHud() {
+  channelVolumeHudFrameId = null;
+
+  if (pendingChannelVolumeHudMeta.size === 0) {
+    return;
+  }
+
+  const entries = Array.from(pendingChannelVolumeHudMeta.entries());
+  pendingChannelVolumeHudMeta.clear();
+
+  entries.forEach(([channelId, meta]) => {
+    const channel = getChannelById(channelId);
+
+    if (!channel) {
+      return;
+    }
+
+    void performChannelVolumeHudEmit(channel, meta);
+  });
+}
+
+function emitChannelVolumeHud(channel, meta = {}) {
+  if (!channel?.id) {
+    return;
+  }
+
+  // The HUD is shown unconditionally on every volume change — the user wants
+  // visual feedback regardless of whether FaderDeck is the foreground window
+  // (e.g. they're driving a hardware fader while another app is focused, or
+  // they simply prefer the explicit overlay).
+  //
+  // Coalesce per-channel emissions onto a single requestAnimationFrame tick.
+  // Mouse drag and MIDI both push volume changes at 60–500 Hz; without this
+  // batching, every change would trigger a fresh `show_volume_hud` IPC,
+  // saturating the main process and the HUD window. The most recent meta
+  // wins, which is the correct behaviour for an absolute-position overlay.
+  pendingChannelVolumeHudMeta.set(channel.id, meta);
+
+  if (channelVolumeHudFrameId !== null) {
+    return;
+  }
+
+  if (typeof window.requestAnimationFrame === 'function') {
+    channelVolumeHudFrameId = window.requestAnimationFrame(() => {
+      flushPendingChannelVolumeHud();
+    });
+    return;
+  }
+
+  channelVolumeHudFrameId = window.setTimeout(() => {
+    flushPendingChannelVolumeHud();
+  }, 16);
 }
 
 function getChannelOutputVolume(channel) {
@@ -932,7 +972,16 @@ function commitChannelAudioRuntimeState(
     return null;
   }
 
-  const entry = getChannelAudioRuntimeEntry(channel.id);
+  // Callers may pass a stale `channel` snapshot that was captured before an
+  // `await` (e.g. inside flushChannelVolumePush, where the local reference is
+  // captured before PowerShell completes and the user keeps moving the
+  // fader/MIDI). Re-fetch the live channel from the store so `channel.volume`
+  // reflects the latest local position. Without this, the post-push UI refresh
+  // would render the fader at the volume that was just sent to the OS instead
+  // of the user's current position, causing visible backward jumps during
+  // continuous drag/MIDI movement.
+  const liveChannel = getChannelById(channel.id) || channel;
+  const entry = getChannelAudioRuntimeEntry(liveChannel.id);
   const resolvedBinding = binding ||
     entry.binding || {
       mode: 'apps',
@@ -962,11 +1011,11 @@ function commitChannelAudioRuntimeState(
     entry.stateFetchedAt = Date.now();
   }
 
-  const snapshot = getChannelAudioRuntimeSnapshot(channel);
+  const snapshot = getChannelAudioRuntimeSnapshot(liveChannel);
 
   if (meta?.updatePushState) {
     syncChannelVolumePushStateFromRuntime(
-      channel.id,
+      liveChannel.id,
       snapshot?.committedVolume ?? 0,
       {
         clearPending: meta?.clearPending !== false
@@ -975,11 +1024,11 @@ function commitChannelAudioRuntimeState(
   }
 
   if (meta?.syncFader !== false) {
-    syncChannelFaderWithAudioRuntime(channel, snapshot, meta);
+    syncChannelFaderWithAudioRuntime(liveChannel, snapshot, meta);
   }
 
   if (meta?.refreshUi !== false) {
-    updateChannelFaderUi(channel);
+    updateChannelFaderUi(liveChannel);
   }
 
   return snapshot;
@@ -1409,7 +1458,12 @@ async function flushChannelVolumePush(channelId) {
             reason: 'channel-volume-interpolation',
             syncFader: false,
             updatePushState: true,
-            clearPending: false
+            clearPending: false,
+            // The local fader position is authoritative during interaction;
+            // pushing to the OS does not change channel.volume. Skip the
+            // redundant UI refresh that would otherwise render a stale snapshot
+            // of `channel` captured before the await.
+            refreshUi: false
           }
         );
         syncLinkedAppChannelsFromBindingVolume(
@@ -1434,7 +1488,11 @@ async function flushChannelVolumePush(channelId) {
         reason: 'channel-volume-push',
         syncFader: false,
         updatePushState: true,
-        clearPending: false
+        clearPending: false,
+        // See interpolation branch above: the post-push UI refresh would render
+        // the captured (now stale) `channel` snapshot, causing visible backward
+        // jumps during continuous drag/MIDI movement.
+        refreshUi: false
       });
       syncLinkedAppChannelsFromBindingVolume(
         channel,
@@ -1484,17 +1542,11 @@ function queueChannelVolumePush(channel) {
 
   state.pendingVolume = nextVolume;
 
-  // During active drag — send immediately without waiting for the debounce timer
-  const isDragging = state.dragVolume !== null;
-  if (isDragging) {
-    if (state.timerId) {
-      clearTimeout(state.timerId);
-      state.timerId = null;
-    }
-    flushChannelVolumePush(channel.id);
-    return;
-  }
-
+  // If a flush is already in-flight, the finally{} block will pick up the
+  // latest pendingVolume after the current PowerShell call completes. Do NOT
+  // invoke flushChannelVolumePush here — even during drag — because that
+  // bypassed the inFlight guard and spawned concurrent PowerShell calls at
+  // ~60 Hz, saturating the audio backend and causing visible drag lag.
   if (state.inFlight || state.timerId) {
     return;
   }

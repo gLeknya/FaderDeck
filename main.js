@@ -29,9 +29,12 @@ const {
 const VOLUME_HUD_UPDATE_CHANNEL = 'volume-hud:update';
 const VOLUME_HUD_VISIBILITY_CHANNEL = 'volume-hud:visibility';
 const DEBUG_PANEL_UPDATE_CHANNEL = 'debug-panel:update';
-const DEBUG_PANEL_CLOSE_CHANNEL = 'debug-panel:close';
 const DEBUG_PANEL_REFRESH_MS = 1500;
-const DEBUG_PANEL_SEND_DELAY_MS = 250;
+// PowerShell-backed lookups (audio devices, media sessions) are slow round
+// trips. Refresh them once every Nth fast tick instead of every cycle to keep
+// the panel cheap. With FAST=1500ms and N=4 the slow data refreshes ~every 6s.
+const DEBUG_PANEL_SLOW_REFRESH_TICKS = 4;
+const APP_FOCUS_STATE_CHANNEL = 'app:focus-state';
 const VOLUME_HUD_HIDE_DELAY_MS = 1350;
 const VOLUME_HUD_HIDE_ANIMATION_MS = 180;
 const VOLUME_HUD_WINDOW_MARGIN = 32;
@@ -82,12 +85,12 @@ let debugPanelWindow = null;
 let debugPanelReadyPromise = null;
 let debugPanelRefreshTimer = null;
 let debugPanelPendingRefresh = null;
-let debugPanelActive = false; // true while dev mode is enabled
 let mainWindowStateSaveTimer = null;
 let api = null;
 let tray = null;
 let isQuitting = false;
 let closeToTrayEnabled = true;
+let appHasFocus = false; // true when any FaderDeck-owned window or its devtools is focused
 const logger = createLogger('main');
 const IPC_QUERY_METHODS = new Set([
   'get_audio_applications',
@@ -798,6 +801,81 @@ function attachRendererConsoleIsolation(window, label = 'renderer') {
   logger.debug(`attached ${label} console isolation`);
 }
 
+// ── App focus tracking ────────────────────────────────────────────────
+// Reports whether any FaderDeck-owned window (main, debug panel, volume HUD)
+// or its DevTools currently has focus. The renderer uses this to skip the
+// expensive PowerShell foreground-window lookup whenever the OS-level focused
+// app is just FaderDeck itself.
+
+function isFaderDeckOwnedWindow(window) {
+  if (!window || typeof window.isDestroyed !== 'function' || window.isDestroyed()) {
+    return false;
+  }
+
+  return (
+    window === mainWindow ||
+    window === debugPanelWindow ||
+    window === volumeHudWindow
+  );
+}
+
+function computeAppHasFocus() {
+  for (const candidate of [mainWindow, debugPanelWindow, volumeHudWindow]) {
+    if (!candidate || candidate.isDestroyed()) {
+      continue;
+    }
+
+    if (typeof candidate.isFocused === 'function' && candidate.isFocused()) {
+      return true;
+    }
+
+    if (
+      candidate.webContents &&
+      typeof candidate.webContents.isDevToolsFocused === 'function' &&
+      candidate.webContents.isDevToolsFocused()
+    ) {
+      return true;
+    }
+  }
+
+  const focusedWindow = BrowserWindow.getFocusedWindow();
+  return isFaderDeckOwnedWindow(focusedWindow);
+}
+
+function broadcastAppFocusState() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return;
+  }
+
+  mainWindow.webContents.send(APP_FOCUS_STATE_CHANNEL, {
+    hasFocus: appHasFocus
+  });
+}
+
+function recomputeAppHasFocus() {
+  const next = computeAppHasFocus();
+  if (next === appHasFocus) {
+    return;
+  }
+
+  appHasFocus = next;
+  broadcastAppFocusState();
+}
+
+function attachAppFocusTrackingForWindow(window) {
+  if (!window || typeof window.on !== 'function') {
+    return;
+  }
+
+  window.on('focus', recomputeAppHasFocus);
+  window.on('blur', recomputeAppHasFocus);
+
+  if (window.webContents) {
+    window.webContents.on('devtools-focused', recomputeAppHasFocus);
+    window.webContents.on('devtools-closed', recomputeAppHasFocus);
+  }
+}
+
 function ensureApi() {
   if (!api) {
     api = new FaderDeckAPI();
@@ -1126,31 +1204,74 @@ async function ensureVolumeHudWindow() {
   return window;
 }
 
-async function showVolumeHud(payload) {
-  const normalized = normalizeVolumeHudPayload(payload);
-  if (!normalized.presentation.enabled) {
-    return;
-  }
-  const win = await ensureVolumeHudWindow();
-  if (win.isDestroyed()) {
+function scheduleVolumeHudHide() {
+  clearVolumeHudTimers();
+
+  if (VOLUME_HUD_HIDE_DELAY_MS <= 0) {
     return;
   }
 
-  win.webContents.send(VOLUME_HUD_UPDATE_CHANNEL, normalized);
-  win.show();
-  clearVolumeHudTimers();
-  if (VOLUME_HUD_HIDE_DELAY_MS > 0) {
-    volumeHudHideTimer = setTimeout(() => {
-      hideVolumeHud();
-    }, VOLUME_HUD_HIDE_DELAY_MS);
-  }
+  volumeHudHideTimer = setTimeout(() => {
+    if (!volumeHudWindow || volumeHudWindow.isDestroyed()) {
+      return;
+    }
+
+    // Tell the HUD renderer to fade out (CSS transitions opacity 1 → 0).
+    volumeHudWindow.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, {
+      visible: false
+    });
+
+    // After the fade animation finishes, hide the BrowserWindow itself.
+    volumeHudHideCommitTimer = setTimeout(() => {
+      if (volumeHudWindow && !volumeHudWindow.isDestroyed()) {
+        volumeHudWindow.hide();
+      }
+    }, VOLUME_HUD_HIDE_ANIMATION_MS);
+  }, VOLUME_HUD_HIDE_DELAY_MS);
 }
 
-function hideVolumeHud() {
-  clearVolumeHudTimers();
-  if (volumeHudWindow && !volumeHudWindow.isDestroyed()) {
-    volumeHudWindow.hide();
+async function showVolumeHud(payload) {
+  const normalized = normalizeVolumeHudPayload(payload);
+  const presentation = normalized.presentation;
+
+  if (
+    !presentation.enabled ||
+    (!presentation.showIcon &&
+      !presentation.showTitle &&
+      !presentation.showSubtitle &&
+      !presentation.showPercent &&
+      !presentation.showMeter) ||
+    (!normalized.title && !normalized.valueText)
+  ) {
+    return;
   }
+
+  const win = await ensureVolumeHudWindow();
+  if (!win || win.isDestroyed()) {
+    return;
+  }
+
+  clearVolumeHudTimers();
+
+  // Resize and reposition before showing — orientation/position can change
+  // between calls (user toggles HUD position in settings) and the window is
+  // shared across all volume sources. setBounds is animated:false so there is
+  // no visible jump.
+  win.setBounds(getVolumeHudBounds(presentation), false);
+  win.webContents.send(VOLUME_HUD_UPDATE_CHANNEL, normalized);
+
+  if (!win.isVisible()) {
+    // showInactive() shows the window without taking focus from the user's
+    // current app — the HUD must never steal keyboard focus from games,
+    // streaming software, etc.
+    win.showInactive();
+  }
+
+  // The HUD content has CSS `opacity: 0` by default; sending visibility:true
+  // adds the `is-visible` class which transitions opacity to 1. Without this
+  // message the BrowserWindow is shown but its contents stay invisible.
+  win.webContents.send(VOLUME_HUD_VISIBILITY_CHANNEL, { visible: true });
+  scheduleVolumeHudHide();
 }
 
 // ── Debug Panel ────────────────────────────────────────────────────────
@@ -1163,12 +1284,14 @@ function createDebugPanelWindow() {
   debugPanelWindow = new BrowserWindow({
     width: 440,
     height: 700,
+    minWidth: 360,
+    minHeight: 320,
     show: false,
     frame: false,
     transparent: false,
-    resizable: false,
+    resizable: true,
     minimizable: true,
-    maximizable: false,
+    maximizable: true,
     closable: true,
     skipTaskbar: false,
     focusable: true,
@@ -1183,6 +1306,7 @@ function createDebugPanelWindow() {
   });
 
   debugPanelWindow.removeMenu();
+  attachAppFocusTrackingForWindow(debugPanelWindow);
   debugPanelWindow.loadFile(
     path.join(__dirname, 'web', 'overlay', 'debug-panel.html')
   );
@@ -1197,6 +1321,7 @@ function createDebugPanelWindow() {
     clearDebugPanelTimer();
     debugPanelWindow = null;
     debugPanelReadyPromise = null;
+    recomputeAppHasFocus();
   });
 
   return debugPanelWindow;
@@ -1219,82 +1344,192 @@ function clearDebugPanelTimer() {
   }
 }
 
+// Cached results of the slow PowerShell calls so that fast ticks reuse them
+// without paying the round-trip cost. Refreshed every
+// DEBUG_PANEL_SLOW_REFRESH_TICKS calls to buildDebugPanelPayload (or on the
+// very first call after the panel is shown).
+let debugPanelSlowCache = {
+  audioDevices: [],
+  audioDevicesAt: 0,
+  mediaSessions: [],
+  mediaSessionsAt: 0,
+  focusedApp: null,
+  focusedAppAt: 0
+};
+let debugPanelTickCounter = 0;
+
+function resetDebugPanelSlowCache() {
+  debugPanelSlowCache = {
+    audioDevices: [],
+    audioDevicesAt: 0,
+    mediaSessions: [],
+    mediaSessionsAt: 0,
+    focusedApp: null,
+    focusedAppAt: 0
+  };
+  debugPanelTickCounter = 0;
+}
+
+async function refreshDebugPanelSlowData() {
+  const now = Date.now();
+  // Always stamp the cache time so a failure (e.g. PowerShell not present on
+  // this OS) doesn't fall through and force the slow refresh on every tick.
+  debugPanelSlowCache.audioDevicesAt = now;
+  debugPanelSlowCache.mediaSessionsAt = now;
+  try {
+    const response = await ensureApi().listAudioDevices('all');
+    if (Array.isArray(response)) {
+      debugPanelSlowCache.audioDevices = response;
+    } else if (response && Array.isArray(response.devices)) {
+      debugPanelSlowCache.audioDevices = response.devices;
+    } else {
+      debugPanelSlowCache.audioDevices = [];
+    }
+  } catch (err) {
+    logger.debug('debug panel listAudioDevices failed', err);
+  }
+  try {
+    const response = await ensureApi().listMediaSessions();
+    if (Array.isArray(response)) {
+      debugPanelSlowCache.mediaSessions = response;
+    } else if (response && Array.isArray(response.sessions)) {
+      debugPanelSlowCache.mediaSessions = response.sessions;
+    } else {
+      debugPanelSlowCache.mediaSessions = [];
+    }
+  } catch (err) {
+    logger.debug('debug panel listMediaSessions failed', err);
+  }
+  // Skip the foreground-window lookup when any FaderDeck window already owns
+  // focus — the result would just be FaderDeck itself, and the lookup itself
+  // is a relatively expensive PowerShell round trip.
+  if (!appHasFocus) {
+    try {
+      const fa = await ensureApi().getFocusedApplication();
+      if (fa && fa.success === true && fa.application && typeof fa.application === 'object') {
+        debugPanelSlowCache.focusedApp = { ...fa.application };
+        debugPanelSlowCache.focusedAppAt = now;
+      }
+    } catch (err) {
+      logger.debug('debug panel getFocusedApplication failed', err);
+    }
+  } else {
+    debugPanelSlowCache.focusedApp = null;
+    debugPanelSlowCache.focusedAppAt = 0;
+  }
+}
+
 async function buildDebugPanelPayload() {
   if (!mainWindow || mainWindow.isDestroyed()) {
     logger.warn('buildDebugPanelPayload: no main window');
     return null;
   }
 
-  let stateSnapshot = null;
-  let runtimeSnapshot = null;
-
+  // Single round trip into the renderer: combine appState snapshot, audio
+  // runtime, channel/standalone button polling flags, and live MIDI runtime
+  // into one executeJavaScript call. This is much cheaper than 4 separate
+  // IPC round trips per tick (which is what we did before).
+  let probe = null;
   try {
-    stateSnapshot = await mainWindow.webContents.executeJavaScript(
-      'typeof window.getAppState === "function" ? JSON.parse(JSON.stringify(window.getAppState())) : null',
+    probe = await mainWindow.webContents.executeJavaScript(
+      `(() => {
+        const out = { state: null, audio: null, channelFadersActive: false, standaloneButtonsActive: false, midi: null };
+        try {
+          if (typeof window.getAppState === 'function') {
+            out.state = JSON.parse(JSON.stringify(window.getAppState()));
+          }
+        } catch (e) { /* ignore */ }
+        try {
+          if (typeof window.getAudioRuntimeState === 'function') {
+            out.audio = JSON.parse(JSON.stringify(window.getAudioRuntimeState()));
+          }
+        } catch (e) { /* ignore */ }
+        try {
+          if (typeof window.channelButtonRuntime?.getPollingActive === 'function') {
+            out.channelFadersActive = !!window.channelButtonRuntime.getPollingActive();
+          }
+        } catch (e) { /* ignore */ }
+        try {
+          if (typeof window.standaloneButtonRuntime?.getPollingActive === 'function') {
+            out.standaloneButtonsActive = !!window.standaloneButtonRuntime.getPollingActive();
+          }
+        } catch (e) { /* ignore */ }
+        try {
+          const svc = window.midiService;
+          if (svc && typeof svc.getState === 'function') {
+            const st = svc.getState() || {};
+            const inputs = Array.isArray(st.inputs)
+              ? st.inputs.map((i) => ({ id: i.id || '', name: i.name || '', manufacturer: i.manufacturer || '', state: i.state || '' }))
+              : [];
+            const outputs = typeof svc.getOutputs === 'function'
+              ? svc.getOutputs().map((o) => ({ id: o.id || '', name: o.name || '', manufacturer: o.manufacturer || '', state: o.state || '' }))
+              : [];
+            const selectedId = typeof svc.getSelectedInputId === 'function' ? svc.getSelectedInputId() : '';
+            const selectedName = typeof svc.getSelectedInputName === 'function' ? svc.getSelectedInputName() : '';
+            out.midi = {
+              supported: st.supported === true,
+              accessReady: st.accessReady === true,
+              scanning: st.scanning === true,
+              error: st.error ? String(st.error.message || st.error) : null,
+              inputs,
+              outputs,
+              selectedInput: selectedId ? { id: selectedId, name: selectedName || '' } : null
+            };
+          }
+        } catch (e) { /* ignore */ }
+        return out;
+      })()`,
       true
     );
-    logger.debug('appState snapshot', { keys: stateSnapshot ? Object.keys(stateSnapshot) : null });
   } catch (err) {
-    logger.warn('appState snapshot failed', err);
+    logger.warn('debug panel renderer probe failed', err);
   }
 
-  try {
-    runtimeSnapshot = await mainWindow.webContents.executeJavaScript(
-      'typeof window.getAudioRuntimeState === "function" ? JSON.parse(JSON.stringify(window.getAudioRuntimeState())) : null',
-      true
-    );
-    logger.debug('audioRuntime snapshot', { appCount: runtimeSnapshot?.apps?.length });
-  } catch (err) {
-    logger.warn('audioRuntime snapshot failed', err);
-  }
+  const stateSnapshot = probe?.state || null;
+  const runtimeSnapshot = probe?.audio || null;
+  const channelFadersActive = !!probe?.channelFadersActive;
+  const standaloneButtonsActive = !!probe?.standaloneButtonsActive;
+  const midiRuntime = probe?.midi || null;
 
   const mem = process.memoryUsage();
   const now = Date.now();
 
-  // Gather backend data
-  let audioDevicesData = [];
-  let mediaSessionsData = [];
-  let focusedAppData = null;
-  try {
-    const api = ensureApi();
-    audioDevicesData = await api.listAudioDevices('all');
-  } catch (_) {}
-  try {
-    const api = ensureApi();
-    mediaSessionsData = await api.listMediaSessions();
-  } catch (_) {}
-  try {
-    const api = ensureApi();
-    const fa = await api.getFocusedApplication();
-    if (fa && fa.success === true && fa.application && typeof fa.application === 'object') {
-      focusedAppData = { ...fa.application, fetchedAt: now };
-    }
-  } catch (_) {}
+  // Refresh PowerShell-backed data only every Nth tick (or on the first tick
+  // after the panel was opened, when the cache is empty).
+  const slowDue =
+    debugPanelTickCounter % DEBUG_PANEL_SLOW_REFRESH_TICKS === 0 ||
+    debugPanelSlowCache.audioDevicesAt === 0;
+  debugPanelTickCounter += 1;
+  if (slowDue) {
+    await refreshDebugPanelSlowData();
+  }
 
-  let channelFadersActive = false;
-  let standaloneButtonsActive = false;
-  try {
-    channelFadersActive = await mainWindow.webContents.executeJavaScript(
-      'typeof window.channelButtonRuntime?.getPollingActive === "function" ? window.channelButtonRuntime.getPollingActive() : false',
-      true
-    );
-  } catch (_) {}
-  try {
-    standaloneButtonsActive = await mainWindow.webContents.executeJavaScript(
-      'typeof window.standaloneButtonRuntime?.getPollingActive === "function" ? window.standaloneButtonRuntime.getPollingActive() : false',
-      true
-    );
-  } catch (_) {}
+  const audioDevicesData = debugPanelSlowCache.audioDevices;
+  const mediaSessionsData = debugPanelSlowCache.mediaSessions;
+  const focusedAppData = debugPanelSlowCache.focusedApp
+    ? { ...debugPanelSlowCache.focusedApp, fetchedAt: debugPanelSlowCache.focusedAppAt }
+    : null;
 
+  // Channels in the renderer store don't have a `binding` object — they have
+  // `targetMode` ('apps' | 'devices' | 'focus') and a `targets` array of
+  // `{ name, process }` entries. Surface those so the debug panel actually
+  // shows what each channel is bound to.
   const serializableChannels = Array.isArray(stateSnapshot?.channels)
     ? stateSnapshot.channels.map((ch) => ({
         id: ch?.id ?? null,
         name: ch?.name ?? null,
         volume: typeof ch?.volume === 'number' ? ch.volume : null,
         muted: typeof ch?.muted === 'boolean' ? ch.muted : false,
-        binding: ch?.binding && typeof ch.binding === 'object'
-          ? { type: ch.binding?.type ?? null, name: ch.binding?.name ?? null, processName: ch.binding?.processName ?? null }
-          : null
+        targetMode: typeof ch?.targetMode === 'string' ? ch.targetMode : null,
+        targets: Array.isArray(ch?.targets)
+          ? ch.targets.map((t) => ({
+              name: typeof t?.name === 'string' ? t.name : '',
+              process: typeof t?.process === 'string' ? t.process : ''
+            }))
+          : [],
+        deviceTargetsCount: Array.isArray(ch?.deviceTargets) ? ch.deviceTargets.length : 0,
+        focusExcludedCount: Array.isArray(ch?.focusExcludedTargets) ? ch.focusExcludedTargets.length : 0,
+        buttonsCount: Array.isArray(ch?.buttons) ? ch.buttons.length : 0
       }))
     : [];
 
@@ -1319,7 +1554,7 @@ async function buildDebugPanelPayload() {
     },
     app: {
       version: typeof packageMetadata.version === 'string' ? packageMetadata.version : '',
-      uptime: typeof process.uptime === 'number' ? process.uptime * 1000 : 0,
+      uptime: typeof process.uptime === 'function' ? Math.round(process.uptime() * 1000) : 0,
       locale: typeof app.getLocale === 'function' ? app.getLocale() : '',
       platform: typeof process.platform === 'string' ? process.platform : '',
       electronVersion: typeof process.versions?.electron === 'string' ? process.versions.electron : ''
@@ -1351,12 +1586,14 @@ async function buildDebugPanelPayload() {
       channelFadersActive,
       standaloneButtonsActive
     },
-    midi: {
-      supported: stateSnapshot?.midi?.webMidiSupported === true,
-      inputs: Array.isArray(stateSnapshot?.midi?.availableInputs) ? stateSnapshot.midi.availableInputs : [],
-      outputs: Array.isArray(stateSnapshot?.midi?.availableOutputs) ? stateSnapshot.midi.availableOutputs : [],
-      selectedInput: stateSnapshot?.midi?.selectedInput && typeof stateSnapshot.midi.selectedInput === 'object'
-        ? stateSnapshot.midi.selectedInput : null
+    midi: midiRuntime || {
+      supported: false,
+      accessReady: false,
+      scanning: false,
+      error: null,
+      inputs: [],
+      outputs: [],
+      selectedInput: null
     },
     rawState: stateSnapshot || {}
   };
@@ -1364,6 +1601,11 @@ async function buildDebugPanelPayload() {
 
 async function sendDebugPanelUpdate() {
   if (!debugPanelWindow || debugPanelWindow.isDestroyed()) {
+    return;
+  }
+  // Don't burn CPU building the payload if nobody can see the panel
+  // (window hidden, minimized, or fully occluded by something else).
+  if (!debugPanelWindow.isVisible() || debugPanelWindow.isMinimized()) {
     return;
   }
 
@@ -1380,17 +1622,6 @@ async function sendDebugPanelUpdate() {
   }
 }
 
-async function scheduleDebugPanelRefresh() {
-  if (debugPanelPendingRefresh !== null) {
-    clearTimeout(debugPanelPendingRefresh);
-  }
-
-  debugPanelPendingRefresh = setTimeout(async () => {
-    debugPanelPendingRefresh = null;
-    await sendDebugPanelUpdate();
-  }, DEBUG_PANEL_SEND_DELAY_MS);
-}
-
 async function showDebugPanel() {
   const win = await ensureDebugPanelWindow();
   if (win.isDestroyed()) return;
@@ -1399,6 +1630,7 @@ async function showDebugPanel() {
   win.focus();
 
   clearDebugPanelTimer();
+  resetDebugPanelSlowCache();
   debugPanelRefreshTimer = setInterval(() => {
     sendDebugPanelUpdate();
   }, DEBUG_PANEL_REFRESH_MS);
@@ -1420,41 +1652,6 @@ function destroyDebugPanelWindow() {
   }
   debugPanelWindow = null;
   debugPanelReadyPromise = null;
-  debugPanelActive = false;
-}
-
-async function showDebugPanelIfDeveloperModeEnabled() {
-  // Called from main process when dev mode state changes
-  if (debugPanelActive) {
-    return; // Already handled
-  }
-
-  debugPanelActive = true;
-  clearDebugPanelTimer();
-  debugPanelRefreshTimer = setInterval(() => {
-    sendDebugPanelUpdate();
-  }, DEBUG_PANEL_REFRESH_MS);
-
-  const win = await ensureDebugPanelWindow();
-  if (win.isDestroyed()) {
-    debugPanelActive = false;
-    clearDebugPanelTimer();
-    return;
-  }
-
-  win.show();
-  win.focus();
-  await sendDebugPanelUpdate();
-}
-
-async function hideDebugPanelIfInactive() {
-  // Called from main process when dev mode state changes; only hide if debug panel
-  // was previously opened by the watcher (not just toggled manually by the user).
-  if (!debugPanelActive) {
-    return;
-  }
-  debugPanelActive = false;
-  hideDebugPanel();
 }
 
 async function createMainWindow() {
@@ -1466,6 +1663,11 @@ async function createMainWindow() {
 
   mainWindow = new BrowserWindow(buildMainWindowOptions(windowState));
   attachRendererConsoleIsolation(mainWindow);
+  attachAppFocusTrackingForWindow(mainWindow);
+  mainWindow.webContents.on('did-finish-load', () => {
+    recomputeAppHasFocus();
+    broadcastAppFocusState();
+  });
   mainWindow.loadFile(path.join(__dirname, 'web', 'index.html'));
 
   if (windowState.isMaximized) {
@@ -1740,12 +1942,11 @@ function registerIpcHandlers() {
         },
         open_external_url: (_event, targetUrl) => openExternalAppUrl(targetUrl),
         toggle_devtools: (event) => toggleDevTools(getEventWindow(event)),
-        notify_developer_mode_changed: (_event, enabled) => {
-          if (enabled) {
-            void showDebugPanelIfDeveloperModeEnabled();
-          } else {
-            void hideDebugPanelIfInactive();
-          }
+        notify_developer_mode_changed: () => {
+          // Developer-mode features are now gated on the value snapshotted
+          // at app startup — a live toggle persists the new value but does
+          // not change runtime behavior until the next launch. The renderer
+          // shows a toast on enable; nothing for the main process to do here.
           return { success: true };
         },
         toggle_debug_panel: async () => {
@@ -1781,15 +1982,22 @@ function registerIpcHandlers() {
       Object.entries({
         show_volume_hud: (_event, payload) => {
           void showVolumeHud(payload);
-        },
-        'debug-panel:close': () => {
-          void hideDebugPanel();
         }
       }).map(([methodName, handler]) => [
         methodName,
         createLoggedSendHandler(methodName, handler)
       ])
     )
+  );
+
+  // The debug panel's close button uses a dedicated channel that lives outside
+  // the IPC contract because the overlay preload talks to main directly.
+  // Register it on ipcMain by hand so the X button actually closes the window.
+  ipcMain.on(
+    'debug-panel:close',
+    createLoggedSendHandler('debug-panel:close', () => {
+      void hideDebugPanel();
+    })
   );
 }
 

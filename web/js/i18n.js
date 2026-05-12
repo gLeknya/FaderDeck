@@ -35,6 +35,8 @@ const TRANSLATIONS = Object.freeze({
         about: 'О приложении'
       },
       developerMode: 'Режим разработчика',
+      developerModeRestartHint:
+        'Функции разработчика станут доступны после перезапуска приложения.',
       advancedMode: 'Расширенный режим',
       profileToolbarSwitcher: 'Смена профилей на toolbar',
       volumeHudEnabled: 'Volume HUD',
@@ -375,6 +377,8 @@ const TRANSLATIONS = Object.freeze({
         about: 'About'
       },
       developerMode: 'Developer mode',
+      developerModeRestartHint:
+        'Developer features will be available after restarting the app.',
       advancedMode: 'Advanced mode',
       profileToolbarSwitcher: 'Profile switching in toolbar',
       volumeHudEnabled: 'Volume HUD',
