@@ -5,6 +5,7 @@ __pycache__/
 *.log
 website/
 tests/
+test/
 node_modules/
 .codex/
 CLAUDE.md
@@ -23,3 +24,5 @@ yarn-error.log*
 Thumbs.db
 .env
 .env.*
+patato.bat
+md/

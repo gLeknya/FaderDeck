@@ -58,10 +58,15 @@
       "backend/**/*",
       "shared/**/*",
       "web/**/*",
+      "faderdeck-native/**/*.node",
       "main.js",
       "preload.js",
       "overlay-preload.js",
       "package.json"
+    ],
+    "asarUnpack": [
+      "faderdeck-native/**/*.node",
+      "backend/scripts/**/*.ps1"
     ],
     "extraMetadata": {
       "main": "main.js"

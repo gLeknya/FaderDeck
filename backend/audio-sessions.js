@@ -3,12 +3,23 @@ const { execFile } = require('child_process');
 const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
-const SCRIPT_PATH = path.join(__dirname, 'scripts', 'audio-session.ps1');
-const WORKER_SCRIPT_PATH = path.join(
-  __dirname,
-  'scripts',
-  'audio-session-worker.ps1'
-);
+
+// Handle asar unpacking in production
+function getScriptPath(scriptName) {
+  const basePath = path.join(__dirname, 'scripts', scriptName);
+  
+  // Check if we're in asar
+  if (basePath.includes('app.asar')) {
+    // Use unpacked path
+    return basePath.replace('app.asar', 'app.asar.unpacked');
+  }
+  
+  return basePath;
+}
+
+const SCRIPT_PATH = getScriptPath('audio-session.ps1');
+const WORKER_SCRIPT_PATH = getScriptPath('audio-session-worker.ps1');
+
 const SESSION_SNAPSHOT_CACHE_MS = 90;
 const SESSION_SNAPSHOT_BACKGROUND_REFRESH_MS = 45;
 

@@ -24,6 +24,10 @@ const IGNORED_PROCESS_NAMES = new Set([
   'secure system'
 ]);
 
+const { PowerShellServer } = require('./powershell-server');
+const nativeFocus = require('./native-focus');
+const nativeProcesses = require('./native-processes');
+
 function parseJsonArray(stdout) {
   if (!stdout || !stdout.trim()) {
     return [];
@@ -98,8 +102,6 @@ function shouldIncludeProcess(entry) {
   return !isSystemPath(entry.path);
 }
 
-const { PowerShellServer } = require('./powershell-server');
-
 class ProcessCatalog {
   constructor(logFunction) {
     this._log = logFunction || (() => {});
@@ -119,12 +121,35 @@ class ProcessCatalog {
       return [];
     }
 
+    // Try native implementation first
+    if (nativeProcesses.isAvailable()) {
+      const start = Date.now();
+      try {
+        const result = await nativeProcesses.listProcesses();
+        const latency = Date.now() - start;
+        this._log(`[native:process] listRunningApplications completed in ${latency}ms`);
+        
+        if (result && Array.isArray(result)) {
+          return result;
+        }
+      } catch (error) {
+        const latency = Date.now() - start;
+        this._log(`[native:process] listRunningApplications failed after ${latency}ms:`, error);
+        this._log('[native:process] Falling back to PowerShell');
+      }
+    }
+
+    // PowerShell fallback
     try {
+      const start = Date.now();
       const { stdout } = await execFileAsync(
         'powershell.exe',
         ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', SCRIPT_PATH],
         { windowsHide: true, maxBuffer: 10 * 1024 * 1024 }
       );
+
+      const latency = Date.now() - start;
+      this._log(`[powershell:process] listRunningApplications completed in ${latency}ms`);
 
       const rawProcesses = parseJsonArray(stdout);
       const uniqueApplications = new Map();
@@ -178,8 +203,30 @@ class ProcessCatalog {
       };
     }
 
+    // Try native implementation first
+    if (nativeFocus.isAvailable()) {
+      const start = Date.now();
+      try {
+        const result = await nativeFocus.getFocusedWindow();
+        const latency = Date.now() - start;
+        this._log(`[native:focus] getFocusedApplication completed in ${latency}ms`);
+        
+        if (result) {
+          return result;
+        }
+      } catch (error) {
+        const latency = Date.now() - start;
+        this._log(`[native:focus] getFocusedApplication failed after ${latency}ms:`, error);
+        this._log('[native:focus] Falling back to PowerShell');
+      }
+    }
+
+    // PowerShell fallback
     try {
+      const start = Date.now();
       const parsed = await this._focusServer.run('get', {});
+      const latency = Date.now() - start;
+      this._log(`[powershell:focus] getFocusedApplication completed in ${latency}ms`);
 
       return parsed && typeof parsed === 'object'
         ? parsed
@@ -194,6 +241,10 @@ class ProcessCatalog {
   }
 
   async prewarm() {
+    this._log('[ProcessCatalog] Prewarming...');
+    this._log(`[ProcessCatalog] Native focus available: ${nativeFocus.isAvailable()}`);
+    this._log(`[ProcessCatalog] Native processes available: ${nativeProcesses.isAvailable()}`);
+    
     try {
       await this.getFocusedApplication();
     } catch (error) {

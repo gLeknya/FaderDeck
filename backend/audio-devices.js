@@ -1,5 +1,19 @@
 const path = require('path');
-const SCRIPT_PATH = path.join(__dirname, 'scripts', 'audio-device.ps1');
+
+// Handle asar unpacking in production
+function getScriptPath(scriptName) {
+  const basePath = path.join(__dirname, 'scripts', scriptName);
+  
+  // Check if we're in asar
+  if (basePath.includes('app.asar')) {
+    // Use unpacked path
+    return basePath.replace('app.asar', 'app.asar.unpacked');
+  }
+  
+  return basePath;
+}
+
+const SCRIPT_PATH = getScriptPath('audio-device.ps1');
 const { PowerShellServer } = require('./powershell-server');
 
 function normalizeFlow(flow = '') {
