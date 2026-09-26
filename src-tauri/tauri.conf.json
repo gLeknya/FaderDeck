@@ -1,0 +1,57 @@
+{
+  "$schema": "../gen/schemas/config.schema.json",
+  "productName": "FaderDeck",
+  "version": "2.0.0",
+  "identifier": "com.faderdeck.app",
+  "build": {
+    "frontendDist": "../ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "FaderDeck",
+        "url": "index.html",
+        "width": 1400,
+        "height": 800,
+        "minWidth": 980,
+        "minHeight": 640,
+        "resizable": true,
+        "decorations": false,
+        "transparent": false,
+        "shadow": true
+      },
+      {
+        "label": "volume-hud",
+        "title": "Volume HUD",
+        "url": "overlay/volume-hud.html",
+        "width": 328,
+        "height": 126,
+        "resizable": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false,
+        "focusable": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  },
+  "plugins": {}
+}

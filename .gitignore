@@ -1,0 +1,84 @@
+# ==========================================
+# Rust & Cargo
+# ==========================================
+/target/
+**/target/
+debug/
+release/
+*.rs.bk
+*.pdb
+rustc-ice-*.txt
+**/mutants.out*/
+
+# ==========================================
+# Tauri v2
+# ==========================================
+# WiX Toolset cache (Windows MSI installer builds)
+**/WixTools/
+# Tauri build artifacts and temporary files
+**/src-tauri/target/
+
+# ==========================================
+# Node / Frontend / Dependencies & Caches
+# ==========================================
+node_modules/
+dist/
+build/
+.cache/
+.parcel-cache/
+.vite/
+*.tsbuildinfo
+
+# Logs & Diagnostics
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==========================================
+# Environment variables, Secrets & Profiles
+# ==========================================
+.env
+.env.*
+!.env.example
+*.local
+*.secret
+
+# Local user configs, profiles & temp data
+*.user
+profiles/
+temp/
+tmp/
+
+# ==========================================
+# Operating System & IDE Files
+# ==========================================
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# VS Code & JetBrains IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.sublime-workspace
+*.sublime-project
+

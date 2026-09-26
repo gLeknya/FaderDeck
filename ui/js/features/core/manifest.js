@@ -1,0 +1,19 @@
+export const coreFeatureScripts = [
+  '../shared/renderer-state-model.js',
+  '../shared/channel-model.js',
+  '../adapters/api-bridge.js',
+  '../adapters/local-storage.js',
+  '../adapters/language-storage.js',
+  '../adapters/midi-selection-storage.js',
+  '../adapters/ui-preferences-storage.js',
+  '../adapters/profile-storage.js',
+  '../i18n.js',
+  '../toasts.js',
+  '../state/store.js',
+  '../state/layout-store.js',
+  '../state/app-state.js',
+  '../state/ui-store.js',
+  '../runtime/audio-runtime.js',
+  '../ui/modal-manager.js',
+  '../dropdowns.js'
+];
