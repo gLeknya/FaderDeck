@@ -61,8 +61,8 @@ fn resolve_virtual_key(key: &str) -> Option<(VIRTUAL_KEY, bool)> {
 
         _ => {
             // Function keys F1..F24
-            if lower.starts_with('f') {
-                if let Ok(num) = lower[1..].parse::<u16>() {
+            if let Some(stripped) = lower.strip_prefix('f') {
+                if let Ok(num) = stripped.parse::<u16>() {
                     if (1..=24).contains(&num) {
                         return Some((VIRTUAL_KEY(0x70 + num - 1), false));
                     }

@@ -8,6 +8,12 @@ pub struct ProfileStorage {
     base_dir: PathBuf,
 }
 
+impl Default for ProfileStorage {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ProfileStorage {
     pub fn new() -> Self {
         let base_dir = resolve_profiles_dir();
@@ -37,12 +43,22 @@ impl ProfileStorage {
             })
             .collect();
 
-        let collapsed = sanitized
+        let parts: Vec<&str> = sanitized
             .split_whitespace()
-            .collect::<Vec<_>>()
-            .join(" ");
+            .map(|part| part.trim_matches('.'))
+            .filter(|part| !part.is_empty())
+            .collect();
 
-        if collapsed.is_empty() {
+        let collapsed = parts.join(" ");
+
+        let is_reserved = matches!(
+            collapsed.to_ascii_uppercase().as_str(),
+            "CON" | "PRN" | "AUX" | "NUL"
+                | "COM1" | "COM2" | "COM3" | "COM4" | "COM5" | "COM6" | "COM7" | "COM8" | "COM9"
+                | "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5" | "LPT6" | "LPT7" | "LPT8" | "LPT9"
+        );
+
+        if collapsed.is_empty() || is_reserved {
             "Profile".to_string()
         } else {
             collapsed
@@ -168,8 +184,8 @@ impl ProfileStorage {
 
         let mut fader_bindings = Vec::new();
         for ch in &channels {
-            let has_mapping = ch.get("faderMapping").map_or(false, |v| !v.is_null());
-            let has_cc = ch.get("faderCC").map_or(false, |v| !v.is_null());
+            let has_mapping = ch.get("faderMapping").is_some_and(|v| !v.is_null());
+            let has_cc = ch.get("faderCC").is_some_and(|v| !v.is_null());
             if has_mapping || has_cc {
                 fader_bindings.push(json!({
                     "channelId": ch.get("id").cloned().unwrap_or(Value::Null),
@@ -369,7 +385,7 @@ impl ProfileStorage {
             Err(e) => return ProfileOperationResult::err(format!("Read error: {}", e)),
         };
 
-        let val = match serde_json::from_str::<Value>(&content) {
+        let mut val = match serde_json::from_str::<Value>(&content) {
             Ok(v) => v,
             Err(e) => return ProfileOperationResult::err(format!("Parse error: {}", e)),
         };
@@ -381,6 +397,37 @@ impl ProfileStorage {
             .unwrap_or_else(|| path.file_stem().and_then(|s| s.to_str()).unwrap_or("Imported"));
 
         let safe_name = self.get_unique_profile_name(suggested_name, None);
+
+        let detected_scripts = scan_profile_scripts(&val);
+        if !detected_scripts.is_empty() {
+            let allow_scripts = options
+                .as_ref()
+                .and_then(|o| o.get("allow_scripts").or_else(|| o.get("allowScripts")))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+
+            let strip_scripts = options
+                .as_ref()
+                .and_then(|o| o.get("strip_scripts").or_else(|| o.get("stripScripts")))
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+
+            if !allow_scripts && !strip_scripts {
+                let mut res = ProfileOperationResult::err(
+                    "Profile contains executable scripts requiring user confirmation",
+                );
+                res.name = Some(safe_name);
+                res.has_user_scripts = Some(true);
+                res.detected_scripts = Some(detected_scripts);
+                res.requires_confirmation = Some(true);
+                return res;
+            }
+
+            if strip_scripts {
+                strip_profile_scripts(&mut val);
+            }
+        }
+
         self.save_profile(&safe_name, val)
     }
 }
@@ -392,6 +439,97 @@ fn resolve_profiles_dir() -> PathBuf {
         home.join(".faderdeck").join("profiles")
     } else {
         PathBuf::from("profiles")
+    }
+}
+
+pub fn scan_profile_scripts(val: &Value) -> Vec<String> {
+    let mut scripts = Vec::new();
+
+    fn check_button(btn: &Value, scripts: &mut Vec<String>) {
+        if let Some(obj) = btn.as_object() {
+            let action_type = obj.get("actionType").and_then(|v| v.as_str()).unwrap_or("");
+            let script_path = obj.get("scriptPath").and_then(|v| v.as_str()).unwrap_or("").trim();
+            if action_type == "run_user_script" || !script_path.is_empty() {
+                let entry = if !script_path.is_empty() {
+                    script_path.to_string()
+                } else {
+                    "(unspecified script)".to_string()
+                };
+                if !scripts.contains(&entry) {
+                    scripts.push(entry);
+                }
+            }
+        }
+    }
+
+    if let Some(channels) = val.get("channels").and_then(|c| c.as_array()) {
+        for ch in channels {
+            if let Some(buttons) = ch.get("buttons").and_then(|b| b.as_array()) {
+                for btn in buttons {
+                    check_button(btn, &mut scripts);
+                }
+            }
+        }
+    }
+
+    if let Some(standalones) = val.get("standaloneButtons").and_then(|s| s.as_array()) {
+        for btn in standalones {
+            check_button(btn, &mut scripts);
+        }
+    }
+
+    if let Some(bindings) = val.get("bindings").and_then(|b| b.as_object()) {
+        if let Some(buttons) = bindings.get("buttons").and_then(|b| b.as_array()) {
+            for btn in buttons {
+                check_button(btn, &mut scripts);
+            }
+        }
+    }
+
+    scripts
+}
+
+pub fn strip_profile_scripts(val: &mut Value) {
+    fn clean_button(btn: &mut Value) {
+        if let Some(obj) = btn.as_object_mut() {
+            let is_script = obj
+                .get("actionType")
+                .and_then(|v| v.as_str())
+                .map(|a| a == "run_user_script")
+                .unwrap_or(false);
+
+            if is_script {
+                obj.insert("actionType".to_string(), json!("none"));
+                obj.insert("actionEnabled".to_string(), json!(false));
+            }
+            if obj.contains_key("scriptPath") {
+                obj.insert("scriptPath".to_string(), json!(""));
+            }
+        }
+    }
+
+    if let Some(channels) = val.get_mut("channels").and_then(|c| c.as_array_mut()) {
+        for ch in channels {
+            if let Some(buttons) = ch.get_mut("buttons").and_then(|b| b.as_array_mut()) {
+                for btn in buttons {
+                    clean_button(btn);
+                }
+            }
+        }
+    }
+
+    if let Some(standalones) = val.get_mut("standaloneButtons").and_then(|s| s.as_array_mut()) {
+        for btn in standalones {
+            clean_button(btn);
+        }
+    }
+
+    if let Some(bindings) = val.get_mut("bindings").and_then(|b| b.as_object_mut()) {
+        if let Some(buttons) = bindings.get_mut("buttons").and_then(|b| b.as_array_mut()) {
+            for btn in buttons {
+                clean_button(btn);
+            }
+        }
     }
 }
 
@@ -460,6 +598,11 @@ mod tests {
         assert_eq!(ProfileStorage::normalize_profile_name("my:bad/profile*name?"), "my bad profile name");
         assert_eq!(ProfileStorage::normalize_profile_name("   "), "Profile");
         assert_eq!(ProfileStorage::normalize_profile_name("  Test   Profile  "), "Test Profile");
+        assert_eq!(ProfileStorage::normalize_profile_name(".."), "Profile");
+        assert_eq!(ProfileStorage::normalize_profile_name("..."), "Profile");
+        assert_eq!(ProfileStorage::normalize_profile_name("CON"), "Profile");
+        assert_eq!(ProfileStorage::normalize_profile_name("aux"), "Profile");
+        assert_eq!(ProfileStorage::normalize_profile_name("../../../etc/passwd"), "etc passwd");
     }
 
     #[test]
@@ -499,6 +642,119 @@ mod tests {
         assert_eq!(list[0].name, "Test Studio");
 
         // Clean up
+        let _ = fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn test_scan_and_strip_profile_scripts() {
+        let profile = json!({
+            "version": 1,
+            "meta": { "name": "Scripted Profile" },
+            "channels": [
+                {
+                    "id": 1,
+                    "app": "master",
+                    "buttons": [
+                        {
+                            "id": 101,
+                            "actionType": "run_user_script",
+                            "scriptPath": "C:\\scripts\\run_evil.bat"
+                        },
+                        {
+                            "id": 102,
+                            "actionType": "mute",
+                            "scriptPath": ""
+                        }
+                    ]
+                }
+            ],
+            "standaloneButtons": [
+                {
+                    "id": 201,
+                    "actionType": "run_user_script",
+                    "scriptPath": "D:\\tools\\launch.ps1"
+                }
+            ]
+        });
+
+        let scanned = scan_profile_scripts(&profile);
+        assert_eq!(scanned.len(), 2);
+        assert!(scanned.contains(&"C:\\scripts\\run_evil.bat".to_string()));
+        assert!(scanned.contains(&"D:\\tools\\launch.ps1".to_string()));
+
+        let mut cleaned = profile.clone();
+        strip_profile_scripts(&mut cleaned);
+
+        let scanned_after = scan_profile_scripts(&cleaned);
+        assert_eq!(scanned_after.len(), 0);
+
+        let ch_btn = &cleaned["channels"][0]["buttons"][0];
+        assert_eq!(ch_btn["actionType"], "none");
+        assert_eq!(ch_btn["scriptPath"], "");
+        assert_eq!(ch_btn["actionEnabled"], false);
+
+        let sa_btn = &cleaned["standaloneButtons"][0];
+        assert_eq!(sa_btn["actionType"], "none");
+        assert_eq!(sa_btn["scriptPath"], "");
+    }
+
+    #[test]
+    fn test_import_profile_script_confirmation_gate() {
+        let temp_dir = std::env::temp_dir().join(format!("faderdeck_test_gate_{}", std::time::SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos()));
+        let _ = fs::create_dir_all(&temp_dir);
+
+        let storage = ProfileStorage {
+            base_dir: temp_dir.clone(),
+        };
+
+        let profile_content = json!({
+            "version": 1,
+            "meta": { "name": "Dangerous Profile" },
+            "channels": [
+                {
+                    "id": 1,
+                    "app": "master",
+                    "buttons": [
+                        {
+                            "id": 101,
+                            "actionType": "run_user_script",
+                            "scriptPath": "C:\\tools\\exploit.ps1"
+                        }
+                    ]
+                }
+            ]
+        });
+
+        let profile_file = temp_dir.join("imported_dangerous.json");
+        fs::write(&profile_file, serde_json::to_string(&profile_content).unwrap()).unwrap();
+
+        // 1. Import without confirmation should be blocked
+        let res_blocked = storage.import_profile(profile_file.to_str().unwrap(), None);
+        assert!(!res_blocked.success);
+        assert_eq!(res_blocked.requires_confirmation, Some(true));
+        assert_eq!(res_blocked.has_user_scripts, Some(true));
+        assert_eq!(res_blocked.detected_scripts, Some(vec!["C:\\tools\\exploit.ps1".to_string()]));
+
+        // 2. Import with strip_scripts: true should succeed and strip scripts
+        let res_stripped = storage.import_profile(
+            profile_file.to_str().unwrap(),
+            Some(json!({ "name": "Safe Strip", "strip_scripts": true })),
+        );
+        assert!(res_stripped.success);
+        let loaded_stripped = storage.load_profile("Safe Strip").data.unwrap();
+        let scanned = scan_profile_scripts(&loaded_stripped);
+        assert_eq!(scanned.len(), 0);
+
+        // 3. Import with allow_scripts: true should succeed and keep scripts
+        let res_allowed = storage.import_profile(
+            profile_file.to_str().unwrap(),
+            Some(json!({ "name": "Allowed Dangerous", "allow_scripts": true })),
+        );
+        assert!(res_allowed.success);
+        let loaded_allowed = storage.load_profile("Allowed Dangerous").data.unwrap();
+        let scanned_allowed = scan_profile_scripts(&loaded_allowed);
+        assert_eq!(scanned_allowed.len(), 1);
+
         let _ = fs::remove_dir_all(&temp_dir);
     }
 }

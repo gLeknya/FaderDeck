@@ -112,12 +112,15 @@ pub fn show_profile_in_folder(profile_path: String) -> Value {
 
 #[tauri::command]
 pub async fn pick_profile_file(app: tauri::AppHandle) -> Value {
-    let file = app
-        .dialog()
-        .file()
-        .add_filter("JSON Profiles", &["json"])
-        .add_filter("All Files", &["*"])
-        .blocking_pick_file();
+    let file = tauri::async_runtime::spawn_blocking(move || {
+        app.dialog()
+            .file()
+            .add_filter("JSON Profiles", &["json"])
+            .add_filter("All Files", &["*"])
+            .blocking_pick_file()
+    })
+    .await
+    .unwrap_or(None);
 
     match file {
         Some(path) => json!({
@@ -135,20 +138,24 @@ pub async fn pick_profile_file(app: tauri::AppHandle) -> Value {
 
 #[tauri::command]
 pub async fn pick_action_file(app: tauri::AppHandle, mode: Option<String>) -> Value {
-    let is_script = mode.as_deref().unwrap_or("app") == "script";
-    let mut builder = app.dialog().file();
+    let file = tauri::async_runtime::spawn_blocking(move || {
+        let is_script = mode.as_deref().unwrap_or("app") == "script";
+        let mut builder = app.dialog().file();
 
-    if is_script {
-        builder = builder
-            .add_filter("Scripts", &["ps1", "cmd", "bat", "js", "cjs", "mjs", "vbs", "wsf"])
-            .add_filter("All Files", &["*"]);
-    } else {
-        builder = builder
-            .add_filter("Applications", &["exe", "lnk", "cmd", "bat", "appref-ms"])
-            .add_filter("All Files", &["*"]);
-    }
+        if is_script {
+            builder = builder
+                .add_filter("Scripts", &["ps1", "cmd", "bat", "js", "cjs", "mjs", "vbs", "wsf"])
+                .add_filter("All Files", &["*"]);
+        } else {
+            builder = builder
+                .add_filter("Applications", &["exe", "lnk", "cmd", "bat", "appref-ms"])
+                .add_filter("All Files", &["*"]);
+        }
 
-    let file = builder.blocking_pick_file();
+        builder.blocking_pick_file()
+    })
+    .await
+    .unwrap_or(None);
 
     match file {
         Some(path) => json!({

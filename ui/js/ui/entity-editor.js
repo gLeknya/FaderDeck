@@ -2552,8 +2552,8 @@
         <button
           class="entity-edit-target-placeholder entity-edit-channel-button-placeholder entity-edit-channel-button-add-row"
           data-editor-channel-button-add-row
-          type="button"
-          onclick="handleEditorAddChannelButton(${channel.id})">
+          data-channel-id="${channel.id}"
+          type="button">
           ${t('editor.addChannelButton')}
         </button>
       `
@@ -5148,6 +5148,17 @@
 
     if (event.target.closest('[data-editor-open-targets]')) {
       openTargetsPanel();
+      return;
+    }
+
+    const addChannelButtonRow = event.target.closest(
+      '[data-editor-channel-button-add-row]'
+    );
+    if (addChannelButtonRow) {
+      const channelId = Number(
+        addChannelButtonRow.dataset.channelId || editorState.channelId
+      );
+      handleEditorAddChannelButton(channelId);
       return;
     }
 

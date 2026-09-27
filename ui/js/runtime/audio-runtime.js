@@ -497,6 +497,147 @@
     return getAvailableAudioApps();
   }
 
+  // --- PERF-3: Unified Audio State Polling Coordinator ---
+  const COORDINATOR_POLL_INTERVAL_MS = 45;
+  const COORDINATOR_BACKGROUND_INTERVAL_MS = 1000;
+
+  const audioCoordinatorState = {
+    pollTimerId: null,
+    pollIntervalMs: 0,
+    clients: new Map(),
+    inFlight: null
+  };
+
+  function isRendererUiVisibleForCoordinator() {
+    return document.visibilityState === 'visible';
+  }
+
+  function getCoordinatorIntervalMs() {
+    return isRendererUiVisibleForCoordinator()
+      ? COORDINATOR_POLL_INTERVAL_MS
+      : COORDINATOR_BACKGROUND_INTERVAL_MS;
+  }
+
+  function collectAllCoordinatorProcesses() {
+    const processes = new Set();
+    audioCoordinatorState.clients.forEach((client) => {
+      try {
+        const list = client.getProcesses?.() || [];
+        for (const p of list) {
+          const trimmed = String(p || '').trim().toLowerCase();
+          if (trimmed) processes.add(trimmed);
+        }
+      } catch (err) {
+        console.error('Coordinator getProcesses error', err);
+      }
+    });
+    return Array.from(processes);
+  }
+
+  async function tickAudioStateCoordinator() {
+    if (audioCoordinatorState.inFlight) {
+      return audioCoordinatorState.inFlight;
+    }
+
+    const processes = collectAllCoordinatorProcesses();
+    const targeting = window.channelTargeting || null;
+
+    if (!processes.length && audioCoordinatorState.clients.size === 0) {
+      return;
+    }
+
+    audioCoordinatorState.inFlight = (async () => {
+      let stateMap = new Map();
+      if (processes.length) {
+        if (typeof targeting?.getProcessAudioStateMap === 'function') {
+          stateMap = await targeting.getProcessAudioStateMap(processes, {
+            live: true,
+            force: true
+          });
+        } else {
+          const api = getAudioApi();
+          if (api?.get_audio_states) {
+            try {
+              const res = await api.get_audio_states(processes);
+              const apps = Array.isArray(res?.applications) ? res.applications : [];
+              stateMap = new Map(
+                apps.map((app) => [String(app?.process || '').trim().toLowerCase(), app])
+              );
+            } catch (e) {
+              console.error('Coordinator get_audio_states error', e);
+            }
+          }
+        }
+      }
+
+      // Notify all registered clients
+      audioCoordinatorState.clients.forEach((client) => {
+        try {
+          client.onUpdate?.(stateMap);
+        } catch (err) {
+          console.error('Coordinator client onUpdate error', err);
+        }
+      });
+      return stateMap;
+    })().finally(() => {
+      audioCoordinatorState.inFlight = null;
+    });
+
+    return audioCoordinatorState.inFlight;
+  }
+
+  function syncAudioStateCoordinatorPolling() {
+    const hasClients = audioCoordinatorState.clients.size > 0;
+    const nextIntervalMs = getCoordinatorIntervalMs();
+
+    if (!hasClients) {
+      if (audioCoordinatorState.pollTimerId) {
+        clearInterval(audioCoordinatorState.pollTimerId);
+        audioCoordinatorState.pollTimerId = null;
+        audioCoordinatorState.pollIntervalMs = 0;
+      }
+      return;
+    }
+
+    if (
+      audioCoordinatorState.pollTimerId &&
+      audioCoordinatorState.pollIntervalMs === nextIntervalMs
+    ) {
+      return;
+    }
+
+    if (audioCoordinatorState.pollTimerId) {
+      clearInterval(audioCoordinatorState.pollTimerId);
+      audioCoordinatorState.pollTimerId = null;
+    }
+
+    audioCoordinatorState.pollTimerId = window.setInterval(() => {
+      tickAudioStateCoordinator();
+    }, nextIntervalMs);
+    audioCoordinatorState.pollIntervalMs = nextIntervalMs;
+  }
+
+  document.addEventListener('visibilitychange', () => {
+    syncAudioStateCoordinatorPolling();
+  });
+
+  const audioStateCoordinator = {
+    registerClient(clientId, options) {
+      audioCoordinatorState.clients.set(clientId, options);
+      syncAudioStateCoordinatorPolling();
+    },
+    unregisterClient(clientId) {
+      audioCoordinatorState.clients.delete(clientId);
+      syncAudioStateCoordinatorPolling();
+    },
+    syncPolling: syncAudioStateCoordinatorPolling,
+    requestRefresh() {
+      return tickAudioStateCoordinator();
+    }
+  };
+
+  window.audioStateCoordinator = audioStateCoordinator;
+
   function initAudioRuntime() {
     return getAudioRuntimeState();
   }
@@ -511,7 +652,8 @@
     setAudioRuntimeApps,
     loadAudioApps,
     requestAudioAppsRefresh,
-    refreshLocalization: refreshAudioRuntimeLocalization
+    refreshLocalization: refreshAudioRuntimeLocalization,
+    audioStateCoordinator
   };
 
   // Compatibility exports for existing renderer code.

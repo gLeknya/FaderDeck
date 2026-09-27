@@ -738,16 +738,7 @@ function getStandaloneLayoutInteractionAttributes(layoutItem) {
     return '';
   }
 
-  const zone =
-    layoutItem.zone || window.LAYOUT_ZONES?.standalone || 'standalone';
-
-  return `
-    draggable="true"
-    ondragstart="startLayoutSurfaceDrag(event, '${layoutItem.id}')"
-    ondragend="endLayoutSurfaceDrag(event)"
-    ondragover="previewLayoutSurfaceDrop(event, '${zone}', '${layoutItem.id}')"
-    ondrop="dropLayoutSurfaceItem(event, '${zone}', '${layoutItem.id}')"
-  `;
+  return 'draggable="true"';
 }
 
 function renderStandaloneLayoutEditOverlay(layoutItem, labelKey) {
@@ -762,9 +753,8 @@ function renderStandaloneLayoutEditOverlay(layoutItem, labelKey) {
     <button
       class="layout-edit-overlay ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
       type="button"
-      onclick="selectLayoutSurfaceItem('${layoutItem.id}')"
-      onmouseenter="hoverLayoutSurfaceItem('${layoutItem.id}')"
-      onmouseleave="clearLayoutSurfaceHover()">
+      data-layout-overlay-action="select"
+      data-layout-item-id="${layoutItem.id}">
       <span class="layout-edit-overlay__label">${t(labelKey)}</span>
     </button>
   `;
@@ -786,7 +776,8 @@ function renderStandaloneLayoutItemActions(layoutItem) {
         type="button"
         title="${t('layout.removeSpacer')}"
         aria-label="${t('layout.removeSpacer')}"
-        onclick="removeLayoutSpacer('${layoutItem.id}')">
+        data-layout-spacer-action="remove"
+        data-layout-item-id="${layoutItem.id}">
         &times;
       </button>
     </div>
@@ -804,7 +795,7 @@ function renderStandaloneLayoutInsertControl() {
       type="button"
       title="${t('layout.addSpacer')}"
       aria-label="${t('layout.addSpacer')}"
-      onclick="insertLayoutSpacerIntoZone('${window.LAYOUT_ZONES?.standalone || 'standalone'}')">
+      data-layout-insert-zone="${window.LAYOUT_ZONES?.standalone || 'standalone'}">
       <span class="layout-zone-insert__plus">+</span>
       <span class="layout-zone-insert__label">${t('layout.addSpacer')}</span>
     </button>
@@ -978,8 +969,7 @@ function renderStandaloneButtons() {
           ${getStandaloneLayoutInteractionAttributes(layoutItem)}>
           <div class="${getStandaloneButtonClassName(button)}"
                data-button-id="${button.id}"
-               onclick="toggleStandaloneButton(${button.id})"
-               ondblclick="configureStandaloneButton(${button.id})">
+               data-standalone-button-action="toggle">
             ${renderStandaloneButtonBodyMarkup(button)}
           </div>
           ${renderStandaloneLayoutEditOverlay(layoutItem, 'layout.itemTypes.standaloneButton')}
@@ -992,14 +982,121 @@ function renderStandaloneButtons() {
   const addMarkup =
     standaloneButtonsList.length < MAX_STANDALONE_BUTTONS
       ? `
-      <div class="standalone-add-strip ${layoutEditModeEnabled ? 'is-disabled' : ''}" ${layoutEditModeEnabled ? '' : 'onclick="addStandaloneButton()"'} >
+      <div class="standalone-add-strip ${layoutEditModeEnabled ? 'is-disabled' : ''}" data-standalone-action="add">
         <div class="add-channel-plus">+</div>
       </div>
     `
       : '';
 
   container.innerHTML = `${buttonsMarkup}${renderStandaloneLayoutInsertControl()}${addMarkup}`;
+  initStandaloneButtonsContainerEvents();
   scheduleContentMetricsUpdate();
+}
+
+function initStandaloneButtonsContainerEvents() {
+  const container = document.getElementById('standaloneButtons');
+  if (!container || container.dataset.standaloneEventsBound === 'true') {
+    return;
+  }
+  container.dataset.standaloneEventsBound = 'true';
+
+  container.addEventListener('click', (event) => {
+    const overlay = event.target.closest('[data-layout-overlay-action="select"]');
+    if (overlay) {
+      const id = overlay.dataset.layoutItemId;
+      if (id) selectLayoutSurfaceItem(id);
+      return;
+    }
+
+    const removeSpacerBtn = event.target.closest('[data-layout-spacer-action="remove"]');
+    if (removeSpacerBtn) {
+      const id = removeSpacerBtn.dataset.layoutItemId;
+      if (id) removeLayoutSpacer(id);
+      return;
+    }
+
+    const insertSpacerBtn = event.target.closest('[data-layout-insert-zone]');
+    if (insertSpacerBtn) {
+      const zone = insertSpacerBtn.dataset.layoutInsertZone;
+      if (zone) insertLayoutSpacerIntoZone(zone);
+      return;
+    }
+
+    const btn = event.target.closest('[data-standalone-button-action="toggle"]');
+    if (btn) {
+      const btnId = Number(btn.dataset.buttonId);
+      if (Number.isFinite(btnId)) toggleStandaloneButton(btnId);
+      return;
+    }
+
+    const addStrip = event.target.closest('[data-standalone-action="add"]');
+    if (addStrip) {
+      if (!getStandaloneLayoutEditModeEnabled()) {
+        addStandaloneButton();
+      }
+    }
+  });
+
+  container.addEventListener('dblclick', (event) => {
+    const btn = event.target.closest('[data-standalone-button-action="toggle"]');
+    if (btn) {
+      const btnId = Number(btn.dataset.buttonId);
+      if (Number.isFinite(btnId)) configureStandaloneButton(btnId);
+    }
+  });
+
+  container.addEventListener('mouseover', (event) => {
+    const overlay = event.target.closest('[data-layout-overlay-action="select"]');
+    if (overlay) {
+      const id = overlay.dataset.layoutItemId;
+      if (id) hoverLayoutSurfaceItem(id);
+    }
+  });
+
+  container.addEventListener('mouseout', (event) => {
+    const overlay = event.target.closest('[data-layout-overlay-action="select"]');
+    if (overlay) {
+      clearLayoutSurfaceHover();
+    }
+  });
+
+  container.addEventListener('dragstart', (event) => {
+    const item = event.target.closest('[data-layout-item-id]');
+    if (item && item.getAttribute('draggable') === 'true') {
+      const id = item.dataset.layoutItemId;
+      if (id && typeof window.startLayoutSurfaceDrag === 'function') {
+        window.startLayoutSurfaceDrag(event, id);
+      }
+    }
+  });
+
+  container.addEventListener('dragend', (event) => {
+    if (typeof window.endLayoutSurfaceDrag === 'function') {
+      window.endLayoutSurfaceDrag(event);
+    }
+  });
+
+  container.addEventListener('dragover', (event) => {
+    const item = event.target.closest('[data-layout-item-id]');
+    if (item) {
+      const id = item.dataset.layoutItemId;
+      const zone = item.dataset.layoutZone || window.LAYOUT_ZONES?.standalone || 'standalone';
+      if (id && typeof window.previewLayoutSurfaceDrop === 'function') {
+        window.previewLayoutSurfaceDrop(event, zone, id);
+      }
+    }
+  });
+
+  container.addEventListener('drop', (event) => {
+    const item = event.target.closest('[data-layout-item-id]');
+    if (item) {
+      const id = item.dataset.layoutItemId;
+      const zone = item.dataset.layoutZone || window.LAYOUT_ZONES?.standalone || 'standalone';
+      if (id && typeof window.dropLayoutSurfaceItem === 'function') {
+        window.dropLayoutSurfaceItem(event, zone, id);
+      }
+    }
+  });
 }
 
 function toggleStandaloneButton(buttonId) {

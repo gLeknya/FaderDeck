@@ -1,7 +1,7 @@
 use super::focus::from_wide_slice;
 use serde::{Deserialize, Serialize};
 use std::os::windows::process::CommandExt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use windows::core::PCWSTR;
 use windows::Win32::Foundation::{HWND, LPARAM};
@@ -73,6 +73,28 @@ pub fn launch_application(file_path: &str) -> LaunchResult {
     }
 }
 
+pub const FORBIDDEN_SHELL_CHARS: &[char] = &['&', '|', '<', '>', '^', '%', '\r', '\n', '"'];
+
+pub fn contains_shell_injection_chars(s: &str) -> bool {
+    s.chars().any(|c| FORBIDDEN_SHELL_CHARS.contains(&c))
+}
+
+pub fn strip_verbatim_prefix(path: &Path) -> PathBuf {
+    let s = path.to_string_lossy();
+    if let Some(stripped) = s.strip_prefix(r"\\?\UNC\") {
+        PathBuf::from(format!(r"\\{}", stripped))
+    } else if let Some(stripped) = s.strip_prefix(r"\\?\") {
+        PathBuf::from(stripped)
+    } else {
+        path.to_path_buf()
+    }
+}
+
+pub fn canonicalize_path(path: &Path) -> std::io::Result<PathBuf> {
+    let canonical = std::fs::canonicalize(path)?;
+    Ok(strip_verbatim_prefix(&canonical))
+}
+
 pub fn run_user_script(file_path: &str) -> LaunchResult {
     let path = Path::new(file_path);
     if !path.exists() {
@@ -83,33 +105,80 @@ pub fn run_user_script(file_path: &str) -> LaunchResult {
         };
     }
 
-    let ext = path
+    let canonical_path = match canonicalize_path(path) {
+        Ok(p) => p,
+        Err(e) => {
+            return LaunchResult {
+                success: false,
+                error: Some(format!("Canonicalization error: {}", e)),
+                path: Some(file_path.to_string()),
+            };
+        }
+    };
+
+    if !canonical_path.is_file() {
+        return LaunchResult {
+            success: false,
+            error: Some("Target is not a regular file".to_string()),
+            path: Some(file_path.to_string()),
+        };
+    }
+
+    let ext = canonical_path
         .extension()
         .and_then(|s| s.to_str())
         .unwrap_or("")
         .to_lowercase();
 
+    let canonical_str = canonical_path.to_string_lossy().to_string();
+
     let child = match ext.as_str() {
         "ps1" => Command::new("powershell.exe")
-            .args(["-NoLogo", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", file_path])
+            .args([
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-File",
+                &canonical_str,
+            ])
             .creation_flags(CREATE_NO_WINDOW)
             .spawn(),
-        "cmd" | "bat" => Command::new("cmd.exe")
-            .args(["/c", file_path])
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn(),
-        "vbs" | "wsf" => Command::new("wscript.exe")
-            .arg(file_path)
-            .creation_flags(CREATE_NO_WINDOW)
-            .spawn(),
-        _ => return launch_application(file_path),
+        "cmd" | "bat" => {
+            if contains_shell_injection_chars(&canonical_str) {
+                return LaunchResult {
+                    success: false,
+                    error: Some("Invalid characters in script path".to_string()),
+                    path: Some(file_path.to_string()),
+                };
+            }
+            Command::new("cmd.exe")
+                .args(["/d", "/c", &canonical_str])
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn()
+        }
+        "vbs" | "wsf" => {
+            if contains_shell_injection_chars(&canonical_str) {
+                return LaunchResult {
+                    success: false,
+                    error: Some("Invalid characters in script path".to_string()),
+                    path: Some(file_path.to_string()),
+                };
+            }
+            Command::new("wscript.exe")
+                .arg(&canonical_str)
+                .creation_flags(CREATE_NO_WINDOW)
+                .spawn()
+        }
+        _ => return launch_application(&canonical_str),
     };
 
     match child {
         Ok(_) => LaunchResult {
             success: true,
             error: None,
-            path: Some(file_path.to_string()),
+            path: Some(canonical_str),
         },
         Err(e) => LaunchResult {
             success: false,
@@ -231,5 +300,64 @@ pub fn set_process_window_visibility(
             error: None,
             visible: Some(next_visible),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_strip_verbatim_prefix() {
+        let p1 = Path::new(r"\\?\C:\Windows\System32");
+        assert_eq!(strip_verbatim_prefix(p1), PathBuf::from(r"C:\Windows\System32"));
+
+        let p2 = Path::new(r"\\?\UNC\server\share\file.txt");
+        assert_eq!(strip_verbatim_prefix(p2), PathBuf::from(r"\\server\share\file.txt"));
+
+        let p3 = Path::new(r"C:\Windows\System32");
+        assert_eq!(strip_verbatim_prefix(p3), PathBuf::from(r"C:\Windows\System32"));
+    }
+
+    #[test]
+    fn test_contains_shell_injection_chars() {
+        assert!(!contains_shell_injection_chars(r"C:\Scripts\my_safe_script.bat"));
+        assert!(!contains_shell_injection_chars(r"C:\Program Files\App\run.cmd"));
+
+        assert!(contains_shell_injection_chars(r"C:\Scripts\test.bat & calc.exe"));
+        assert!(contains_shell_injection_chars(r"C:\Scripts\test.bat | notepad"));
+        assert!(contains_shell_injection_chars(r"C:\Scripts\test.bat > out.txt"));
+        assert!(contains_shell_injection_chars(r"C:\Scripts\test.bat < in.txt"));
+        assert!(contains_shell_injection_chars(r"C:\Scripts\test^.bat"));
+        assert!(contains_shell_injection_chars(r"C:\Scripts\%PATH%.bat"));
+        assert!(contains_shell_injection_chars("C:\\Scripts\\test.bat\ncalc"));
+        assert!(contains_shell_injection_chars("C:\\Scripts\\\"test\".bat"));
+    }
+
+    #[test]
+    fn test_run_user_script_nonexistent() {
+        let res = run_user_script(r"C:\non_existent_folder_xyz\test.ps1");
+        assert!(!res.success);
+        assert_eq!(res.error, Some("file-not-found".to_string()));
+    }
+
+    #[test]
+    fn test_run_user_script_execution() {
+        let temp_dir = std::env::temp_dir();
+        let ps1_file = temp_dir.join("faderdeck_test_safe.ps1");
+        let cmd_file = temp_dir.join("faderdeck_test_safe.cmd");
+
+        std::fs::write(&ps1_file, "Write-Output 'safe'").expect("write ps1");
+        std::fs::write(&cmd_file, "@echo off\r\necho safe\r\n").expect("write cmd");
+
+        let res_ps1 = run_user_script(ps1_file.to_str().unwrap());
+        assert!(res_ps1.success, "ps1 execution should succeed: {:?}", res_ps1.error);
+
+        let res_cmd = run_user_script(cmd_file.to_str().unwrap());
+        assert!(res_cmd.success, "cmd execution should succeed: {:?}", res_cmd.error);
+
+        std::thread::sleep(std::time::Duration::from_millis(800));
+        let _ = std::fs::remove_file(&ps1_file);
+        let _ = std::fs::remove_file(&cmd_file);
     }
 }

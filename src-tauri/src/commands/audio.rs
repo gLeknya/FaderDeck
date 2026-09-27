@@ -4,7 +4,7 @@ use crate::audio::{
     set_audio_device_mute as wasapi_set_device_mute,
     set_audio_device_volume as wasapi_set_device_volume,
     set_default_audio_device as wasapi_set_default_device, set_session_mute, set_session_volume,
-    toggle_session_mute, AudioApplication, DeviceListResult,
+    set_sessions_volume_batch, toggle_session_mute, AudioApplication, DeviceListResult,
     SetMuteResult, SetVolumeResult,
 };
 use crate::state::AppState;
@@ -156,15 +156,15 @@ pub fn set_app_volume_batch(
     volume_map: HashMap<String, f64>,
     state: State<'_, AppState>,
 ) -> Value {
+    let results = set_sessions_volume_batch(&volume_map);
     let mut updated_count = 0;
     let mut remembered = state.remembered_audio_states.lock();
 
-    for (proc, vol) in volume_map {
-        let res = set_session_volume(&proc, vol);
+    for (proc_norm, res) in results {
         if res.updated_count > 0 {
             updated_count += res.updated_count;
         }
-        remembered.insert(proc.to_lowercase(), (res.volume, res.muted));
+        remembered.insert(proc_norm, (res.volume, res.muted));
     }
 
     json!({

@@ -25,6 +25,17 @@ pub struct FocusedApplication {
     pub has_window: bool,
 }
 
+struct CachedFocus {
+    hwnd: usize,
+    pid: u32,
+    process: String,
+    process_name: String,
+    path: String,
+    window_title: String,
+}
+
+static LAST_FOCUS: parking_lot::Mutex<Option<CachedFocus>> = parking_lot::Mutex::new(None);
+
 pub fn from_wide_slice(slice: &[u16]) -> String {
     let end = slice.iter().position(|&c| c == 0).unwrap_or(slice.len());
     OsString::from_wide(&slice[..end])
@@ -53,6 +64,26 @@ pub fn get_focused_application() -> Option<FocusedApplication> {
             String::new()
         };
 
+        let hwnd_val = hwnd.0 as usize;
+        {
+            let mut cache = LAST_FOCUS.lock();
+            if let Some(ref mut c) = *cache {
+                if c.hwnd == hwnd_val && c.pid == pid {
+                    if c.window_title != window_title {
+                        c.window_title = window_title.clone();
+                    }
+                    return Some(FocusedApplication {
+                        pid,
+                        process: c.process.clone(),
+                        process_name: c.process_name.clone(),
+                        path: c.path.clone(),
+                        has_window: !window_title.is_empty(),
+                        main_window_title: window_title,
+                    });
+                }
+            }
+        }
+
         let process_handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid);
         let (process_path, process_name, process_file) = if let Ok(handle) = process_handle {
             let mut path_buf = [0u16; 1024];
@@ -79,6 +110,18 @@ pub fn get_focused_application() -> Option<FocusedApplication> {
 
         if process_file.is_empty() {
             return None;
+        }
+
+        {
+            let mut cache = LAST_FOCUS.lock();
+            *cache = Some(CachedFocus {
+                hwnd: hwnd_val,
+                pid,
+                process: process_file.clone(),
+                process_name: process_name.clone(),
+                path: process_path.clone(),
+                window_title: window_title.clone(),
+            });
         }
 
         Some(FocusedApplication {

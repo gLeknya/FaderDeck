@@ -134,15 +134,7 @@ function getChannelLayoutInteractionAttributes(layoutItem) {
     return '';
   }
 
-  const zone = layoutItem.zone || window.LAYOUT_ZONES?.mixer || 'mixer';
-
-  return `
-    draggable="true"
-    ondragstart="startLayoutSurfaceDrag(event, '${layoutItem.id}')"
-    ondragend="endLayoutSurfaceDrag(event)"
-    ondragover="previewLayoutSurfaceDrop(event, '${zone}', '${layoutItem.id}')"
-    ondrop="dropLayoutSurfaceItem(event, '${zone}', '${layoutItem.id}')"
-  `;
+  return 'draggable="true"';
 }
 
 function renderChannelLayoutEditOverlay(layoutItem, labelKey) {
@@ -157,9 +149,8 @@ function renderChannelLayoutEditOverlay(layoutItem, labelKey) {
     <button
       class="layout-edit-overlay ${isSelected ? 'is-selected' : ''} ${isHovered ? 'is-hovered' : ''}"
       type="button"
-      onclick="selectLayoutSurfaceItem('${layoutItem.id}')"
-      onmouseenter="hoverLayoutSurfaceItem('${layoutItem.id}')"
-      onmouseleave="clearLayoutSurfaceHover()">
+      data-layout-overlay-action="select"
+      data-layout-item-id="${layoutItem.id}">
       <span class="layout-edit-overlay__label">${t(labelKey)}</span>
     </button>
   `;
@@ -181,7 +172,8 @@ function renderChannelLayoutItemActions(layoutItem) {
         type="button"
         title="${t('layout.removeSpacer')}"
         aria-label="${t('layout.removeSpacer')}"
-        onclick="removeLayoutSpacer('${layoutItem.id}')">
+        data-layout-spacer-action="remove"
+        data-layout-item-id="${layoutItem.id}">
         &times;
       </button>
     </div>
@@ -199,7 +191,7 @@ function renderMixerLayoutInsertControl() {
       type="button"
       title="${t('layout.addSpacer')}"
       aria-label="${t('layout.addSpacer')}"
-      onclick="insertLayoutSpacerIntoZone('${window.LAYOUT_ZONES?.mixer || 'mixer'}')">
+      data-layout-insert-zone="${window.LAYOUT_ZONES?.mixer || 'mixer'}">
       <span class="layout-zone-insert__plus">+</span>
       <span class="layout-zone-insert__label">${t('layout.addSpacer')}</span>
     </button>
@@ -1990,8 +1982,7 @@ function renderChannelButtonSlot(channel, button) {
             type="button"
             data-channel-id="${channel.id}"
             data-button-id="${button.id}"
-            onclick="toggleButton(${channel.id}, ${button.id})"
-            ondblclick="configureButton(${channel.id}, ${button.id})">
+            data-channel-button-action="toggle">
       ${bodyMarkup}
     </button>
   `;
@@ -2178,8 +2169,7 @@ function renderChannelConfigureButton(channel) {
       <button
         class="btn channel-configure-button"
         type="button"
-        data-channel-configure-id="${channel.id}"
-        onclick="configureChannel(${channel.id})">
+        data-channel-configure-id="${channel.id}">
         ${t('channels.configure')}
       </button>
     </div>
@@ -2191,7 +2181,7 @@ function renderAddChannelStrip(options = {}) {
   const emptyState = Boolean(options.emptyState);
 
   return `
-    <div class="add-channel-strip ${emptyState ? 'add-channel-strip--empty' : ''} ${layoutEditModeEnabled ? 'is-disabled' : ''}" ${layoutEditModeEnabled ? '' : 'onclick="createChannel()"'} >
+    <div class="add-channel-strip ${emptyState ? 'add-channel-strip--empty' : ''} ${layoutEditModeEnabled ? 'is-disabled' : ''}" data-channel-action="add">
       <div class="add-channel-plus">+</div>
     </div>
   `;
@@ -2244,7 +2234,7 @@ function renderChannel(channel, layoutItem = null) {
       ${getChannelLayoutInteractionAttributes(resolvedLayoutItem)}>
       <div class="channel-strip channel-strip--${channelButtonLayoutMode}" data-channel-id="${channel.id}">
         <div class="channel-body">
-          <div class="channel-title" title="${title}" ondblclick="editChannelTitle(${channel.id})">
+          <div class="channel-title" title="${title}" data-channel-title-edit-id="${channel.id}">
             ${renderChannelTitleMarkup(channel, title)}
           </div>
 
@@ -2341,6 +2331,7 @@ function renderMixer() {
   if (!container) {
     return;
   }
+  initMixerContainerEvents();
 
   if (channels.length === 0 && layoutItems.length === 0) {
     channelAudioRuntimeState.clear();
@@ -2377,6 +2368,138 @@ function renderMixer() {
   triggerNewChannelFlash(container);
   syncAddChannelStripHeight(container);
   scheduleContentMetricsUpdate();
+}
+
+function initMixerContainerEvents() {
+  const container = document.getElementById('mixerContainer');
+  if (!container || container.dataset.mixerEventsBound === 'true') {
+    return;
+  }
+  container.dataset.mixerEventsBound = 'true';
+
+  container.addEventListener('click', (event) => {
+    const overlay = event.target.closest('[data-layout-overlay-action="select"]');
+    if (overlay) {
+      const id = overlay.dataset.layoutItemId;
+      if (id) selectLayoutSurfaceItem(id);
+      return;
+    }
+
+    const removeSpacerBtn = event.target.closest('[data-layout-spacer-action="remove"]');
+    if (removeSpacerBtn) {
+      const id = removeSpacerBtn.dataset.layoutItemId;
+      if (id) removeLayoutSpacer(id);
+      return;
+    }
+
+    const insertSpacerBtn = event.target.closest('[data-layout-insert-zone]');
+    if (insertSpacerBtn) {
+      const zone = insertSpacerBtn.dataset.layoutInsertZone;
+      if (zone) insertLayoutSpacerIntoZone(zone);
+      return;
+    }
+
+    const configBtn = event.target.closest('[data-channel-configure-id]');
+    if (configBtn) {
+      const channelId = Number(configBtn.dataset.channelConfigureId);
+      if (Number.isFinite(channelId)) {
+        configureChannel(channelId);
+      }
+      return;
+    }
+
+    const addStrip = event.target.closest('[data-channel-action="add"]');
+    if (addStrip) {
+      if (!getChannelLayoutEditModeEnabled()) {
+        createChannel();
+      }
+      return;
+    }
+
+    const btn = event.target.closest('[data-channel-button-action="toggle"]');
+    if (btn) {
+      const channelId = Number(btn.dataset.channelId);
+      const buttonId = Number(btn.dataset.buttonId);
+      if (Number.isFinite(channelId) && Number.isFinite(buttonId)) {
+        toggleButton(channelId, buttonId);
+      }
+      return;
+    }
+  });
+
+  container.addEventListener('dblclick', (event) => {
+    const btn = event.target.closest('[data-channel-button-action="toggle"]');
+    if (btn) {
+      const channelId = Number(btn.dataset.channelId);
+      const buttonId = Number(btn.dataset.buttonId);
+      if (Number.isFinite(channelId) && Number.isFinite(buttonId)) {
+        configureButton(channelId, buttonId);
+      }
+      return;
+    }
+
+    const titleElem = event.target.closest('[data-channel-title-edit-id]');
+    if (titleElem) {
+      const channelId = Number(titleElem.dataset.channelTitleEditId);
+      if (Number.isFinite(channelId)) {
+        editChannelTitle(channelId);
+      }
+      return;
+    }
+  });
+
+  container.addEventListener('mouseover', (event) => {
+    const overlay = event.target.closest('[data-layout-overlay-action="select"]');
+    if (overlay) {
+      const id = overlay.dataset.layoutItemId;
+      if (id) hoverLayoutSurfaceItem(id);
+    }
+  });
+
+  container.addEventListener('mouseout', (event) => {
+    const overlay = event.target.closest('[data-layout-overlay-action="select"]');
+    if (overlay) {
+      clearLayoutSurfaceHover();
+    }
+  });
+
+  container.addEventListener('dragstart', (event) => {
+    const item = event.target.closest('[data-layout-item-id]');
+    if (item && item.getAttribute('draggable') === 'true') {
+      const id = item.dataset.layoutItemId;
+      if (id && typeof window.startLayoutSurfaceDrag === 'function') {
+        window.startLayoutSurfaceDrag(event, id);
+      }
+    }
+  });
+
+  container.addEventListener('dragend', (event) => {
+    if (typeof window.endLayoutSurfaceDrag === 'function') {
+      window.endLayoutSurfaceDrag(event);
+    }
+  });
+
+  container.addEventListener('dragover', (event) => {
+    const item = event.target.closest('[data-layout-item-id]');
+    if (item) {
+      const id = item.dataset.layoutItemId;
+      const zone = item.dataset.layoutZone || window.LAYOUT_ZONES?.mixer || 'mixer';
+      if (id && typeof window.previewLayoutSurfaceDrop === 'function') {
+        window.previewLayoutSurfaceDrop(event, zone, id);
+      }
+    }
+  });
+
+  container.addEventListener('drop', (event) => {
+    const item = event.target.closest('[data-layout-item-id]');
+    if (item) {
+      const id = item.dataset.layoutItemId;
+      const zone = item.dataset.layoutZone || window.LAYOUT_ZONES?.mixer || 'mixer';
+      if (id && typeof window.dropLayoutSurfaceItem === 'function') {
+        window.dropLayoutSurfaceItem(event, zone, id);
+      }
+    }
+  });
 }
 
 function initChannelUiStateSync() {

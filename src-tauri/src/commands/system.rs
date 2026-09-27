@@ -8,8 +8,11 @@ use crate::system::runner::{
 use crate::window::hud_window::show_volume_hud as win32_show_hud;
 use crate::window::main_window::{handle_window_control as win32_window_control, set_close_to_tray};
 use serde_json::{json, Value};
-use std::process::Command;
 use tauri::{AppHandle, Manager};
+use windows::core::PCWSTR;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::Shell::ShellExecuteW;
+use windows::Win32::UI::WindowsAndMessaging::SW_SHOWNORMAL;
 
 #[tauri::command]
 pub fn get_focused_application() -> Value {
@@ -82,12 +85,38 @@ pub fn check_for_updates(_options: Option<Value>) -> Value {
     })
 }
 
+pub fn is_allowed_external_url(target_url: &str) -> bool {
+    let trimmed = target_url.trim();
+    let lower = trimmed.to_lowercase();
+    lower.starts_with("http://") || lower.starts_with("https://")
+}
+
+pub fn safe_open_external_url(target_url: &str) -> bool {
+    if !is_allowed_external_url(target_url) {
+        return false;
+    }
+
+    let trimmed = target_url.trim();
+    let wide_file: Vec<u16> = trimmed.encode_utf16().chain(std::iter::once(0)).collect();
+    let wide_open: Vec<u16> = "open".encode_utf16().chain(std::iter::once(0)).collect();
+
+    unsafe {
+        let res = ShellExecuteW(
+            HWND(std::ptr::null_mut()),
+            PCWSTR(wide_open.as_ptr()),
+            PCWSTR(wide_file.as_ptr()),
+            PCWSTR(std::ptr::null()),
+            PCWSTR(std::ptr::null()),
+            SW_SHOWNORMAL,
+        );
+        res.0 as usize > 32
+    }
+}
+
 #[tauri::command]
 pub fn open_external_url(target_url: String) -> Value {
-    let _ = Command::new("cmd.exe")
-        .args(["/c", "start", "", &target_url])
-        .spawn();
-    json!({ "success": true })
+    let success = safe_open_external_url(&target_url);
+    json!({ "success": success })
 }
 
 #[tauri::command]
@@ -137,3 +166,20 @@ pub fn exit_app(app: AppHandle) {
 pub fn window_control(app: AppHandle, action: String) {
     win32_window_control(&app, &action);
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_is_allowed_external_url() {
+        assert!(is_allowed_external_url("https://github.com/gLeknya/FaderDeck"));
+        assert!(is_allowed_external_url("http://localhost:3000/test"));
+        assert!(is_allowed_external_url("  HTTPS://EXAMPLE.COM  "));
+        assert!(!is_allowed_external_url("cmd.exe /c calc.exe"));
+        assert!(!is_allowed_external_url("file:///c:/windows/system32/calc.exe"));
+        assert!(!is_allowed_external_url("javascript:alert(1)"));
+        assert!(!is_allowed_external_url("powershell -c evil"));
+    }
+}
+

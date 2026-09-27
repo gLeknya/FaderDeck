@@ -173,6 +173,15 @@ impl MidiEngine {
     }
 
     fn handle_incoming_midi_bytes(&self, bytes: &[u8]) {
+        if bytes.is_empty() {
+            return;
+        }
+
+        // Filter MIDI Realtime bytes (0xF8 Timing Clock, 0xFE Active Sensing)
+        if bytes.len() == 1 && (bytes[0] == 0xF8 || bytes[0] == 0xFE) {
+            return;
+        }
+
         let parsed = parse_midi_message(bytes);
 
         // 1. Direct hardware routing for sub-millisecond volume control

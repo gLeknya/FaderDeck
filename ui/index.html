@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self' 'unsafe-inline' 'unsafe-eval' asset: https://asset.localhost http://asset.localhost; script-src 'self' 'unsafe-inline' 'unsafe-eval'; script-src-attr 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: https://asset.localhost http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost ws://localhost:9222;"
+      content="default-src 'self' asset: https://asset.localhost http://asset.localhost; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: asset: https://asset.localhost http://asset.localhost; font-src 'self' data:; connect-src 'self' ipc: http://ipc.localhost https://ipc.localhost;"
     />
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -1391,6 +1391,68 @@
             data-i18n="common.save"
           >
             Сохранить
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="modal"
+      id="scriptWarningModal"
+      data-modal-id="script-warning"
+      aria-hidden="true"
+    >
+      <div
+        class="modal-content"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="scriptWarningModalTitle"
+        tabindex="-1"
+        style="max-width: 520px;"
+      >
+        <div
+          class="modal-header"
+          id="scriptWarningModalTitle"
+          style="color: var(--danger, #ff5555);"
+        >
+          Предупреждение безопасности
+        </div>
+
+        <div class="form-group" style="margin: 12px 0;">
+          <p id="scriptWarningMessage" style="margin-bottom: 8px; font-size: 13px; line-height: 1.4;">
+            Импортируемый профиль содержит исполняемые скрипты:
+          </p>
+          <ul
+            id="scriptWarningList"
+            style="max-height: 120px; overflow-y: auto; background: rgba(0,0,0,0.25); padding: 8px 12px 8px 24px; border-radius: 4px; font-family: monospace; font-size: 11px; word-break: break-all; margin: 0;"
+          ></ul>
+          <p style="margin-top: 10px; font-size: 12px; color: var(--text-muted, #aaa); line-height: 1.4;">
+            Запуск скриптов может привести к выполнению произвольного кода на вашем компьютере. Вы доверяете этому профилю?
+          </p>
+        </div>
+
+        <div class="modal-actions" style="gap: 8px; flex-wrap: wrap;">
+          <button
+            class="btn"
+            type="button"
+            id="scriptWarningCancelBtn"
+            data-modal-close
+          >
+            Отмена
+          </button>
+          <button
+            class="btn btn-secondary"
+            type="button"
+            id="scriptWarningStripBtn"
+          >
+            Импортировать без скриптов
+          </button>
+          <button
+            class="btn btn-danger"
+            type="button"
+            id="scriptWarningAllowBtn"
+          >
+            Разрешить со скриптами
           </button>
         </div>
       </div>

@@ -592,11 +592,11 @@
       Math.abs(
         (Number(nextState.rawMeterLevel) || 0) -
           (Number(previousState.rawMeterLevel) || 0)
-      ) < 0.005 &&
+      ) < 0.02 &&
       Math.abs(
         (Number(nextState.meterLevel) || 0) -
           (Number(previousState.meterLevel) || 0)
-      ) < 0.005
+      ) < 0.02
     );
   }
 
@@ -918,12 +918,10 @@
 
       standaloneButtonRuntimeState.byKey = nextStates;
 
-      if (hasChanged) {
+      if (hasChanged || force) {
         emitStandaloneButtonRuntimeChange({
           type: 'standalone-button-runtime/updated'
         });
-      } else {
-        refreshStandaloneButtonRuntimeDom();
       }
     })();
 
@@ -938,11 +936,53 @@
   }
 
   function requestStandaloneButtonRuntimeRefresh(options = {}) {
+    if (window.audioStateCoordinator && options?.force) {
+      window.audioStateCoordinator.requestRefresh();
+    }
     return refreshStandaloneButtonRuntime(Boolean(options?.force));
+  }
+
+  function getStandaloneButtonTargetProcesses() {
+    const buttons = getStandaloneButtons();
+    const processes = new Set();
+    for (const btn of buttons) {
+      const app = String(btn?.app || '').trim().toLowerCase();
+      if (app && app !== 'master') {
+        processes.add(app);
+      }
+      if (Array.isArray(btn?.appTargets)) {
+        for (const t of btn.appTargets) {
+          const p = String(t?.process || '').trim().toLowerCase();
+          if (p && p !== 'master') processes.add(p);
+        }
+      }
+    }
+    return Array.from(processes);
   }
 
   function syncStandaloneButtonRuntimePolling() {
     const hasStandaloneButtons = getStandaloneButtons().length > 0;
+
+    if (window.audioStateCoordinator) {
+      if (standaloneButtonRuntimeState.pollTimerId) {
+        clearInterval(standaloneButtonRuntimeState.pollTimerId);
+        standaloneButtonRuntimeState.pollTimerId = null;
+        standaloneButtonRuntimeState.pollIntervalMs = 0;
+      }
+
+      if (!hasStandaloneButtons) {
+        window.audioStateCoordinator.unregisterClient('standalone-buttons');
+      } else {
+        window.audioStateCoordinator.registerClient('standalone-buttons', {
+          getProcesses: getStandaloneButtonTargetProcesses,
+          onUpdate: () => {
+            refreshStandaloneButtonRuntime(false);
+          }
+        });
+      }
+      return;
+    }
+
     const nextPollIntervalMs = getStandaloneButtonRuntimeRefreshIntervalMs();
 
     if (!hasStandaloneButtons) {

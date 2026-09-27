@@ -15,7 +15,7 @@
   const DEVICE_CACHE_TTL_MS = 30000;
   const DEVICE_LIVE_CACHE_TTL_MS = 45;
   const FOCUS_CACHE_TTL_MS = 900;
-  const AUDIO_STATE_CACHE_TTL_MS = 30;
+  const AUDIO_STATE_CACHE_TTL_MS = 45;
   const deviceCatalogState = {
     output: { items: [], fetchedAt: 0, inFlight: null },
     input: { items: [], fetchedAt: 0, inFlight: null }

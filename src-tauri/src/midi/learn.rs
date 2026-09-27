@@ -37,6 +37,12 @@ pub struct MidiLearnManager {
     state: Mutex<MidiLearnState>,
 }
 
+impl Default for MidiLearnManager {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MidiLearnManager {
     pub fn new() -> Self {
         Self {

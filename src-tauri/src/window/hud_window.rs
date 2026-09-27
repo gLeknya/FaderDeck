@@ -1,6 +1,5 @@
 use parking_lot::Mutex;
 use serde_json::Value;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::LazyLock;
 use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Position, Size};
@@ -11,8 +10,9 @@ use windows::Win32::UI::WindowsAndMessaging::{
     WS_EX_TRANSPARENT,
 };
 
-static HUD_GENERATION: LazyLock<AtomicU64> = LazyLock::new(|| AtomicU64::new(0));
 static CONFIGURED_HWNDS: LazyLock<Mutex<Vec<isize>>> = LazyLock::new(|| Mutex::new(Vec::new()));
+static HUD_TIMER_TX: LazyLock<Mutex<Option<std::sync::mpsc::Sender<()>>>> =
+    LazyLock::new(|| Mutex::new(None));
 
 pub fn configure_hud_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("volume-hud") {
@@ -83,22 +83,50 @@ pub fn show_volume_hud(app: &AppHandle, payload: Value) {
     let _ = window.emit("volume-hud:visibility", serde_json::json!({ "visible": true }));
     let _ = window.show();
 
-    // Bump generation for debounce auto-hide
-    let current_gen = HUD_GENERATION.fetch_add(1, Ordering::SeqCst) + 1;
-    let app_handle = app.clone();
+    // Debounce auto-hide using a single persistent timer worker thread (zero thread leaks)
+    {
+        let mut tx_guard = HUD_TIMER_TX.lock();
+        if tx_guard.is_none() {
+            let (tx, rx) = std::sync::mpsc::channel::<()>();
+            *tx_guard = Some(tx);
+            let app_handle = app.clone();
 
-    std::thread::spawn(move || {
-        std::thread::sleep(Duration::from_millis(1350));
-        if HUD_GENERATION.load(Ordering::SeqCst) != current_gen {
-            return; // Superseded by a newer volume HUD display
+            let _ = std::thread::Builder::new()
+                .name("hud-autohide-timer".to_string())
+                .spawn(move || {
+                    while rx.recv().is_ok() {
+                        // Drain any backlog
+                        while rx.try_recv().is_ok() {}
+
+                        // Debounce delay: wait 1350ms, resetting timer if a newer event arrives
+                        loop {
+                            match rx.recv_timeout(Duration::from_millis(1350)) {
+                                Ok(_) => {
+                                    while rx.try_recv().is_ok() {}
+                                    continue;
+                                }
+                                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => break,
+                                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return,
+                            }
+                        }
+
+                        // Fadeout animation
+                        if let Some(win) = app_handle.get_webview_window("volume-hud") {
+                            let _ = win.emit("volume-hud:visibility", serde_json::json!({ "visible": false }));
+                            match rx.recv_timeout(Duration::from_millis(200)) {
+                                Ok(_) => continue,
+                                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
+                                    let _ = win.hide();
+                                }
+                                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => return,
+                            }
+                        }
+                    }
+                });
         }
 
-        if let Some(win) = app_handle.get_webview_window("volume-hud") {
-            let _ = win.emit("volume-hud:visibility", serde_json::json!({ "visible": false }));
-            std::thread::sleep(Duration::from_millis(200));
-            if HUD_GENERATION.load(Ordering::SeqCst) == current_gen {
-                let _ = win.hide();
-            }
+        if let Some(ref tx) = *tx_guard {
+            let _ = tx.send(());
         }
-    });
+    }
 }

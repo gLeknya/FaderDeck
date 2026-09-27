@@ -89,6 +89,12 @@ pub struct ProfileOperationResult {
     pub profile: Option<Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub profiles: Option<Vec<ProfileListItem>>,
+    #[serde(rename = "hasUserScripts", skip_serializing_if = "Option::is_none")]
+    pub has_user_scripts: Option<bool>,
+    #[serde(rename = "detectedScripts", skip_serializing_if = "Option::is_none")]
+    pub detected_scripts: Option<Vec<String>>,
+    #[serde(rename = "requiresConfirmation", skip_serializing_if = "Option::is_none")]
+    pub requires_confirmation: Option<bool>,
 }
 
 impl ProfileOperationResult {
@@ -101,6 +107,9 @@ impl ProfileOperationResult {
             data: None,
             profile: None,
             profiles: None,
+            has_user_scripts: None,
+            detected_scripts: None,
+            requires_confirmation: None,
         }
     }
 
@@ -113,6 +122,9 @@ impl ProfileOperationResult {
             data: None,
             profile: None,
             profiles: None,
+            has_user_scripts: None,
+            detected_scripts: None,
+            requires_confirmation: None,
         }
     }
 }

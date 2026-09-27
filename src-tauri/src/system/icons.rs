@@ -2,7 +2,7 @@ use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
 use image::{ImageBuffer, ImageFormat, Rgba};
 use parking_lot::Mutex;
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::io::Cursor;
 use std::sync::LazyLock;
 use windows::core::PCWSTR;
@@ -13,8 +13,56 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::UI::Shell::{SHGetFileInfoW, SHFILEINFOW, SHGFI_ICON, SHGFI_LARGEICON};
 use windows::Win32::UI::WindowsAndMessaging::{DestroyIcon, GetIconInfo, HICON, ICONINFO};
 
-static ICON_CACHE: LazyLock<Mutex<HashMap<String, String>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
+const MAX_ICON_CACHE_ENTRIES: usize = 256;
+
+struct BoundedIconCache {
+    entries: HashMap<String, String>,
+    order: VecDeque<String>,
+}
+
+impl BoundedIconCache {
+    fn new() -> Self {
+        Self {
+            entries: HashMap::new(),
+            order: VecDeque::new(),
+        }
+    }
+
+    fn get(&mut self, key: &str) -> Option<String> {
+        if let Some(val) = self.entries.get(key) {
+            if let Some(pos) = self.order.iter().position(|k| k == key) {
+                self.order.remove(pos);
+                self.order.push_back(key.to_string());
+            }
+            Some(val.clone())
+        } else {
+            None
+        }
+    }
+
+    fn insert(&mut self, key: String, value: String) {
+        if self.entries.contains_key(&key) {
+            self.entries.insert(key.clone(), value);
+            if let Some(pos) = self.order.iter().position(|k| k == &key) {
+                self.order.remove(pos);
+            }
+            self.order.push_back(key);
+            return;
+        }
+
+        if self.entries.len() >= MAX_ICON_CACHE_ENTRIES {
+            if let Some(oldest) = self.order.pop_front() {
+                self.entries.remove(&oldest);
+            }
+        }
+
+        self.order.push_back(key.clone());
+        self.entries.insert(key, value);
+    }
+}
+
+static ICON_CACHE: LazyLock<Mutex<BoundedIconCache>> =
+    LazyLock::new(|| Mutex::new(BoundedIconCache::new()));
 
 pub fn get_application_icon_data_url(file_path: &str) -> Option<String> {
     if file_path.is_empty() {
@@ -22,9 +70,9 @@ pub fn get_application_icon_data_url(file_path: &str) -> Option<String> {
     }
 
     {
-        let cache = ICON_CACHE.lock();
+        let mut cache = ICON_CACHE.lock();
         if let Some(cached) = cache.get(file_path) {
-            return Some(cached.clone());
+            return Some(cached);
         }
     }
 

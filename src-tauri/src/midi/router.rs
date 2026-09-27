@@ -21,10 +21,12 @@ pub struct FaderTarget {
     pub title: String,
 }
 
+pub type HudCallback = Arc<dyn Fn(Value) + Send + Sync>;
+
 #[derive(Default)]
 pub struct MidiRouter {
     bindings: RwLock<HashMap<MidiBindingKey, FaderTarget>>,
-    hud_callback: RwLock<Option<Arc<dyn Fn(Value) + Send + Sync>>>,
+    hud_callback: RwLock<Option<HudCallback>>,
 }
 
 impl MidiRouter {

@@ -1,7 +1,10 @@
 use super::types::{AudioState, SetMuteResult, SetVolumeResult};
 use super::wasapi::{get_default_render_device, get_master_mute, get_master_peak, get_master_volume, set_master_mute, set_master_volume};
+use parking_lot::RwLock;
 use std::collections::HashMap;
 use std::path::Path;
+use std::sync::LazyLock;
+use std::time::{Duration, Instant};
 use windows::core::{Interface, Result};
 use windows::Win32::Foundation::{BOOL, CloseHandle};
 use windows::Win32::Media::Audio::Endpoints::IAudioMeterInformation;
@@ -26,17 +29,67 @@ pub struct DetectedSession {
     pub control: IAudioSessionControl,
 }
 
-pub fn get_session_manager() -> Result<IAudioSessionManager2> {
-    let device = get_default_render_device()?;
-    unsafe { device.Activate::<IAudioSessionManager2>(CLSCTX_ALL, None) }
+pub struct ComSendSync<T>(pub T);
+unsafe impl<T> Send for ComSendSync<T> {}
+unsafe impl<T> Sync for ComSendSync<T> {}
+
+static CACHED_SESSION_MANAGER: LazyLock<parking_lot::Mutex<Option<ComSendSync<IAudioSessionManager2>>>> =
+    LazyLock::new(|| parking_lot::Mutex::new(None));
+
+pub fn invalidate_session_manager_cache() {
+    let mut guard = CACHED_SESSION_MANAGER.lock();
+    *guard = None;
 }
+
+pub fn get_session_manager() -> Result<IAudioSessionManager2> {
+    {
+        let guard = CACHED_SESSION_MANAGER.lock();
+        if let Some(ref wrapper) = *guard {
+            return Ok(wrapper.0.clone());
+        }
+    }
+
+    let device = get_default_render_device()?;
+    let mgr: IAudioSessionManager2 = unsafe { device.Activate(CLSCTX_ALL, None)? };
+    let mut guard = CACHED_SESSION_MANAGER.lock();
+    *guard = Some(ComSendSync(mgr.clone()));
+    Ok(mgr)
+}
+
+struct CachedProcessInfo {
+    file_name: String,
+    process_name: String,
+    full_path: String,
+    cached_at: Instant,
+}
+
+static PROCESS_INFO_CACHE: LazyLock<RwLock<HashMap<u32, CachedProcessInfo>>> =
+    LazyLock::new(|| RwLock::new(HashMap::new()));
 
 fn get_process_info_from_pid(pid: u32) -> (String, String, String) {
     if pid == 0 {
         return (String::new(), String::new(), String::new());
     }
 
-    unsafe {
+    let now = Instant::now();
+    const TTL: Duration = Duration::from_secs(5);
+
+    // Fast path: cached PID mapping
+    {
+        let cache = PROCESS_INFO_CACHE.read();
+        if let Some(entry) = cache.get(&pid) {
+            if now.duration_since(entry.cached_at) < TTL {
+                return (
+                    entry.file_name.clone(),
+                    entry.process_name.clone(),
+                    entry.full_path.clone(),
+                );
+            }
+        }
+    }
+
+    // Slow path: Win32 QueryFullProcessImageNameW
+    let (file_name, process_name, full_path) = unsafe {
         let handle = match OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) {
             Ok(h) => h,
             Err(_) => return (String::new(), String::new(), String::new()),
@@ -60,7 +113,25 @@ fn get_process_info_from_pid(pid: u32) -> (String, String, String) {
 
         let _ = CloseHandle(handle);
         res
+    };
+
+    if !file_name.is_empty() {
+        let mut cache = PROCESS_INFO_CACHE.write();
+        if cache.len() > 128 {
+            cache.retain(|_, v| now.duration_since(v.cached_at) < TTL);
+        }
+        cache.insert(
+            pid,
+            CachedProcessInfo {
+                file_name: file_name.clone(),
+                process_name: process_name.clone(),
+                full_path: full_path.clone(),
+                cached_at: now,
+            },
+        );
     }
+
+    (file_name, process_name, full_path)
 }
 
 pub fn list_detected_sessions() -> Result<Vec<DetectedSession>> {
@@ -146,23 +217,57 @@ pub fn set_session_volume(process_or_name: &str, volume: f64) -> SetVolumeResult
         };
     }
 
-    let sessions = list_detected_sessions().unwrap_or_default();
     let scalar = (volume / 100.0).clamp(0.0, 1.0) as f32;
     let mut updated = 0;
     let mut any_muted = false;
 
-    for s in &sessions {
-        if s.process.to_lowercase() == normalized
-            || s.process_name.to_lowercase() == normalized
-            || s.process.to_lowercase() == format!("{}.exe", normalized)
-        {
-            if let Ok(sav) = s.control.cast::<ISimpleAudioVolume>() {
-                if unsafe { sav.SetMasterVolume(scalar, std::ptr::null()) }.is_ok() {
-                    updated += 1;
-                }
-                if let Ok(m) = unsafe { sav.GetMute() } {
-                    if m.as_bool() {
-                        any_muted = true;
+    let target_exe = if normalized.ends_with(".exe") {
+        normalized.clone()
+    } else {
+        format!("{}.exe", normalized)
+    };
+
+    if let Ok(session_manager) = get_session_manager() {
+        if let Ok(enumerator) = unsafe { session_manager.GetSessionEnumerator() } {
+            if let Ok(count) = unsafe { enumerator.GetCount() } {
+                for i in 0..count {
+                    let control = match unsafe { enumerator.GetSession(i) } {
+                        Ok(c) => c,
+                        Err(_) => continue,
+                    };
+
+                    let control2 = match control.cast::<IAudioSessionControl2>() {
+                        Ok(c2) => c2,
+                        Err(_) => continue,
+                    };
+
+                    let pid = match unsafe { control2.GetProcessId() } {
+                        Ok(p) => p,
+                        Err(_) => continue,
+                    };
+
+                    if pid == 0 {
+                        continue;
+                    }
+
+                    let (proc_file, proc_name, _) = get_process_info_from_pid(pid);
+                    let proc_file_lower = proc_file.to_lowercase();
+                    let proc_name_lower = proc_name.to_lowercase();
+
+                    if proc_file_lower == normalized
+                        || proc_name_lower == normalized
+                        || proc_file_lower == target_exe
+                    {
+                        if let Ok(sav) = control.cast::<ISimpleAudioVolume>() {
+                            if unsafe { sav.SetMasterVolume(scalar, std::ptr::null()) }.is_ok() {
+                                updated += 1;
+                            }
+                            if let Ok(m) = unsafe { sav.GetMute() } {
+                                if m.as_bool() {
+                                    any_muted = true;
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -196,19 +301,55 @@ pub fn set_session_mute(process_or_name: &str, muted: bool) -> SetMuteResult {
         };
     }
 
-    let sessions = list_detected_sessions().unwrap_or_default();
     let mut updated = 0;
     let mut last_vol = 100.0;
 
-    for s in &sessions {
-        if s.process.to_lowercase() == normalized
-            || s.process_name.to_lowercase() == normalized
-            || s.process.to_lowercase() == format!("{}.exe", normalized)
-        {
-            if let Ok(sav) = s.control.cast::<ISimpleAudioVolume>() {
-                if unsafe { sav.SetMute(BOOL::from(muted), std::ptr::null()) }.is_ok() {
-                    updated += 1;
-                    last_vol = s.volume;
+    let target_exe = if normalized.ends_with(".exe") {
+        normalized.clone()
+    } else {
+        format!("{}.exe", normalized)
+    };
+
+    if let Ok(session_manager) = get_session_manager() {
+        if let Ok(enumerator) = unsafe { session_manager.GetSessionEnumerator() } {
+            if let Ok(count) = unsafe { enumerator.GetCount() } {
+                for i in 0..count {
+                    let control = match unsafe { enumerator.GetSession(i) } {
+                        Ok(c) => c,
+                        Err(_) => continue,
+                    };
+
+                    let control2 = match control.cast::<IAudioSessionControl2>() {
+                        Ok(c2) => c2,
+                        Err(_) => continue,
+                    };
+
+                    let pid = match unsafe { control2.GetProcessId() } {
+                        Ok(p) => p,
+                        Err(_) => continue,
+                    };
+
+                    if pid == 0 {
+                        continue;
+                    }
+
+                    let (proc_file, proc_name, _) = get_process_info_from_pid(pid);
+                    let proc_file_lower = proc_file.to_lowercase();
+                    let proc_name_lower = proc_name.to_lowercase();
+
+                    if proc_file_lower == normalized
+                        || proc_name_lower == normalized
+                        || proc_file_lower == target_exe
+                    {
+                        if let Ok(sav) = control.cast::<ISimpleAudioVolume>() {
+                            if unsafe { sav.SetMute(BOOL::from(muted), std::ptr::null()) }.is_ok() {
+                                updated += 1;
+                                if let Ok(v) = unsafe { sav.GetMasterVolume() } {
+                                    last_vol = (v as f64 * 100.0).clamp(0.0, 100.0);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -222,6 +363,100 @@ pub fn set_session_mute(process_or_name: &str, muted: bool) -> SetMuteResult {
         updated_count: updated,
         has_audio_session: updated > 0,
     }
+}
+
+pub fn set_sessions_volume_batch(
+    volume_map: &HashMap<String, f64>,
+) -> HashMap<String, SetVolumeResult> {
+    let mut results: HashMap<String, SetVolumeResult> = HashMap::new();
+    let mut normalized_targets: HashMap<String, (String, f32)> = HashMap::new();
+
+    for (name, vol) in volume_map {
+        let norm = name.trim().to_lowercase();
+        if norm == "master" || norm == "system volume" {
+            let res = set_session_volume(name, *vol);
+            results.insert(norm, res);
+        } else {
+            let scalar = (*vol / 100.0).clamp(0.0, 1.0) as f32;
+            normalized_targets.insert(norm, (name.clone(), scalar));
+        }
+    }
+
+    if normalized_targets.is_empty() {
+        return results;
+    }
+
+    let mut updated_counts: HashMap<String, usize> = HashMap::new();
+    let mut any_muteds: HashMap<String, bool> = HashMap::new();
+
+    if let Ok(session_manager) = get_session_manager() {
+        if let Ok(enumerator) = unsafe { session_manager.GetSessionEnumerator() } {
+            if let Ok(count) = unsafe { enumerator.GetCount() } {
+                for i in 0..count {
+                    let control = match unsafe { enumerator.GetSession(i) } {
+                        Ok(c) => c,
+                        Err(_) => continue,
+                    };
+                    let control2 = match control.cast::<IAudioSessionControl2>() {
+                        Ok(c2) => c2,
+                        Err(_) => continue,
+                    };
+                    let pid = match unsafe { control2.GetProcessId() } {
+                        Ok(p) => p,
+                        Err(_) => continue,
+                    };
+                    if pid == 0 {
+                        continue;
+                    }
+                    let (proc_file, proc_name, _) = get_process_info_from_pid(pid);
+                    let proc_file_lower = proc_file.to_lowercase();
+                    let proc_name_lower = proc_name.to_lowercase();
+
+                    for (target_norm, (_original_name, scalar)) in &normalized_targets {
+                        let target_exe = if target_norm.ends_with(".exe") {
+                            target_norm.clone()
+                        } else {
+                            format!("{}.exe", target_norm)
+                        };
+
+                        if proc_file_lower == *target_norm
+                            || proc_name_lower == *target_norm
+                            || proc_file_lower == target_exe
+                        {
+                            if let Ok(sav) = control.cast::<ISimpleAudioVolume>() {
+                                if unsafe { sav.SetMasterVolume(*scalar, std::ptr::null()) }.is_ok() {
+                                    *updated_counts.entry(target_norm.clone()).or_insert(0) += 1;
+                                }
+                                if let Ok(m) = unsafe { sav.GetMute() } {
+                                    if m.as_bool() {
+                                        any_muteds.insert(target_norm.clone(), true);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    for (target_norm, (original_name, scalar)) in normalized_targets {
+        let updated = updated_counts.get(&target_norm).copied().unwrap_or(0);
+        let muted = any_muteds.get(&target_norm).copied().unwrap_or(false);
+        results.insert(
+            target_norm,
+            SetVolumeResult {
+                success: true,
+                volume: (scalar as f64 * 100.0).clamp(0.0, 100.0),
+                process: original_name,
+                muted,
+                updated_count: updated,
+                has_audio_session: updated > 0,
+            },
+        );
+    }
+
+    results
 }
 
 pub fn toggle_session_mute(process_or_name: &str) -> SetMuteResult {

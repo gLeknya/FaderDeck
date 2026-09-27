@@ -589,11 +589,11 @@
       Math.abs(
         (Number(nextState.rawMeterLevel) || 0) -
           (Number(previousState.rawMeterLevel) || 0)
-      ) < 0.005 &&
+      ) < 0.02 &&
       Math.abs(
         (Number(nextState.meterLevel) || 0) -
           (Number(previousState.meterLevel) || 0)
-      ) < 0.005
+      ) < 0.02
     );
   }
 
@@ -907,12 +907,10 @@
 
       channelButtonRuntimeState.byKey = nextStates;
 
-      if (hasChanged) {
+      if (hasChanged || force) {
         emitChannelButtonRuntimeChange({
           type: 'channel-button-runtime/updated'
         });
-      } else {
-        refreshChannelButtonRuntimeDom();
       }
     })();
 
@@ -927,11 +925,36 @@
   }
 
   function requestChannelButtonRuntimeRefresh(options = {}) {
+    if (window.audioStateCoordinator && options?.force) {
+      window.audioStateCoordinator.requestRefresh();
+    }
     return refreshChannelButtonRuntime(Boolean(options?.force));
   }
 
   function setChannelButtonPressedRuntime(channelId, buttonId, isPressed) {
     setChannelButtonPressedState(channelId, buttonId, isPressed);
+  }
+
+  function getChannelButtonTargetProcesses() {
+    const channels =
+      typeof getChannelsState === 'function' ? getChannelsState() : [];
+    const processes = new Set();
+    for (const channel of channels) {
+      if (!Array.isArray(channel?.buttons) || !channel.buttons.length) continue;
+      const app = String(channel?.app || '').trim().toLowerCase();
+      if (app && app !== 'master') {
+        processes.add(app);
+      }
+      for (const btn of channel.buttons) {
+        if (Array.isArray(btn?.appTargets)) {
+          for (const t of btn.appTargets) {
+            const p = String(t?.process || '').trim().toLowerCase();
+            if (p && p !== 'master') processes.add(p);
+          }
+        }
+      }
+    }
+    return Array.from(processes);
   }
 
   function syncChannelButtonRuntimePolling() {
@@ -940,6 +963,27 @@
     ).some(
       (channel) => Array.isArray(channel?.buttons) && channel.buttons.length > 0
     );
+
+    if (window.audioStateCoordinator) {
+      if (channelButtonRuntimeState.pollTimerId) {
+        clearInterval(channelButtonRuntimeState.pollTimerId);
+        channelButtonRuntimeState.pollTimerId = null;
+        channelButtonRuntimeState.pollIntervalMs = 0;
+      }
+
+      if (!hasChannelButtons) {
+        window.audioStateCoordinator.unregisterClient('channel-buttons');
+      } else {
+        window.audioStateCoordinator.registerClient('channel-buttons', {
+          getProcesses: getChannelButtonTargetProcesses,
+          onUpdate: () => {
+            refreshChannelButtonRuntime(false);
+          }
+        });
+      }
+      return;
+    }
+
     const nextPollIntervalMs = getChannelButtonRuntimeRefreshIntervalMs();
 
     if (!hasChannelButtons) {

@@ -227,6 +227,72 @@
     return true;
   }
 
+  function showScriptWarningModal(detectedScripts = [], profileName = '') {
+    return new Promise((resolve) => {
+      const modal = document.getElementById('scriptWarningModal');
+      const list = document.getElementById('scriptWarningList');
+      const cancelBtn = document.getElementById('scriptWarningCancelBtn');
+      const stripBtn = document.getElementById('scriptWarningStripBtn');
+      const allowBtn = document.getElementById('scriptWarningAllowBtn');
+
+      if (!modal || !list || !window.modalManager) {
+        const ok = window.confirm?.(
+          `Profile "${profileName}" contains ${detectedScripts.length} executable script(s):\n` +
+          detectedScripts.join('\n') +
+          '\n\nClick OK to allow scripts, or Cancel to strip them.'
+        );
+        resolve(ok ? 'allow' : 'strip');
+        return;
+      }
+
+      list.innerHTML = '';
+      for (const script of detectedScripts) {
+        const li = document.createElement('li');
+        li.textContent = script;
+        list.appendChild(li);
+      }
+
+      let settled = false;
+
+      function cleanup(choice) {
+        if (settled) return;
+        settled = true;
+        cancelBtn?.removeEventListener('click', onCancel);
+        stripBtn?.removeEventListener('click', onStrip);
+        allowBtn?.removeEventListener('click', onAllow);
+        window.closeModal?.('script-warning');
+        resolve(choice);
+      }
+
+      function onCancel() {
+        cleanup('cancel');
+      }
+
+      function onStrip() {
+        cleanup('strip');
+      }
+
+      function onAllow() {
+        cleanup('allow');
+      }
+
+      cancelBtn?.addEventListener('click', onCancel, { once: true });
+      stripBtn?.addEventListener('click', onStrip, { once: true });
+      allowBtn?.addEventListener('click', onAllow, { once: true });
+
+      window.modalManager.register('script-warning', {
+        elementId: 'scriptWarningModal',
+        onClose: () => {
+          if (!settled) {
+            cleanup('cancel');
+          }
+        }
+      });
+
+      window.openModal('script-warning');
+    });
+  }
+
   async function importProfileFromFile() {
     const api = getProfileApi();
 
@@ -240,7 +306,22 @@
       return { canceled: true };
     }
 
-    const response = await api.import_profile(selection.filePath);
+    let response = await api.import_profile(selection.filePath);
+
+    if (response?.requiresConfirmation && response?.hasUserScripts) {
+      const decision = await showScriptWarningModal(
+        response.detectedScripts || [],
+        response.name || 'Profile'
+      );
+
+      if (decision === 'allow') {
+        response = await api.import_profile(selection.filePath, { allow_scripts: true });
+      } else if (decision === 'strip') {
+        response = await api.import_profile(selection.filePath, { strip_scripts: true });
+      } else {
+        return { canceled: true };
+      }
+    }
 
     if (!response?.success) {
       throw new Error(response?.error || 'import_profile_failed');

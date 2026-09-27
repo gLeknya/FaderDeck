@@ -178,6 +178,8 @@ pub fn set_default_audio_device(device_id: &str, _flow: &str) -> Result<()> {
     let _ = set_default_endpoint_native(pcwstr, eMultimedia);
     let _ = set_default_endpoint_native(pcwstr, eCommunications);
 
+    super::sessions::invalidate_session_manager_cache();
+
     Ok(())
 }
 
