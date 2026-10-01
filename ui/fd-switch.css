@@ -1,0 +1,89 @@
+/* FaderDeck switch v2 — цвет всего бокса меняется.
+   OFF: тёмный бокс + светлый кружок слева  →  ON: светлый бокс с тёмным контуром + тёмный кружок справа */
+.fd-switch {
+  --h: 28px;                                  /* основной размер, остальное считается */
+  --w: calc(var(--h) * 2);
+  --bw: max(2px, calc(var(--h) * .06));       /* контур */
+  --knob: calc(var(--h) * .5);
+  --left: calc(var(--h) / 4 - var(--bw));     /* шарик центрирован в скруглении */
+  --travel: calc(var(--w) - var(--h));
+
+  --c-off-bg: #25262a;   /* тёмный бокс */
+  --c-off-fg: #d5d7dc;   /* кружок в OFF */
+  --c-on-bg:  #d9dce1;   /* светлый бокс */
+  --c-on-fg:  #25262a;   /* контур и кружок в ON */
+  --c-focus:  #8ab4ff;
+
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.fd-switch > input {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  margin: 0; opacity: 0;
+  cursor: inherit;
+}
+
+.fd-switch__track {
+  box-sizing: border-box;
+  position: relative;
+  width: var(--w); height: var(--h);
+  border: var(--bw) solid var(--c-off-bg);
+  border-radius: 999px;
+  background: var(--c-off-bg);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .07);   /* чтобы бокс не терялся на тёмном фоне */
+  transition: background-color .35s ease, border-color .35s ease, box-shadow .35s ease;
+}
+
+.fd-switch__knob {
+  --tx: 0px; --sc: 1;
+  position: absolute;
+  top: 50%; left: var(--left);
+  width: var(--knob); height: var(--knob);
+  margin-top: calc(var(--knob) / -2);
+  border-radius: 50%;
+  background: var(--c-off-fg);
+  transform: translateX(var(--tx)) scale(var(--sc));
+  transition:
+    transform .45s cubic-bezier(.34, 1.4, .64, 1),
+    background-color .35s ease;
+}
+
+/* ON */
+.fd-switch > input:checked + .fd-switch__track {
+  background: var(--c-on-bg);
+  border-color: var(--c-on-fg);
+  box-shadow: 0 0 0 0 transparent;
+}
+.fd-switch > input:checked + .fd-switch__track .fd-switch__knob {
+  --tx: var(--travel);
+  background: var(--c-on-fg);
+}
+
+/* нажатие */
+.fd-switch:active > input:not(:disabled) + .fd-switch__track .fd-switch__knob { --sc: .88; }
+
+/* hover в OFF */
+.fd-switch:hover > input:not(:checked):not(:disabled) + .fd-switch__track {
+  background: #2e2f34; border-color: #2e2f34;
+}
+
+.fd-switch > input:focus-visible + .fd-switch__track {
+  outline: 2px solid var(--c-focus);
+  outline-offset: 3px;
+}
+
+.fd-switch > input:disabled + .fd-switch__track { opacity: .4; }
+.fd-switch:has(> input:disabled) { cursor: not-allowed; }
+
+.fd-switch--sm { --h: 22px; }
+.fd-switch--lg { --h: 36px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fd-switch__track, .fd-switch__knob { transition: none; }
+}

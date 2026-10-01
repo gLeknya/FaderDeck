@@ -2,7 +2,12 @@
   function safeInitializeApplication() {
     const appShell = window.appShell;
 
-    if (!appShell || typeof appShell.initialize !== 'function') {
+    if (
+      !appShell ||
+      typeof appShell.initialize !== 'function' ||
+      typeof window.createSwitch !== 'function'
+    ) {
+      window.setTimeout(safeInitializeApplication, 50);
       return;
     }
 

@@ -43,14 +43,14 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
 
 fn toggle_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
-        if let Ok(visible) = window.is_visible() {
-            if visible {
-                let _ = window.hide();
-            } else {
-                let _ = window.show();
-                let _ = window.unminimize();
-                let _ = window.set_focus();
-            }
+        let is_visible = window.is_visible().unwrap_or(false);
+        let is_minimized = window.is_minimized().unwrap_or(false);
+        let is_focused = window.is_focused().unwrap_or(false);
+
+        if is_visible && !is_minimized && is_focused {
+            let _ = window.hide();
+        } else {
+            super::main_window::focus_main_window(app);
         }
     }
 }

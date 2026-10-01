@@ -1240,12 +1240,109 @@
     window.addEventListener('pointercancel', stopPreviewDrag);
   }
 
-  function renderEditorToggle(isEnabled, attributes = '') {
-    return `
-      <button class="settings-toggle ${isEnabled ? 'on' : ''}" type="button" ${attributes}>
-        ${isEnabled ? t('settings.on') : t('settings.off')}
-      </button>
-    `;
+  function enhanceEntityEditorSwitches(root, channel) {
+    if (!root || !channel) {
+      return;
+    }
+
+    const createSw = window.createSwitch;
+    if (typeof createSw !== 'function') {
+      return;
+    }
+
+    const customMount = root.querySelector(
+      '[data-editor-switch-mount="customSettingsEnabled"]'
+    );
+    if (customMount) {
+      const isEnabled = Boolean(channel.customSettingsEnabled);
+      const sw = createSw({
+        checked: isEnabled,
+        label: t('editor.customSettings'),
+        onChange: (checked) => {
+          if (checked && !channel.customSettingsEnabled) {
+            const resolvedSettings = getEditorChannelResolvedSettings(channel);
+            updateChannelCustomSettingsState?.(
+              channel.id,
+              {
+                faderInterpolationEnabled: Boolean(
+                  resolvedSettings.faderInterpolationEnabled
+                ),
+                softTakeoverEnabled: Boolean(
+                  resolvedSettings.softTakeoverEnabled
+                ),
+                softTakeoverThreshold:
+                  Number(resolvedSettings.softTakeoverThreshold) || 0,
+                volumeCurveEnabled: Boolean(resolvedSettings.volumeCurveEnabled),
+                volumeCurveType:
+                  resolvedSettings.volumeCurveType || 'ease-in-out',
+                volumeCurveAmount:
+                  Number(resolvedSettings.volumeCurveAmount) || 0,
+                showFractionalNumbers: Boolean(
+                  resolvedSettings.showFractionalNumbers
+                )
+              },
+              {
+                source: 'entity-editor'
+              }
+            );
+          }
+
+          setChannelCustomSettingsEnabledState?.(channel.id, checked, {
+            source: 'entity-editor'
+          });
+          saveProfileToLocal?.();
+          renderEntityEditor();
+          requestAnimationFrame(() => {
+            if (checked) {
+              dom.main
+                ?.querySelector('.entity-edit-custom-expandable.open')
+                ?.scrollIntoView({
+                  block: 'nearest',
+                  behavior: 'smooth'
+                });
+            }
+          });
+        }
+      });
+      customMount.replaceWith(sw);
+    }
+
+    const customSettings = getEditorCustomSettings(channel);
+    const settingsDefinitions = [
+      {
+        key: 'faderInterpolationEnabled',
+        label: t('settings.faderInterpolation')
+      },
+      {
+        key: 'softTakeoverEnabled',
+        label: t('settings.softTakeover')
+      },
+      {
+        key: 'volumeCurveEnabled',
+        label: t('settings.volumeCurve')
+      },
+      {
+        key: 'showFractionalNumbers',
+        label: t('editor.localFractionalNumbers')
+      }
+    ];
+
+    for (const def of settingsDefinitions) {
+      const mount = root.querySelector(
+        `[data-editor-switch-mount="${def.key}"]`
+      );
+      if (mount) {
+        const sw = createSw({
+          checked: Boolean(customSettings[def.key]),
+          label: def.label,
+          onChange: (checked) => {
+            updateChannelCustomSetting(def.key, checked);
+            renderEntityEditor();
+          }
+        });
+        mount.replaceWith(sw);
+      }
+    }
   }
 
   function renderEditorTargets(channel) {
@@ -3319,19 +3416,13 @@
           <div class="entity-edit-custom-settings">
             <div class="settings-item">
               <span>${t('settings.faderInterpolation')}</span>
-              ${renderEditorToggle(
-                customSettings.faderInterpolationEnabled,
-                'data-editor-setting-toggle="faderInterpolationEnabled"'
-              )}
+              <div data-editor-switch-mount="faderInterpolationEnabled"></div>
             </div>
 
             <div class="settings-group">
               <div class="settings-item">
                 <span>${t('settings.softTakeover')}</span>
-                ${renderEditorToggle(
-                  customSettings.softTakeoverEnabled,
-                  'data-editor-setting-toggle="softTakeoverEnabled"'
-                )}
+                <div data-editor-switch-mount="softTakeoverEnabled"></div>
               </div>
 
               <div class="settings-expandable ${customSettings.softTakeoverEnabled ? 'open' : ''}">
@@ -3357,10 +3448,7 @@
             <div class="settings-group">
               <div class="settings-item">
                 <span>${t('settings.volumeCurve')}</span>
-                ${renderEditorToggle(
-                  customSettings.volumeCurveEnabled,
-                  'data-editor-setting-toggle="volumeCurveEnabled"'
-                )}
+                <div data-editor-switch-mount="volumeCurveEnabled"></div>
               </div>
 
               <div class="settings-expandable ${customSettings.volumeCurveEnabled ? 'open' : ''}">
@@ -3388,10 +3476,7 @@
 
             <div class="settings-item">
               <span>${t('editor.localFractionalNumbers')}</span>
-              ${renderEditorToggle(
-                customSettings.showFractionalNumbers,
-                'data-editor-setting-toggle="showFractionalNumbers"'
-              )}
+              <div data-editor-switch-mount="showFractionalNumbers"></div>
             </div>
           </div>
         </div>
@@ -3453,10 +3538,7 @@
         <section class="entity-edit-section">
           <div class="entity-edit-section-header">
             <span>${t('editor.customSettings')}</span>
-            ${renderEditorToggle(
-              Boolean(channel?.customSettingsEnabled),
-              'data-editor-toggle-custom-settings'
-            )}
+            <div data-editor-switch-mount="customSettingsEnabled"></div>
           </div>
           ${renderFaderCustomSettings(channel)}
         </section>
@@ -4367,6 +4449,7 @@
 
       dom.main.innerHTML = renderFaderEditor(channel);
       enhanceEntityEditorCustomSelects(dom.main);
+      enhanceEntityEditorSwitches(dom.main, channel);
       renderSidePanel(channel);
       syncEditorRangeFills();
       scheduleEntityEditorLivePeakMeterUpdate();
@@ -5248,58 +5331,6 @@
       return;
     }
 
-    if (event.target.closest('[data-editor-toggle-custom-settings]')) {
-      const channel = getEditorChannel();
-
-      if (!channel) {
-        return;
-      }
-
-      if (!channel.customSettingsEnabled) {
-        const resolvedSettings = getEditorChannelResolvedSettings(channel);
-        updateChannelCustomSettingsState?.(
-          channel.id,
-          {
-            faderInterpolationEnabled: Boolean(
-              resolvedSettings.faderInterpolationEnabled
-            ),
-            softTakeoverEnabled: Boolean(resolvedSettings.softTakeoverEnabled),
-            softTakeoverThreshold:
-              Number(resolvedSettings.softTakeoverThreshold) || 0,
-            volumeCurveEnabled: Boolean(resolvedSettings.volumeCurveEnabled),
-            volumeCurveType: resolvedSettings.volumeCurveType || 'ease-in-out',
-            volumeCurveAmount: Number(resolvedSettings.volumeCurveAmount) || 0,
-            showFractionalNumbers: Boolean(
-              resolvedSettings.showFractionalNumbers
-            )
-          },
-          {
-            source: 'entity-editor'
-          }
-        );
-      }
-
-      setChannelCustomSettingsEnabledState?.(
-        channel.id,
-        !channel.customSettingsEnabled,
-        {
-          source: 'entity-editor'
-        }
-      );
-      saveProfileToLocal?.();
-      renderEntityEditor();
-      requestAnimationFrame(() => {
-        if (!channel.customSettingsEnabled) {
-          dom.main
-            ?.querySelector('.entity-edit-custom-expandable.open')
-            ?.scrollIntoView({
-              block: 'nearest',
-              behavior: 'smooth'
-            });
-        }
-      });
-      return;
-    }
 
     const removeTargetButton = event.target.closest(
       '[data-editor-remove-target]'
@@ -5451,15 +5482,6 @@
       return;
     }
 
-    const toggleButton = event.target.closest('[data-editor-setting-toggle]');
-
-    if (toggleButton && editorState.entityType === 'fader') {
-      const settingKey = toggleButton.dataset.editorSettingToggle;
-      const currentSettings = getEditorCustomSettings(getEditorChannel());
-      updateChannelCustomSetting(settingKey, !currentSettings[settingKey]);
-      renderEntityEditor();
-      return;
-    }
 
     const curveButton = event.target.closest('[data-editor-curve-type]');
 

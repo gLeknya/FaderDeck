@@ -239,7 +239,7 @@ function ensureDynamicUiAugments() {
     mediaControllerItem.className = 'settings-item';
     mediaControllerItem.innerHTML = `
       <span id="mediaControllerToggleLabel"></span>
-      <button class="settings-toggle" id="mediaControllerToggle" type="button"></button>
+      <div id="mediaControllerToggle"></div>
     `;
     profileToolbarItem.insertAdjacentElement('afterend', mediaControllerItem);
   }
@@ -287,8 +287,7 @@ function cacheDomElements() {
   dom.softTakeoverThresholdRange = $('softTakeoverThresholdRange');
   dom.softTakeoverThresholdValue = $('softTakeoverThresholdValue');
   dom.profileToolbarToggle = $('profileToolbarToggle');
-  dom.legacyVolumeHudGroup =
-    $('volumeHudToggle')?.closest('.settings-group') || null;
+  dom.startOnBootToggle = $('startOnBootToggle');
   dom.volumeHudToggle = $('volumeHudSettingsToggle');
   dom.volumeHudAdvanced = $('volumeHudSettingsAdvanced');
   dom.volumeHudPositionSelect = $('volumeHudSettingsPositionSelect');
@@ -966,6 +965,9 @@ function syncMenuTabUi() {
   dom.menuPanelOverlay?.classList.toggle('hidden', !activeMenuTab);
   scheduleMenuPanelCardSizeSync();
   requestAnimationFrame(syncSettingsViewportUi);
+  if (activeMenuTab === 'settings') {
+    void syncAboutAppUi();
+  }
 }
 
 function setActiveMenuTab(tabName) {
@@ -980,6 +982,8 @@ function syncMenuShellUi() {
     'hidden',
     !menuOpen || !getActiveMenuTab()
   );
+  window.__cornerBiteBridge?.notifyMenuTransition();
+  window.__cornerBiteController?.update();
 }
 
 function openMainMenu() {
@@ -1010,10 +1014,7 @@ function syncAdvancedModeUi() {
   }
 
   const advancedMode = getAdvancedModeEnabled();
-  dom.advancedModeToggle.classList.toggle('on', advancedMode);
-  dom.advancedModeToggle.textContent = advancedMode
-    ? t('settings.on')
-    : t('settings.off');
+  dom.advancedModeToggle.set?.(advancedMode);
   scheduleMenuPanelCardSizeSync();
 }
 
@@ -1022,15 +1023,12 @@ function syncDeveloperModeUi() {
     return;
   }
 
-  // Toggle button reflects the *persisted* value so the user immediately sees
-  // their click stick. The Open Debug Panel button (and any other runtime dev
+  // Toggle switch reflects the *persisted* value so the user immediately sees
+  // their change stick. The Open Debug Panel button (and any other runtime dev
   // affordance) gates on the *active* value snapshotted at launch, so a live
   // toggle does not silently grant or revoke access until the next restart.
   const developerMode = getDeveloperModeEnabled();
-  dom.developerModeToggle.classList.toggle('on', developerMode);
-  dom.developerModeToggle.textContent = developerMode
-    ? t('settings.on')
-    : t('settings.off');
+  dom.developerModeToggle.set?.(developerMode);
 
   if (dom.openDebugPanelBtn) {
     dom.openDebugPanelBtn.classList.toggle('visible', getDeveloperModeActive());
@@ -1043,10 +1041,7 @@ function syncCloseToTrayUi() {
   }
 
   const closeToTrayEnabled = getCloseToTrayEnabled();
-  dom.closeToTrayToggle.classList.toggle('on', closeToTrayEnabled);
-  dom.closeToTrayToggle.textContent = closeToTrayEnabled
-    ? t('settings.on')
-    : t('settings.off');
+  dom.closeToTrayToggle.set?.(closeToTrayEnabled);
 }
 
 function syncAutoUpdateUi() {
@@ -1055,10 +1050,7 @@ function syncAutoUpdateUi() {
   }
 
   const autoUpdateEnabled = getAutoUpdateEnabled();
-  dom.autoUpdateToggle.classList.toggle('on', autoUpdateEnabled);
-  dom.autoUpdateToggle.textContent = autoUpdateEnabled
-    ? t('settings.on')
-    : t('settings.off');
+  dom.autoUpdateToggle.set?.(autoUpdateEnabled);
 }
 
 function syncInstallBetaVersionsUi() {
@@ -1067,10 +1059,7 @@ function syncInstallBetaVersionsUi() {
   }
 
   const installBetaVersionsEnabled = getInstallBetaVersionsEnabled();
-  dom.betaUpdatesToggle.classList.toggle('on', installBetaVersionsEnabled);
-  dom.betaUpdatesToggle.textContent = installBetaVersionsEnabled
-    ? t('settings.on')
-    : t('settings.off');
+  dom.betaUpdatesToggle.set?.(installBetaVersionsEnabled);
 }
 
 function syncMediaControllerUi() {
@@ -1087,10 +1076,7 @@ function syncMediaControllerUi() {
   }
 
   if (dom.mediaControllerToggle) {
-    dom.mediaControllerToggle.classList.toggle('on', mediaControllerVisible);
-    dom.mediaControllerToggle.textContent = mediaControllerVisible
-      ? t('settings.on')
-      : t('settings.off');
+    dom.mediaControllerToggle.set?.(mediaControllerVisible);
   }
 
   syncMediaControllerTargetSettingsUi();
@@ -1104,15 +1090,7 @@ function syncCloseToTrayRuntime() {
 
 function syncFaderInterpolationUi() {
   const faderInterpolationEnabled = getFaderInterpolationEnabled();
-  if (dom.faderInterpolationToggle) {
-    dom.faderInterpolationToggle.classList.toggle(
-      'on',
-      faderInterpolationEnabled
-    );
-    dom.faderInterpolationToggle.textContent = faderInterpolationEnabled
-      ? t('settings.on')
-      : t('settings.off');
-  }
+  dom.faderInterpolationToggle?.set?.(faderInterpolationEnabled);
 
   document.body.classList.toggle(
     'fader-interpolation-enabled',
@@ -1124,12 +1102,7 @@ function syncSoftTakeoverUi() {
   const softTakeoverEnabled = getSoftTakeoverEnabled();
   const softTakeoverThreshold = getSoftTakeoverThreshold();
 
-  if (dom.softTakeoverToggle) {
-    dom.softTakeoverToggle.classList.toggle('on', softTakeoverEnabled);
-    dom.softTakeoverToggle.textContent = softTakeoverEnabled
-      ? t('settings.on')
-      : t('settings.off');
-  }
+  dom.softTakeoverToggle?.set?.(softTakeoverEnabled);
 
   if (dom.softTakeoverAdvanced) {
     dom.softTakeoverAdvanced.classList.toggle('open', softTakeoverEnabled);
@@ -1165,20 +1138,8 @@ function syncProfileToolbarUi() {
   }
 
   const profileToolbarSwitcherEnabled = isToolbarProfilePickerEnabled();
-  dom.profileToolbarToggle.classList.toggle(
-    'on',
-    profileToolbarSwitcherEnabled
-  );
-  dom.profileToolbarToggle.textContent = profileToolbarSwitcherEnabled
-    ? t('settings.on')
-    : t('settings.off');
+  dom.profileToolbarToggle.set?.(profileToolbarSwitcherEnabled);
   syncToolbarProfilePickerVisibility?.();
-}
-
-function hideLegacyVolumeHudSettingsUi() {
-  if (dom.legacyVolumeHudGroup) {
-    dom.legacyVolumeHudGroup.hidden = true;
-  }
 }
 
 function syncVolumeHudPreviewUi(settings = getVolumeHudPresentationSettings()) {
@@ -1274,10 +1235,7 @@ function syncVolumeHudUi() {
   const settings = getVolumeHudPresentationSettings();
 
   if (dom.volumeHudToggle) {
-    dom.volumeHudToggle.classList.toggle('on', settings.enabled);
-    dom.volumeHudToggle.textContent = settings.enabled
-      ? t('settings.on')
-      : t('settings.off');
+    dom.volumeHudToggle.set?.(settings.enabled);
   }
 
   if (dom.volumeHudAdvanced) {
@@ -1319,9 +1277,11 @@ function syncVolumeHudUi() {
       return;
     }
 
-    button.disabled = !settings.enabled;
-    button.classList.toggle('on', value);
-    button.textContent = value ? t('settings.on') : t('settings.off');
+    const input = button.querySelector?.('input');
+    if (input) {
+      input.disabled = !settings.enabled;
+    }
+    button.set?.(value);
   });
 
   syncVolumeHudPreviewUi(settings);
@@ -1331,25 +1291,8 @@ function syncVolumeHudUi() {
 function syncFractionalNumberUi() {
   const showFractionalNumbers = getShowFractionalNumbersEnabled();
   const showFractionalOnlyLow = getShowFractionalOnlyLowEnabled();
-  if (dom.showFractionalNumbersToggle) {
-    dom.showFractionalNumbersToggle.classList.toggle(
-      'on',
-      showFractionalNumbers
-    );
-    dom.showFractionalNumbersToggle.textContent = showFractionalNumbers
-      ? t('settings.on')
-      : t('settings.off');
-  }
-
-  if (dom.showFractionalOnlyLowToggle) {
-    dom.showFractionalOnlyLowToggle.classList.toggle(
-      'on',
-      showFractionalOnlyLow
-    );
-    dom.showFractionalOnlyLowToggle.textContent = showFractionalOnlyLow
-      ? t('settings.on')
-      : t('settings.off');
-  }
+  dom.showFractionalNumbersToggle?.set?.(showFractionalNumbers);
+  dom.showFractionalOnlyLowToggle?.set?.(showFractionalOnlyLow);
 
   if (dom.fractionalNumbersAdvanced) {
     dom.fractionalNumbersAdvanced.classList.toggle(
@@ -1621,12 +1564,7 @@ function syncVolumeCurveUi() {
   const volumeCurveEnabled = getVolumeCurveEnabled();
   const volumeCurveType = getVolumeCurveType();
   const volumeCurveAmount = getVolumeCurveAmount();
-  if (dom.volumeCurveToggle) {
-    dom.volumeCurveToggle.classList.toggle('on', volumeCurveEnabled);
-    dom.volumeCurveToggle.textContent = volumeCurveEnabled
-      ? t('settings.on')
-      : t('settings.off');
-  }
+  dom.volumeCurveToggle?.set?.(volumeCurveEnabled);
 
   if (dom.volumeCurveAdvanced) {
     dom.volumeCurveAdvanced.classList.toggle('open', volumeCurveEnabled);
@@ -1711,6 +1649,27 @@ function applyAboutAppLinkState(link, href) {
   link.tabIndex = normalizedHref ? 0 : -1;
   link.setAttribute('aria-disabled', normalizedHref ? 'false' : 'true');
   link.classList.toggle('is-disabled', !normalizedHref);
+}
+
+function formatReleaseChannelName(info) {
+  const isRu = getCurrentLanguage() === 'ru';
+  const code = String(info?.releaseChannelCode || '').toLowerCase();
+  const channel = String(info?.releaseChannel || '').toLowerCase();
+
+  if (code === 'b' || channel === 'beta') {
+    return isRu ? 'Бета' : 'Beta';
+  }
+  if (code === 'p' || channel === 'plus') {
+    return isRu ? 'Плюс версия' : 'Plus version';
+  }
+  if (code === 'e' || channel === 'experimental' || channel === 'exp') {
+    return isRu ? 'Экспериментальная' : 'Experimental';
+  }
+  if (channel === 'stable' || (!code && !channel)) {
+    return isRu ? 'Стабильная' : 'Stable';
+  }
+
+  return info?.releaseChannelName || (isRu ? 'Стабильная' : 'Stable');
 }
 
 function syncToolbarReleaseBadgeUi(info = appSessionState.aboutPanel.info) {
@@ -2159,37 +2118,119 @@ function setupSettingsTooltips() {
   });
 }
 
+const settingsSwitchLabelKeys = [
+  { domKey: 'faderInterpolationToggle', key: 'settings.faderInterpolation' },
+  { domKey: 'softTakeoverToggle', key: 'settings.softTakeover' },
+  { domKey: 'volumeCurveToggle', key: 'settings.volumeCurve' },
+  { domKey: 'profileToolbarToggle', key: 'settings.profileToolbar' },
+  { domKey: 'mediaControllerToggle', key: 'settings.mediaController' },
+  { domKey: 'showFractionalNumbersToggle', key: 'settings.showFractionalNumbers' },
+  { domKey: 'showFractionalOnlyLowToggle', key: 'settings.showFractionalOnlyLow' },
+  { domKey: 'volumeHudToggle', key: 'settings.volumeHud' },
+  { domKey: 'volumeHudShowIconToggle', key: 'settings.volumeHudShowIcon' },
+  { domKey: 'volumeHudShowTitleToggle', key: 'settings.volumeHudShowTitle' },
+  { domKey: 'volumeHudShowSubtitleToggle', key: 'settings.volumeHudShowSubtitle' },
+  { domKey: 'volumeHudShowPercentToggle', key: 'settings.volumeHudShowPercent' },
+  { domKey: 'volumeHudShowMeterToggle', key: 'settings.volumeHudShowMeter' },
+  { domKey: 'startOnBootToggle', key: 'settings.startOnBoot' },
+  { domKey: 'closeToTrayToggle', key: 'settings.closeToTray' },
+  { domKey: 'autoUpdateToggle', key: 'settings.autoUpdate' },
+  { domKey: 'betaUpdatesToggle', key: 'settings.betaUpdates' },
+  { domKey: 'developerModeToggle', key: 'settings.developerMode' },
+  { domKey: 'advancedModeToggle', key: 'settings.advancedMode' }
+];
+
+function updateSettingsSwitchLabels() {
+  for (const item of settingsSwitchLabelKeys) {
+    const sw = dom[item.domKey];
+    if (sw) {
+      const input = sw.querySelector('input');
+      if (input) {
+        input.setAttribute('aria-label', t(item.key));
+      }
+    }
+  }
+}
+
+function initSettingsSwitch(elementId, domKey, options = {}) {
+  const target = document.getElementById(elementId);
+  const createSw = window.createSwitch;
+  if (typeof createSw !== 'function') {
+    return target;
+  }
+
+  const sw = createSw({
+    checked: Boolean(options.checked),
+    disabled: Boolean(options.disabled),
+    size: options.size || '',
+    label: options.label || '',
+    onChange: options.onChange
+  });
+  sw.id = elementId;
+
+  if (target) {
+    target.replaceWith(sw);
+  }
+
+  const key = domKey || elementId;
+  if (dom && key) {
+    dom[key] = sw;
+  }
+
+  return sw;
+}
+
 function setupSettings() {
-  dom.advancedModeToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleAdvancedMode({ source: 'ui' });
+  initSettingsSwitch('advancedModeToggle', 'advancedModeToggle', {
+    checked: getAdvancedModeEnabled(),
+    label: t('settings.advancedMode'),
+    onChange: (checked) => window.uiActions?.setAdvancedMode(checked, { source: 'ui' })
   });
 
-  dom.developerModeToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleDeveloperMode({ source: 'ui' });
+  initSettingsSwitch('developerModeToggle', 'developerModeToggle', {
+    checked: getDeveloperModeEnabled(),
+    label: t('settings.developerMode'),
+    onChange: (checked) => window.uiActions?.setDeveloperMode(checked, { source: 'ui' })
   });
 
   dom.openDebugPanelBtn?.addEventListener('click', () => {
     window.faderDeck?.toggle_debug_panel?.();
   });
 
-  dom.closeToTrayToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleCloseToTrayEnabled({ source: 'ui' });
+  initSettingsSwitch('startOnBootToggle', 'startOnBootToggle', {
+    checked: false,
+    disabled: true,
+    label: t('settings.startOnBoot')
   });
 
-  dom.autoUpdateToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleAutoUpdateEnabled({ source: 'ui' });
+  initSettingsSwitch('closeToTrayToggle', 'closeToTrayToggle', {
+    checked: getCloseToTrayEnabled(),
+    label: t('settings.closeToTray'),
+    onChange: (checked) => window.uiActions?.setCloseToTrayEnabled(checked, { source: 'ui' })
   });
 
-  dom.betaUpdatesToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleInstallBetaVersions({ source: 'ui' });
+  initSettingsSwitch('autoUpdateToggle', 'autoUpdateToggle', {
+    checked: getAutoUpdateEnabled(),
+    label: t('settings.autoUpdate'),
+    onChange: (checked) => window.uiActions?.setAutoUpdateEnabled(checked, { source: 'ui' })
   });
 
-  dom.faderInterpolationToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleFaderInterpolation({ source: 'ui' });
+  initSettingsSwitch('betaUpdatesToggle', 'betaUpdatesToggle', {
+    checked: getInstallBetaVersionsEnabled(),
+    label: t('settings.betaUpdates'),
+    onChange: (checked) => window.uiActions?.setInstallBetaVersions(checked, { source: 'ui' })
   });
 
-  dom.softTakeoverToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleSoftTakeover({ source: 'ui' });
+  initSettingsSwitch('faderInterpolationToggle', 'faderInterpolationToggle', {
+    checked: getFaderInterpolationEnabled(),
+    label: t('settings.faderInterpolation'),
+    onChange: (checked) => window.uiActions?.setFaderInterpolationEnabled(checked, { source: 'ui' })
+  });
+
+  initSettingsSwitch('softTakeoverToggle', 'softTakeoverToggle', {
+    checked: getSoftTakeoverEnabled(),
+    label: t('settings.softTakeover'),
+    onChange: (checked) => window.uiActions?.setSoftTakeoverEnabled(checked, { source: 'ui' })
   });
 
   dom.softTakeoverThresholdRange?.addEventListener('input', (event) => {
@@ -2208,12 +2249,16 @@ function setupSettings() {
     window.uiActions?.setSoftTakeoverThreshold(sliderValue, { source: 'ui' });
   });
 
-  dom.profileToolbarToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleProfileToolbarSwitcher({ source: 'ui' });
+  initSettingsSwitch('profileToolbarToggle', 'profileToolbarToggle', {
+    checked: isToolbarProfilePickerEnabled(),
+    label: t('settings.profileToolbar'),
+    onChange: (checked) => window.uiActions?.setProfileToolbarSwitcherEnabled(checked, { source: 'ui' })
   });
 
-  dom.mediaControllerToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleMediaControllerVisible({ source: 'ui' });
+  initSettingsSwitch('mediaControllerToggle', 'mediaControllerToggle', {
+    checked: getMediaControllerVisible(),
+    label: t('settings.mediaController'),
+    onChange: (checked) => window.uiActions?.setMediaControllerVisible(checked, { source: 'ui' })
   });
 
   dom.mediaControllerTargetSettingsSelect?.addEventListener(
@@ -2246,8 +2291,10 @@ function setupSettings() {
     }
   });
 
-  dom.volumeHudToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleVolumeHud({ source: 'ui' });
+  initSettingsSwitch('volumeHudSettingsToggle', 'volumeHudToggle', {
+    checked: getVolumeHudEnabled(),
+    label: t('settings.volumeHud'),
+    onChange: (checked) => window.uiActions?.setVolumeHudEnabled(checked, { source: 'ui' })
   });
 
   dom.volumeHudPositionSelect?.addEventListener('change', (event) => {
@@ -2260,37 +2307,55 @@ function setupSettings() {
     window.uiActions?.toggleVolumeHudOrientation({ source: 'ui' });
   });
 
-  dom.volumeHudShowIconToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleVolumeHudShowIcon({ source: 'ui' });
+  initSettingsSwitch('volumeHudSettingsShowIconToggle', 'volumeHudShowIconToggle', {
+    checked: getVolumeHudShowIcon(),
+    label: t('settings.volumeHudShowIcon'),
+    onChange: (checked) => window.uiActions?.setVolumeHudShowIcon(checked, { source: 'ui' })
   });
 
-  dom.volumeHudShowTitleToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleVolumeHudShowTitle({ source: 'ui' });
+  initSettingsSwitch('volumeHudSettingsShowTitleToggle', 'volumeHudShowTitleToggle', {
+    checked: getVolumeHudShowTitle(),
+    label: t('settings.volumeHudShowTitle'),
+    onChange: (checked) => window.uiActions?.setVolumeHudShowTitle(checked, { source: 'ui' })
   });
 
-  dom.volumeHudShowSubtitleToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleVolumeHudShowSubtitle({ source: 'ui' });
+  initSettingsSwitch('volumeHudSettingsShowSubtitleToggle', 'volumeHudShowSubtitleToggle', {
+    checked: getVolumeHudShowSubtitle(),
+    label: t('settings.volumeHudShowSubtitle'),
+    onChange: (checked) => window.uiActions?.setVolumeHudShowSubtitle(checked, { source: 'ui' })
   });
 
-  dom.volumeHudShowPercentToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleVolumeHudShowPercent({ source: 'ui' });
+  initSettingsSwitch('volumeHudSettingsShowPercentToggle', 'volumeHudShowPercentToggle', {
+    checked: getVolumeHudShowPercent(),
+    label: t('settings.volumeHudShowPercent'),
+    onChange: (checked) => window.uiActions?.setVolumeHudShowPercent(checked, { source: 'ui' })
   });
 
-  dom.volumeHudShowMeterToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleVolumeHudShowMeter({ source: 'ui' });
+  initSettingsSwitch('volumeHudSettingsShowMeterToggle', 'volumeHudShowMeterToggle', {
+    checked: getVolumeHudShowMeter(),
+    label: t('settings.volumeHudShowMeter'),
+    onChange: (checked) => window.uiActions?.setVolumeHudShowMeter(checked, { source: 'ui' })
   });
 
-  dom.showFractionalNumbersToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleShowFractionalNumbers({ source: 'ui' });
+  initSettingsSwitch('showFractionalNumbersToggle', 'showFractionalNumbersToggle', {
+    checked: getShowFractionalNumbersEnabled(),
+    label: t('settings.showFractionalNumbers'),
+    onChange: (checked) => window.uiActions?.setShowFractionalNumbers(checked, { source: 'ui' })
   });
 
-  dom.showFractionalOnlyLowToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleShowFractionalOnlyLow({ source: 'ui' });
+  initSettingsSwitch('showFractionalOnlyLowToggle', 'showFractionalOnlyLowToggle', {
+    checked: getShowFractionalOnlyLowEnabled(),
+    label: t('settings.showFractionalOnlyLow'),
+    onChange: (checked) => window.uiActions?.setShowFractionalOnlyLow(checked, { source: 'ui' })
   });
 
-  dom.volumeCurveToggle?.addEventListener('click', () => {
-    window.uiActions?.toggleVolumeCurve({ source: 'ui' });
+  initSettingsSwitch('volumeCurveToggle', 'volumeCurveToggle', {
+    checked: getVolumeCurveEnabled(),
+    label: t('settings.volumeCurve'),
+    onChange: (checked) => window.uiActions?.setVolumeCurveEnabled(checked, { source: 'ui' })
   });
+
+  window.addEventListener('app:language-changed', updateSettingsSwitchLabels);
 
   dom.volumeCurveModeButtons?.forEach((button) => {
     button.addEventListener('click', () => {
@@ -2843,17 +2908,8 @@ function bindGlobalUi() {
     });
   }
 
-  // Delegated click listener for dynamic add-channel and menu elements
+  // Delegated click listener for dynamic menu elements
   document.addEventListener('click', (event) => {
-    const addStrip = event.target.closest('.add-channel-strip, [data-action="create-channel"]');
-    if (addStrip) {
-      event.preventDefault();
-      if (typeof window.createChannel === 'function') {
-        window.createChannel();
-      }
-      return;
-    }
-
     const menuTrigger = event.target.closest('#menuButton, [data-action="toggle-menu"]');
     if (menuTrigger && menuTrigger !== menuBtn) {
       event.preventDefault();
@@ -2893,7 +2949,6 @@ function bindGlobalUi() {
 function initializeAppShell() {
   ensureDynamicUiAugments();
   cacheDomElements();
-  hideLegacyVolumeHudSettingsUi();
   initUiStore?.();
   window.audioRuntime?.init?.();
   applyTranslations();
