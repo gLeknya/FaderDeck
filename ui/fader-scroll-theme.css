@@ -1,0 +1,52 @@
+/* ============================================================
+   FaderDeck Theme for fader-scroll
+   Matches existing FaderDeck scrollbar styling:
+   - 6px width/height
+   - transparent track
+   - rgba(255, 255, 255, 0.15) thumb
+   - rgba(255, 255, 255, 0.3) on hover
+   - rgba(255, 255, 255, 0.45) on active drag
+   - 6px border-radius
+   ============================================================ */
+
+:root {
+  --sb-thickness: 6px;
+  --sb-thickness-active: 6px;
+  --sb-thickness-transition: 150ms;
+
+  --sb-track-bg: transparent;
+  --sb-track-radius: 6px;
+
+  --sb-thumb-bg: rgba(255, 255, 255, 0.15);
+  --sb-thumb-bg-hover: rgba(255, 255, 255, 0.3);
+  --sb-thumb-bg-active: rgba(255, 255, 255, 0.45);
+  --sb-thumb-radius: 6px;
+  --sb-thumb-border: none;
+  --sb-thumb-shadow: none;
+
+  /* Y-track offsets */
+  --sb-y-top: 2px;
+  --sb-y-bottom: 2px;
+  --sb-y-right: 2px;
+  --sb-y-left: auto;
+
+  /* X-track offsets */
+  --sb-x-left: 2px;
+  --sb-x-right: 2px;
+  --sb-x-bottom: 2px;
+  --sb-x-top: auto;
+
+  --sb-corner-gap: calc(var(--sb-thickness-active) + 4px);
+  --sb-z: 15;
+}
+
+/* Thin preset for compact panels (e.g. debug panel) */
+.sb-theme-thin {
+  --sb-thickness: 5px;
+  --sb-thickness-active: 5px;
+  --sb-track-radius: 3px;
+  --sb-thumb-radius: 3px;
+  --sb-y-top: 2px;
+  --sb-y-bottom: 2px;
+  --sb-y-right: 1px;
+}
