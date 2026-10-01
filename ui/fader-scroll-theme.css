@@ -50,3 +50,8 @@
   --sb-y-bottom: 2px;
   --sb-y-right: 1px;
 }
+
+/* Prevent .sb-host from breaking fixed dropdown panels */
+.custom-select-panel.sb-host {
+  position: fixed;
+}

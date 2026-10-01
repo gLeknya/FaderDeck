@@ -371,7 +371,7 @@ select {
 }
 
 .custom-select-panel {
-  position: fixed;
+  position: fixed !important;
   box-sizing: border-box;
   left: var(--custom-select-panel-left, 0);
   top: var(--custom-select-panel-top, 0);
