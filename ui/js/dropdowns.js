@@ -273,6 +273,7 @@ function createCustomDropdown(select) {
   document.body.appendChild(panel);
   dropdown._customSelectPanel = panel;
   dropdown._customSelectViewport = viewport;
+  window.faderScroll?.createScroll(viewport, { axis: 'y' });
 
   const trigger = dropdown.querySelector('.custom-select-trigger');
 
