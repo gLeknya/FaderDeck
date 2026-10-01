@@ -177,6 +177,7 @@ function updateDropdownPlacement(dropdown) {
   panel.style.removeProperty('--custom-select-panel-top');
   panel.style.removeProperty('--custom-select-panel-bottom');
 
+  const rect = dropdown.getBoundingClientRect();
   const targetScroll =
     dropdown._customSelectViewport ||
     panel.querySelector('.custom-select-panel-viewport') ||
