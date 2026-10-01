@@ -10,6 +10,8 @@
     />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="fd-switch.css" />
+    <link rel="stylesheet" href="scroll-lib/styles/fader-scroll.css" />
+    <link rel="stylesheet" href="fader-scroll-theme.css" />
   </head>
   <body style="background-color: #111111; color: #ffffff;">
     <div class="toolbar">
@@ -179,7 +181,9 @@
               </button>
 
               <div class="profile-list-shell">
-                <div class="profile-list" id="profileList"></div>
+                <div class="profile-list-host sb-host">
+                  <div class="profile-list" id="profileList" data-scroll="y"></div>
+                </div>
               </div>
 
               <div class="profile-footer">
@@ -236,7 +240,8 @@
 
           <section class="menu-panel-view" data-tab="settings" hidden>
             <div class="settings-scroll-shell">
-              <div class="settings-content" id="settingsContent">
+              <div class="settings-content-host sb-host">
+                <div class="settings-content" id="settingsContent" data-scroll="y">
                 <section class="settings-section">
                   <div
                     class="settings-section-title"
@@ -854,6 +859,7 @@
                     </div>
                   </div>
                 </div>
+                </div>
               </div>
             </div>
           </section>
@@ -919,24 +925,26 @@
       </div>
 
       <div class="content-shell">
-        <main class="main-content-viewport" id="mainContentViewport">
-          <div class="main-content-canvas" id="mainContentCanvas">
-            <div class="mixer-container" id="mixerContainer">
-              <div class="empty-state">
-                <div class="empty-state-icon">Mixer</div>
-                <div class="empty-state-text" data-i18n="empty.message">
-                  Нажмите "+" справа, чтобы добавить канал,<br />
-                  или создайте отдельную кнопку ниже
+        <div class="main-content-host sb-host">
+          <main class="main-content-viewport" id="mainContentViewport" data-scroll="both">
+            <div class="main-content-canvas" id="mainContentCanvas">
+              <div class="mixer-container" id="mixerContainer">
+                <div class="empty-state">
+                  <div class="empty-state-icon">Mixer</div>
+                  <div class="empty-state-text" data-i18n="empty.message">
+                    Нажмите "+" справа, чтобы добавить канал,<br />
+                    или создайте отдельную кнопку ниже
+                  </div>
+                </div>
+                <div class="add-channel-strip" id="addChannelStrip" data-action="create-channel" data-channel-action="add">
+                  <div class="add-channel-plus">+</div>
                 </div>
               </div>
-              <div class="add-channel-strip" id="addChannelStrip" data-action="create-channel" data-channel-action="add">
-                <div class="add-channel-plus">+</div>
-              </div>
-            </div>
 
-            <div class="standalone-buttons" id="standaloneButtons"></div>
-          </div>
-        </main>
+              <div class="standalone-buttons" id="standaloneButtons"></div>
+            </div>
+          </main>
+        </div>
       </div>
     </div>
 
@@ -965,8 +973,8 @@
           aria-modal="true"
           tabindex="-1"
         >
-          <div class="entity-edit-main-shell" id="entityEditMainShell">
-            <div class="entity-edit-main-panel" id="entityEditMain"></div>
+          <div class="entity-edit-main-shell sb-host" id="entityEditMainShell">
+            <div class="entity-edit-main-panel" id="entityEditMain" data-scroll="y"></div>
           </div>
           <aside
             class="entity-edit-side-panel"
@@ -1202,5 +1210,6 @@
     <script src="js/shell/composition-root.js"></script>
     <script type="module" src="js/fd-switch-init.js"></script>
     <script type="module" src="js/corner-bite-bridge.js"></script>
+    <script type="module" src="js/fader-scroll-bridge.js"></script>
   </body>
 </html>

@@ -19,27 +19,6 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  transition: background 0.2s ease;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
 }
 
 html,
@@ -67,6 +46,7 @@ body.modal-open {
 .menu-rail,
 .menu-panel-overlay,
 .main-content-viewport,
+.main-content-host,
 .modal,
 .context-menu,
 .toolbar button,
@@ -398,7 +378,7 @@ select {
   bottom: auto;
   width: var(--custom-select-panel-width, 160px);
   z-index: 2400;
-  padding: 6px 6px 8px;
+  padding: 0;
   border-radius: 0 0 14px 14px;
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-top: none;
@@ -411,9 +391,19 @@ select {
     opacity 0.24s ease,
     transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
   max-height: var(--custom-select-panel-max-height, 240px);
+  overflow: hidden;
+  display: flex;
+  box-shadow: none;
+}
+
+.custom-select-panel-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-height: inherit;
   overflow-y: auto;
   overscroll-behavior: contain;
-  box-shadow: none;
+  padding: 6px 6px 8px;
 }
 
 .custom-select-panel.open-upward {
@@ -925,12 +915,22 @@ select {
   border-top-left-radius: var(--corner-radius, 0px);
 }
 
-.main-content-viewport {
+.main-content-host {
   flex: 1;
   min-width: 0;
   min-height: 0;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+.main-content-viewport {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: auto;
-  scrollbar-gutter: stable;
 }
 
 .main-content-canvas {
@@ -2516,7 +2516,6 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   padding: 22px 24px 24px;
   overflow-y: auto;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
   border-radius: inherit;
 }
 
@@ -3425,7 +3424,6 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   overscroll-behavior: contain;
   min-height: 0;
   flex: 1 1 auto;
-  scrollbar-gutter: stable;
 }
 
 .entity-edit-side-options-shell {
@@ -3495,6 +3493,14 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   overflow: visible;
 }
 
+.entity-edit-button-side-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
 .entity-edit-button-side-layout {
   display: flex;
   flex-direction: column;
@@ -3503,6 +3509,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   overscroll-behavior: contain;
   padding-right: 4px;
   min-height: 0;
+  width: 100%;
 }
 
 .entity-edit-button-side-inline {
@@ -4775,6 +4782,16 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   color: #ffb0b0;
 }
 
+.settings-content-host {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
 .settings-content {
   flex: 1 1 auto;
   min-height: 0;
@@ -4783,7 +4800,6 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  scrollbar-gutter: stable;
   position: relative;
   z-index: 2;
   padding-right: 0;
@@ -5772,14 +5788,24 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   overflow: hidden;
 }
 
+.profile-list-host {
+  display: flex;
+  flex-direction: column;
+  max-height: min(520px, calc(100vh - 220px));
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
 .profile-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: min(520px, calc(100vh - 220px));
+  max-height: inherit;
   min-height: 0;
+  width: 100%;
   overflow-y: auto;
-  scrollbar-gutter: stable;
 }
 
 .profiles-empty-state {

@@ -46,6 +46,16 @@ function setDropdownOpen(dropdown, isOpen) {
   dropdown
     .querySelector('.custom-select-trigger')
     ?.setAttribute('aria-expanded', String(isOpen));
+
+  if (isOpen && panel) {
+    const viewport =
+      dropdown._customSelectViewport ||
+      panel.querySelector('.custom-select-panel-viewport');
+    if (viewport) {
+      const inst = window.faderScroll?.createScroll(viewport, { axis: 'y' });
+      inst?.update();
+    }
+  }
 }
 
 function closeAllCustomDropdowns(exceptSelect = null) {
@@ -68,7 +78,12 @@ function cleanupDetachedCustomSelects() {
 
     const state = CUSTOM_DROPDOWN_STATE.get(select);
     state?.observer?.disconnect();
-    state?.panel?.remove();
+    if (state?.panel) {
+      const vp =
+        state.panel.querySelector('.custom-select-panel-viewport') || state.panel;
+      window.faderScroll?.getInstance(vp)?.destroy();
+      state.panel.remove();
+    }
     CUSTOM_DROPDOWN_STATE.delete(select);
     CUSTOM_DROPDOWN_SELECTS.delete(select);
   });
@@ -94,6 +109,11 @@ function repositionOpenCustomDropdowns() {
 
 function buildCustomDropdownOptions(select, dropdown) {
   const panel = getDropdownPanel(dropdown);
+  if (!panel) return;
+  const viewport =
+    dropdown._customSelectViewport ||
+    panel.querySelector('.custom-select-panel-viewport') ||
+    panel;
   const selectedValue = select.value;
   const statusLabel = select.dataset.dropdownStatusLabel || '';
   const isLoading = select.dataset.dropdownLoading === 'true';
@@ -116,7 +136,7 @@ function buildCustomDropdownOptions(select, dropdown) {
     )
     .join('');
 
-  panel.innerHTML = `
+  viewport.innerHTML = `
     ${
       statusLabel
         ? `
@@ -157,8 +177,12 @@ function updateDropdownPlacement(dropdown) {
   panel.style.removeProperty('--custom-select-panel-top');
   panel.style.removeProperty('--custom-select-panel-bottom');
 
-  const rect = dropdown.getBoundingClientRect();
-  const panelHeight = Math.min(Math.max(panel.scrollHeight, 0), 240) || 180;
+  const targetScroll =
+    dropdown._customSelectViewport ||
+    panel.querySelector('.custom-select-panel-viewport') ||
+    panel;
+  const panelHeight =
+    Math.min(Math.max(targetScroll.scrollHeight, 0), 240) || 180;
   const viewportHeight =
     window.innerHeight || document.documentElement.clientHeight || 0;
   const viewportWidth =
@@ -240,10 +264,15 @@ function createCustomDropdown(select) {
     </button>
   `;
 
-  panel.className = 'custom-select-panel';
+  panel.className = 'custom-select-panel sb-host';
   panel.setAttribute('role', 'listbox');
+  const viewport = document.createElement('div');
+  viewport.className = 'custom-select-panel-viewport';
+  viewport.dataset.scroll = 'y';
+  panel.appendChild(viewport);
   document.body.appendChild(panel);
   dropdown._customSelectPanel = panel;
+  dropdown._customSelectViewport = viewport;
 
   const trigger = dropdown.querySelector('.custom-select-trigger');
 

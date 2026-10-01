@@ -3163,24 +3163,26 @@
           </button>
         </div>
 
-        <div class="entity-edit-button-side-layout">
-          <div class="entity-edit-button-side-inline">
-            <div class="entity-edit-button-name-row entity-edit-button-name-row--compact">
-              ${renderChannelButtonIconPicker(resolvedButton)}
-              <button
-                class="btn entity-edit-button-midi-bind"
-                type="button"
-                data-editor-bind-channel-button-midi="${resolvedButton.id}">
-                ${t('editor.buttonMidiBind')}
-              </button>
+        <div class="entity-edit-button-side-host sb-host">
+          <div class="entity-edit-button-side-layout" data-scroll="y">
+            <div class="entity-edit-button-side-inline">
+              <div class="entity-edit-button-name-row entity-edit-button-name-row--compact">
+                ${renderChannelButtonIconPicker(resolvedButton)}
+                <button
+                  class="btn entity-edit-button-midi-bind"
+                  type="button"
+                  data-editor-bind-channel-button-midi="${resolvedButton.id}">
+                  ${t('editor.buttonMidiBind')}
+                </button>
+              </div>
             </div>
-          </div>
 
-          ${renderButtonModeAndGroupRow(resolvedButton, { layout: 'stacked' })}
+            ${renderButtonModeAndGroupRow(resolvedButton, { layout: 'stacked' })}
 
-          <div class="entity-edit-button-card-stack">
-            ${renderButtonActionCard(resolvedButton, { ownerChannelId: channel?.id })}
-            ${renderButtonIndicatorBehaviorCard(resolvedButton, { channelId: channel?.id })}
+            <div class="entity-edit-button-card-stack">
+              ${renderButtonActionCard(resolvedButton, { ownerChannelId: channel?.id })}
+              ${renderButtonIndicatorBehaviorCard(resolvedButton, { channelId: channel?.id })}
+            </div>
           </div>
         </div>
       </div>
@@ -3855,6 +3857,12 @@
     ) {
       dom.shell?.classList.remove('entity-edit-side-open');
       dom.shell?.classList.remove('entity-edit-side-closing');
+      const oldSideScroll =
+        dom.sideOptions ||
+        dom.sidePanel.querySelector('.entity-edit-button-side-layout');
+      if (oldSideScroll) {
+        window.faderScroll?.getInstance(oldSideScroll)?.destroy();
+      }
       dom.sidePanel.classList.remove('is-open');
       dom.sidePanel.classList.remove('is-closing');
       dom.sidePanel.innerHTML = '';
@@ -3873,6 +3881,13 @@
             ?.scrollTop || 0
         : 0;
 
+    const oldSideScroll =
+      dom.sideOptions ||
+      dom.sidePanel.querySelector('.entity-edit-button-side-layout');
+    if (oldSideScroll) {
+      window.faderScroll?.getInstance(oldSideScroll)?.destroy();
+    }
+
     dom.shell?.classList.toggle(
       'entity-edit-side-open',
       editorState.sidePanelOpen
@@ -3887,6 +3902,7 @@
     if (!isTargetsSidePanelMode()) {
       dom.sidePanel.innerHTML =
         renderChannelButtonSidePanel(resolvedTargetEntity);
+      window.faderScroll?.initScrolls(dom.sidePanel);
       enhanceEntityEditorCustomSelects(dom.sidePanel);
       applySidePanelMotionSnapshot(motionSnapshot, {
         choiceKeys: motionChoiceKeys
@@ -3941,8 +3957,8 @@
               : ''
           }
 
-          <div class="entity-edit-side-options-shell">
-            <div class="entity-edit-side-options" id="entityEditSideOptions">
+          <div class="entity-edit-side-options-shell sb-host">
+            <div class="entity-edit-side-options" id="entityEditSideOptions" data-scroll="y">
               ${renderSidePanelOptions(resolvedTargetEntity)}
             </div>
           </div>
@@ -3951,6 +3967,9 @@
 
     enhanceEntityEditorCustomSelects(dom.sidePanel);
     dom.sideOptions = $('entityEditSideOptions');
+    if (dom.sideOptions) {
+      window.faderScroll?.initScrolls(dom.sidePanel);
+    }
   }
 
   function syncEditorTargetsBody(channel = getEditorTargetEntity()) {
@@ -6506,6 +6525,12 @@
     }
 
     if (dom.sidePanel) {
+      const oldSideScroll =
+        dom.sideOptions ||
+        dom.sidePanel.querySelector('.entity-edit-button-side-layout');
+      if (oldSideScroll) {
+        window.faderScroll?.getInstance(oldSideScroll)?.destroy();
+      }
       dom.sidePanel.innerHTML = '';
       dom.sidePanel.classList.remove('is-open');
     }
