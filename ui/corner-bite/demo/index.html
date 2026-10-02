@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>corner-bite Demo</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-glow: rgba(56, 189, 248, 0.25);
+      --border: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+      padding: 24px;
+    }
+
+    header {
+      max-width: 1200px;
+      margin: 0 auto 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 16px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    header p {
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 24px;
+    }
+
+    .sidebar {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      height: fit-content;
+    }
+
+    .sidebar h2 {
+      font-size: 16px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .control-group label {
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .control-group label span.val {
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    .nav-tabs {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-muted);
+      padding: 10px 14px;
+      border-radius: 8px;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tab-btn:hover {
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text);
+    }
+
+    .tab-btn.active {
+      background: var(--accent-glow);
+      color: var(--accent);
+      border-color: rgba(56, 189, 248, 0.4);
+    }
+
+    .stage {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      min-height: 600px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .stage-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .stage-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+    }
+
+    .canvas-area {
+      position: relative;
+      flex: 1;
+      min-height: 520px;
+      background: radial-gradient(#334155 1px, transparent 1px);
+      background-size: 24px 24px;
+      background-color: #0b1120;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    /* Scene 1: Stepped shape */
+    #scene1-host {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      --cb-fill: #3b82f6;
+      --cb-stroke: #60a5fa;
+      --cb-stroke-width: 2px;
+      filter: drop-shadow(0 12px 24px rgba(0, 0, 0, 0.4));
+    }
+
+    .rect-debug {
+      position: absolute;
+      border: 1px dashed rgba(255, 255, 255, 0.2);
+      pointer-events: none;
+      font-size: 11px;
+      color: rgba(255, 255, 255, 0.4);
+      padding: 4px;
+    }
+    /* Scene 2: Joint of two blocks */
+    .scene2-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      --cb-fill: #1e1b4b;
+      --cb-stroke: #6366f1;
+      --cb-stroke-width: 2px;
+      filter: drop-shadow(0 16px 32px rgba(0, 0, 0, 0.5));
+    }
+
+    .demo-panel {
+      position: absolute;
+      left: 60px;
+      top: 60px;
+      width: 320px;
+      height: 340px;
+      background: transparent;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      color: #e0e7ff;
+      user-select: none;
+      z-index: 1;
+    }
+
+    .demo-player {
+      position: absolute;
+      left: 200px;
+      top: 340px;
+      width: 260px;
+      height: 72px;
+      background: transparent;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: #c7d2fe;
+      user-select: none;
+      z-index: 1;
+      transition: left 0.05s linear;
+    }
+
+    .player-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .play-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: #6366f1;
+      color: white;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .live-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      background: rgba(99, 102, 241, 0.2);
+      border: 1px solid rgba(99, 102, 241, 0.4);
+      padding: 4px 10px;
+      border-radius: 20px;
+      color: #a5b4fc;
+    }
+
+    .live-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>corner-bite</h1>
+      <p>Библиотека скругления выпуклых и вогнутых («прикушенных») углов</p>
+    </div>
+    <div style="font-size: 13px; color: var(--text-muted);">
+      Node & Browser ES Modules • Zero Dependencies
+    </div>
+  </header>
+
+  <div class="container">
+    <aside class="sidebar">
+      <h2>Сцены</h2>
+      <div class="nav-tabs">
+        <button class="tab-btn active" data-scene="1">1. Ступенчатая фигура</button>
+        <button class="tab-btn" data-scene="2">2. Стык двух блоков</button>
+        <button class="tab-btn" data-scene="3">3. Стилизация</button>
+        <button class="tab-btn" data-scene="4">4. Режим clip-path</button>
+      </div>
+
+      <h2>Параметры скругления</h2>
+      <div class="control-group">
+        <label>Радиус (convex): <span class="val" id="val-radius">24</span>px</label>
+        <input type="range" id="input-radius" min="0" max="60" value="24">
+      </div>
+
+      <div class="control-group">
+        <label>Вогнутый радиус: <span class="val" id="val-concave">24</span>px</label>
+        <input type="range" id="input-concave" min="0" max="60" value="24">
+      </div>
+
+      <div class="control-group">
+        <label>Bleed (нахлёст): <span class="val" id="val-bleed">0</span>px</label>
+        <input type="range" id="input-bleed" min="0" max="10" value="0" step="0.5">
+      </div>
+
+      <div class="control-group">
+        <label style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="check-snap" checked>
+          Привязка к пикселям (snap)
+        </label>
+      </div>
+
+      <div id="scene-specific-controls"></div>
+    </aside>
+
+    <main class="stage">
+      <div id="scene-header">
+        <h2 class="stage-title" id="stage-title">1. Ступенчатая фигура из трёх прямоугольников</h2>
+        <p class="stage-desc" id="stage-desc">
+          Эталонная форма из дизайна: 3 прямоугольника, соединённых через boolean union со скруглением выпуклых и вогнутых углов.
+        </p>
+      </div>
+
+      <div class="canvas-area" id="canvas-area">
+        <div id="scene-host"></div>
+      </div>
+
+      <div class="path-inspector" style="margin-top: 16px; background: #0f172a; border: 1px solid var(--border); border-radius: 8px; padding: 12px 16px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <span style="font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">Текущий SVG Path (d)</span>
+          <span id="path-metrics" style="font-size: 11px; color: var(--accent); font-family: monospace;">Длина: 0 символов</span>
+        </div>
+        <div id="current-path-display" style="font-family: monospace; font-size: 11px; color: #38bdf8; word-break: break-all; max-height: 80px; overflow-y: auto; background: #090d16; padding: 8px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); user-select: all;"></div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module">
+    import { attach, joinShapes, buildPath, unionRects, roundedUnion } from '../src/index.js';
+
+    // State
+    const state = {
+      activeScene: 1,
+      radius: 24,
+      concaveRadius: 24,
+      bleed: 0,
+      snap: true,
+      playerOffset: 200, // Scene 2 slider
+      isPlaying: false,
+    };
+
+    const scene1Rects = [
+      { x: 232, y: 84, w: 153, h: 224 },
+      { x: 232, y: 150, w: 425, h: 238 },
+      { x: 108, y: 308, w: 484, h: 198 }
+    ];
+
+    let currentController = null;
+    let animRaf = null;
+
+    function cleanup() {
+      if (animRaf) {
+        cancelAnimationFrame(animRaf);
+        animRaf = null;
+      }
+      state.isPlaying = false;
+      if (currentController) {
+        currentController.destroy();
+        currentController = null;
+      }
+      const host = document.getElementById('scene-host');
+      if (host) {
+        host.innerHTML = '';
+        host.className = '';
+        host.removeAttribute('style');
+      }
+    }
+
+    function updatePathDisplay() {
+      const displayEl = document.getElementById('current-path-display');
+      const metricsEl = document.getElementById('path-metrics');
+      if (!displayEl) return;
+      const d = currentController ? (currentController.getPath() || '') : '';
+      displayEl.textContent = d || '(контур пуст или не инициализирован)';
+      if (metricsEl) {
+        const cmdCount = (d.match(/[MLACZ]/g) || []).length;
+        metricsEl.textContent = `Длина: ${d.length} символов • Команд: ${cmdCount}`;
+      }
+    }
+
+    function renderScene1() {
+      cleanup();
+      document.getElementById('stage-title').textContent = '1. Ступенчатая фигура из трёх прямоугольников';
+      document.getElementById('stage-desc').textContent = 'Эталонная форма из дизайна: 3 прямоугольника, соединённых через boolean union со скруглением выпуклых и вогнутых углов.';
+      document.getElementById('scene-specific-controls').innerHTML = '';
+
+      const host = document.getElementById('scene-host');
+      host.className = 'scene1-container';
+
+      scene1Rects.forEach((r, idx) => {
+        const d = document.createElement('div');
+        d.className = 'rect-debug';
+        d.style.left = r.x + 'px';
+        d.style.top = r.y + 'px';
+        d.style.width = r.w + 'px';
+        d.style.height = r.h + 'px';
+        d.textContent = `Rect ${idx + 1}: ${r.w}x${r.h}`;
+        host.appendChild(d);
+      });
+
+      currentController = attach(host, {
+        rects: scene1Rects,
+        radius: state.radius,
+        concaveRadius: state.concaveRadius,
+        bleed: state.bleed,
+        mode: 'svg'
+      });
+      updatePathDisplay();
+    }
+
+    function renderScene2() {
+      cleanup();
+      document.getElementById('stage-title').textContent = '2. Стык двух блоков с анимацией';
+      document.getElementById('stage-desc').textContent = 'Панель и плавающая полоса плеера. Блок скользит вдоль края другого и выезжает наружу; радиус плавно уменьшается до 0 без скачков.';
+
+      const specControls = document.getElementById('scene-specific-controls');
+      specControls.innerHTML = `
+        <h2>Управление стыком</h2>
+        <div class="control-group">
+          <label>Смещение плеера (X): <span class="val" id="val-offset">${state.playerOffset}</span>px</label>
+          <input type="range" id="input-offset" min="60" max="420" value="${state.playerOffset}">
+        </div>
+        <div class="control-group" style="margin-top: 10px;">
+          <button id="btn-toggle-anim" style="padding: 8px 14px; border-radius: 6px; border: 1px solid var(--accent); background: var(--accent-glow); color: var(--accent); cursor: pointer; font-weight: 500;">
+            ▶ Запустить плавную анимацию
+          </button>
+        </div>
+        <div class="control-group" style="margin-top: 10px;">
+          <div class="live-badge">
+            <span class="live-dot"></span>
+            <span id="contact-status">Длина контакта: 180px • Стык активен</span>
+          </div>
+        </div>
+      `;
+
+      const host = document.getElementById('scene-host');
+      host.className = 'scene2-container';
+
+      // Panel element
+      const panel = document.createElement('div');
+      panel.className = 'demo-panel';
+      panel.innerHTML = `
+        <div>
+          <h3 style="font-size: 18px; font-weight: 600;">Main Control Panel</h3>
+          <p style="font-size: 13px; color: #a5b4fc; margin-top: 4px;">Общий SVG слой под прозрачным контентом</p>
+        </div>
+        <div style="font-size: 12px; color: #818cf8;">
+          Ширина: 320px • Высота: 340px
+        </div>
+      `;
+
+      // Player element
+      const player = document.createElement('div');
+      player.className = 'demo-player';
+      player.style.left = `${state.playerOffset}px`;
+      player.innerHTML = `
+        <div class="player-controls">
+          <button class="play-btn">▶</button>
+          <div>
+            <div style="font-weight: 600; font-size: 13px;">Audio Stream</div>
+            <div style="font-size: 11px; color: #818cf8;">Playing • 48 kHz</div>
+          </div>
+        </div>
+        <div style="font-size: 14px; font-weight: 500;">03:42</div>
+      `;
+
+      host.appendChild(panel);
+      host.appendChild(player);
+
+      currentController = joinShapes([panel, player], {
+        radius: state.radius,
+        concaveRadius: state.concaveRadius,
+        bleed: state.bleed,
+        follow: true,
+        mode: 'svg'
+      });
+
+      const updateStatus = () => {
+        // Panel goes from x=60 to x=380.
+        // Player starts at x=playerOffset, width=260.
+        // Overlap:
+        const overlapX = Math.max(0, Math.min(380, state.playerOffset + 260) - Math.max(60, state.playerOffset));
+        const statusEl = document.getElementById('contact-status');
+        if (statusEl) {
+          if (overlapX > 0) {
+            statusEl.textContent = `Контакт: ${Math.round(overlapX)}px • Вогнутый радиус плавно адаптирован`;
+          } else {
+            statusEl.textContent = 'Блоки разъединены • 2 отдельных контура';
+          }
+        }
+        updatePathDisplay();
+      };
+
+      const offsetInput = document.getElementById('input-offset');
+      offsetInput.addEventListener('input', (e) => {
+        state.playerOffset = parseFloat(e.target.value);
+        document.getElementById('val-offset').textContent = state.playerOffset;
+        player.style.left = `${state.playerOffset}px`;
+        currentController.update();
+        updateStatus();
+      });
+
+      const animBtn = document.getElementById('btn-toggle-anim');
+      animBtn.addEventListener('click', () => {
+        state.isPlaying = !state.isPlaying;
+        animBtn.textContent = state.isPlaying ? '⏸ Приостановить' : '▶ Запустить плавную анимацию';
+
+        if (state.isPlaying) {
+          let direction = 1;
+          const animateLoop = () => {
+            if (!state.isPlaying) return;
+            state.playerOffset += direction * 1.5;
+            if (state.playerOffset >= 420) direction = -1;
+            if (state.playerOffset <= 70) direction = 1;
+
+            offsetInput.value = state.playerOffset;
+            document.getElementById('val-offset').textContent = Math.round(state.playerOffset);
+            player.style.left = `${state.playerOffset}px`;
+            currentController.update();
+            updateStatus();
+
+            animRaf = requestAnimationFrame(animateLoop);
+          };
+          animRaf = requestAnimationFrame(animateLoop);
+        } else if (animRaf) {
+          cancelAnimationFrame(animRaf);
+          animRaf = null;
+        }
+      });
+
+      updateStatus();
+    }
+
+    function renderScene3() {
+      cleanup();
+      document.getElementById('stage-title').textContent = '3. Стилизация: градиенты, обводка и фильтры';
+      document.getElementById('stage-desc').textContent = 'Управление внешним видом через CSS-переменные (--cb-fill, --cb-stroke, --cb-stroke-width), helper setGradient, а также фильтры brightness и drop-shadow.';
+
+      const specControls = document.getElementById('scene-specific-controls');
+      specControls.innerHTML = `
+        <h2>Стилизация фигуры</h2>
+        <div class="control-group">
+          <label>Тип заливки:</label>
+          <select id="select-fill-type" style="padding: 6px 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid var(--border);">
+            <option value="linear" selected>Линейный градиент</option>
+            <option value="radial">Радиальный градиент</option>
+            <option value="solid">Сплошной цвет (currentColor)</option>
+          </select>
+        </div>
+        <div class="control-group" id="group-angle">
+          <label>Угол градиента: <span class="val" id="val-angle">135</span>°</label>
+          <input type="range" id="input-angle" min="0" max="360" value="135">
+        </div>
+        <div class="control-group">
+          <label>Толщина обводки: <span class="val" id="val-stroke">3</span>px</label>
+          <input type="range" id="input-stroke" min="0" max="12" value="3">
+        </div>
+        <div class="control-group">
+          <label>Яркость (filter): <span class="val" id="val-brightness">100</span>%</label>
+          <input type="range" id="input-brightness" min="40" max="180" value="100">
+        </div>
+        <div class="control-group">
+          <label>Тень (drop-shadow): <span class="val" id="val-shadow">20</span>px</label>
+          <input type="range" id="input-shadow" min="0" max="50" value="20">
+        </div>
+      `;
+
+      const host = document.getElementById('scene-host');
+      host.style.position = 'relative';
+      host.style.width = '100%';
+      host.style.height = '100%';
+      host.style.setProperty('--cb-stroke', '#38bdf8');
+      host.style.setProperty('--cb-stroke-width', '3px');
+      host.style.filter = 'drop-shadow(0 12px 20px rgba(0, 0, 0, 0.6)) brightness(1)';
+
+      currentController = attach(host, {
+        rects: scene1Rects,
+        radius: state.radius,
+        concaveRadius: state.concaveRadius,
+        bleed: state.bleed,
+        mode: 'svg'
+      });
+      updatePathDisplay();
+
+      const applyGradient = () => {
+        const fillType = document.getElementById('select-fill-type').value;
+        const angle = parseFloat(document.getElementById('input-angle').value);
+
+        if (fillType === 'linear') {
+          import('../src/index.js').then(({ setGradient }) => {
+            setGradient(currentController, {
+              type: 'linear',
+              angle,
+              stops: ['#ec4899', '#8b5cf6', '#3b82f6']
+            });
+          });
+        } else if (fillType === 'radial') {
+          import('../src/index.js').then(({ setGradient }) => {
+            setGradient(currentController, {
+              type: 'radial',
+              stops: [
+                { offset: 0, color: '#38bdf8' },
+                { offset: 0.7, color: '#6366f1' },
+                { offset: 1, color: '#0f172a' }
+              ]
+            });
+          });
+        } else {
+          host.style.removeProperty('--cb-fill');
+        }
+      };
+
+      applyGradient();
+
+      document.getElementById('select-fill-type').addEventListener('change', (e) => {
+        document.getElementById('group-angle').style.display = e.target.value === 'linear' ? 'flex' : 'none';
+        applyGradient();
+      });
+
+      document.getElementById('input-angle').addEventListener('input', (e) => {
+        document.getElementById('val-angle').textContent = e.target.value;
+        applyGradient();
+      });
+
+      document.getElementById('input-stroke').addEventListener('input', (e) => {
+        const val = e.target.value;
+        document.getElementById('val-stroke').textContent = val;
+        host.style.setProperty('--cb-stroke-width', `${val}px`);
+      });
+
+      document.getElementById('input-brightness').addEventListener('input', (e) => {
+        const b = e.target.value;
+        document.getElementById('val-brightness').textContent = b;
+        const s = document.getElementById('input-shadow').value;
+        host.style.filter = `drop-shadow(0 12px ${s}px rgba(0, 0, 0, 0.6)) brightness(${b}%)`;
+      });
+
+      document.getElementById('input-shadow').addEventListener('input', (e) => {
+        const s = e.target.value;
+        document.getElementById('val-shadow').textContent = s;
+        const b = document.getElementById('input-brightness').value;
+        host.style.filter = `drop-shadow(0 12px ${s}px rgba(0, 0, 0, 0.6)) brightness(${b}%)`;
+      });
+    }
+
+    function renderScene4() {
+      cleanup();
+      document.getElementById('stage-title').textContent = '4. Режим clip: конический градиент и backdrop-filter';
+      document.getElementById('stage-desc').textContent = 'mode: "clip" применяет clip-path: path(...) прямо на элемент. Это позволяет использовать любые CSS-фоны, картинки и backdrop-filter с обрезкой контента.';
+
+      const specControls = document.getElementById('scene-specific-controls');
+      specControls.innerHTML = `
+        <h2>Настройки Clip режима</h2>
+        <div class="control-group">
+          <label>Фон элемента:</label>
+          <select id="select-clip-bg" style="padding: 6px 10px; border-radius: 6px; background: #0f172a; color: #f8fafc; border: 1px solid var(--border);">
+            <option value="conic" selected>Конический градиент</option>
+            <option value="glass">Стекло (backdrop-filter)</option>
+            <option value="mesh">Mesh градиент</option>
+          </select>
+        </div>
+        <div class="control-group" id="group-blur" style="display: none;">
+          <label>Размытие стекла: <span class="val" id="val-blur">20</span>px</label>
+          <input type="range" id="input-blur" min="4" max="40" value="20">
+        </div>
+      `;
+
+      const host = document.getElementById('scene-host');
+      host.style.position = 'relative';
+      host.style.width = '100%';
+      host.style.height = '100%';
+
+      // Create colorful backdrop to demonstrate backdrop-filter
+      const backdrop = document.createElement('div');
+      backdrop.style.position = 'absolute';
+      backdrop.style.top = '20px';
+      backdrop.style.left = '40px';
+      backdrop.style.width = '550px';
+      backdrop.style.height = '480px';
+      backdrop.style.backgroundImage = 'radial-gradient(circle at 20% 30%, #f43f5e 0%, transparent 40%), radial-gradient(circle at 80% 40%, #06b6d4 0%, transparent 45%), radial-gradient(circle at 50% 80%, #eab308 0%, transparent 45%)';
+      backdrop.style.opacity = '0.7';
+      backdrop.style.pointerEvents = 'none';
+
+      // Clipped card element
+      const clipCard = document.createElement('div');
+      clipCard.id = 'clipped-card';
+      clipCard.style.position = 'absolute';
+      clipCard.style.top = '0';
+      clipCard.style.left = '0';
+      clipCard.style.width = '100%';
+      clipCard.style.height = '100%';
+      clipCard.style.transition = 'background 0.3s ease';
+
+      // Set conic gradient background
+      clipCard.style.background = 'conic-gradient(from 180deg at 50% 50%, #ec4899, #8b5cf6, #3b82f6, #10b981, #f59e0b, #ec4899)';
+
+      // Content inside clipped card to show content clipping
+      const innerContent = document.createElement('div');
+      innerContent.style.padding = '100px 0 0 250px';
+      innerContent.style.color = '#ffffff';
+      innerContent.style.textShadow = '0 2px 8px rgba(0,0,0,0.6)';
+      innerContent.innerHTML = `
+        <h3 style="font-size: 22px; font-weight: 700;">Clipped Content</h3>
+        <p style="font-size: 14px; max-width: 280px; margin-top: 8px;">
+          Контент внутри элемента аккуратно обрезается по форме вогнутых и выпуклых скруглений.
+        </p>
+      `;
+      clipCard.appendChild(innerContent);
+
+      host.appendChild(backdrop);
+      host.appendChild(clipCard);
+
+      currentController = attach(clipCard, {
+        rects: scene1Rects,
+        radius: state.radius,
+        concaveRadius: state.concaveRadius,
+        bleed: state.bleed,
+        mode: 'clip'
+      });
+      updatePathDisplay();
+
+      const updateCardStyle = () => {
+        const bgType = document.getElementById('select-clip-bg').value;
+        const blurVal = document.getElementById('input-blur')?.value || 20;
+
+        if (bgType === 'conic') {
+          clipCard.style.background = 'conic-gradient(from 180deg at 50% 50%, #ec4899, #8b5cf6, #3b82f6, #10b981, #f59e0b, #ec4899)';
+          clipCard.style.backdropFilter = 'none';
+          document.getElementById('group-blur').style.display = 'none';
+        } else if (bgType === 'glass') {
+          clipCard.style.background = 'rgba(255, 255, 255, 0.12)';
+          clipCard.style.backdropFilter = `blur(${blurVal}px)`;
+          clipCard.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+          document.getElementById('group-blur').style.display = 'flex';
+        } else if (bgType === 'mesh') {
+          clipCard.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+          clipCard.style.backdropFilter = 'none';
+          document.getElementById('group-blur').style.display = 'none';
+        }
+      };
+
+      document.getElementById('select-clip-bg').addEventListener('change', updateCardStyle);
+      document.getElementById('input-blur')?.addEventListener('input', (e) => {
+        document.getElementById('val-blur').textContent = e.target.value;
+        updateCardStyle();
+      });
+    }
+
+    // Tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const sceneNum = parseInt(btn.dataset.scene, 10);
+        state.activeScene = sceneNum;
+
+        if (sceneNum === 1) renderScene1();
+        else if (sceneNum === 2) renderScene2();
+        else if (sceneNum === 3) renderScene3();
+        else if (sceneNum === 4) renderScene4();
+      });
+    });
+
+    // UI Listeners for general parameters
+    const radiusInput = document.getElementById('input-radius');
+    const concaveInput = document.getElementById('input-concave');
+    const bleedInput = document.getElementById('input-bleed');
+    const snapCheck = document.getElementById('check-snap');
+
+    radiusInput.addEventListener('input', (e) => {
+      state.radius = parseFloat(e.target.value);
+      document.getElementById('val-radius').textContent = state.radius;
+      if (currentController) {
+        currentController.setRadius(state.radius, state.concaveRadius);
+        updatePathDisplay();
+      }
+    });
+
+    concaveInput.addEventListener('input', (e) => {
+      state.concaveRadius = parseFloat(e.target.value);
+      document.getElementById('val-concave').textContent = state.concaveRadius;
+      if (currentController) {
+        currentController.setRadius(state.radius, state.concaveRadius);
+        updatePathDisplay();
+      }
+    });
+
+    bleedInput.addEventListener('input', (e) => {
+      state.bleed = parseFloat(e.target.value);
+      document.getElementById('val-bleed').textContent = state.bleed;
+      if (state.activeScene === 1) renderScene1();
+      else if (state.activeScene === 2) renderScene2();
+      else if (state.activeScene === 3) renderScene3();
+      else if (state.activeScene === 4) renderScene4();
+    });
+
+    snapCheck.addEventListener('change', (e) => {
+      state.snap = e.target.checked;
+    });
+
+    // Initial render
+    renderScene1();
+  </script>
+</body>
+</html>
+
+

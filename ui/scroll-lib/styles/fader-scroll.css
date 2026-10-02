@@ -1,0 +1,190 @@
+/* ============================================================
+   fader-scroll — Base Styles
+   CSS-prefix: sb-
+   ============================================================ */
+
+/* --- CSS Custom Properties (defaults) --- */
+:root {
+  --sb-thickness: 6px;
+  --sb-thickness-active: 10px;
+  --sb-thickness-transition: 120ms;
+
+  --sb-track-bg: transparent;
+  --sb-track-radius: 999px;
+
+  --sb-thumb-bg: rgb(128 128 128 / .55);
+  --sb-thumb-bg-hover: rgb(128 128 128 / .75);
+  --sb-thumb-bg-active: rgb(128 128 128 / .9);
+  --sb-thumb-radius: 999px;
+  --sb-thumb-border: none;
+  --sb-thumb-shadow: none;
+
+  /* Y-track positioning */
+  --sb-y-top: 4px;
+  --sb-y-bottom: 4px;
+  --sb-y-right: 2px;
+  --sb-y-left: auto;
+
+  /* X-track positioning */
+  --sb-x-left: 4px;
+  --sb-x-right: 4px;
+  --sb-x-bottom: 2px;
+  --sb-x-top: auto;
+
+  /* Corner gap when both axes present */
+  --sb-corner-gap: calc(var(--sb-thickness-active) + 4px);
+
+  --sb-z: 10;
+}
+
+/* --- Host --- */
+.sb-host {
+  position: relative;
+}
+
+/* --- Viewport (scrolling element) --- */
+.sb-viewport {
+  scrollbar-width: none;          /* Firefox */
+  -ms-overflow-style: none;       /* IE / old Edge */
+}
+.sb-viewport::-webkit-scrollbar {
+  display: none;                  /* Chromium & WebKit */
+}
+
+/* --- Track --- */
+.sb-track {
+  position: absolute;
+  z-index: var(--sb-z);
+  background: var(--sb-track-bg);
+  border-radius: var(--sb-track-radius);
+  box-sizing: border-box;
+}
+
+/* Y-axis track */
+.sb-track.sb-y {
+  top: var(--sb-y-top);
+  bottom: var(--sb-y-bottom);
+  right: var(--sb-y-right);
+  left: var(--sb-y-left);
+  width: var(--sb-thickness);
+  transition: width var(--sb-thickness-transition) ease;
+}
+
+/* X-axis track */
+.sb-track.sb-x {
+  left: var(--sb-x-left);
+  right: var(--sb-x-right);
+  bottom: var(--sb-x-bottom);
+  top: var(--sb-x-top);
+  height: var(--sb-thickness);
+  transition: height var(--sb-thickness-transition) ease;
+}
+
+/* Track thickness expansion on hover / drag */
+.sb-track.sb-y:hover,
+.sb-track.sb-y.sb-dragging {
+  width: var(--sb-thickness-active);
+}
+
+.sb-track.sb-x:hover,
+.sb-track.sb-x.sb-dragging {
+  height: var(--sb-thickness-active);
+}
+
+/* --- Thumb --- */
+.sb-thumb {
+  position: relative;
+  background: var(--sb-thumb-bg);
+  border-radius: var(--sb-thumb-radius);
+  border: var(--sb-thumb-border);
+  box-shadow: var(--sb-thumb-shadow);
+  touch-action: none;
+  box-sizing: border-box;
+  transition: background-color 150ms ease;
+}
+
+/* Y-axis thumb: fills track width, height & position from CSS vars */
+.sb-track.sb-y .sb-thumb {
+  width: 100%;
+  height: var(--sb-thumb-size, 20px);
+  transform: translateY(var(--sb-thumb-offset, 0px));
+}
+
+/* X-axis thumb: fills track height, width & position from CSS vars */
+.sb-track.sb-x .sb-thumb {
+  height: 100%;
+  width: var(--sb-thumb-size, 20px);
+  transform: translateX(var(--sb-thumb-offset, 0px));
+}
+
+/* Thumb hover */
+.sb-thumb:hover {
+  background: var(--sb-thumb-bg-hover);
+}
+
+/* Thumb active (dragging) */
+.sb-track.sb-dragging .sb-thumb {
+  background: var(--sb-thumb-bg-active);
+}
+
+/* --- Visibility States --- */
+.sb-hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.sb-visible {
+  visibility: visible;
+  pointer-events: auto;
+}
+
+/* --- Animations (class on host, effect on descendant tracks) ---
+   The library writes --sb-presence (0..1) on each track.
+   The sb-anim-* class goes on the host and styles tracks via CSS.
+   -------------------------------------------------------------- */
+
+/* Fade: opacity follows presence */
+.sb-anim-fade .sb-track {
+  opacity: var(--sb-presence, 1);
+}
+
+/* Slide: track slides toward the nearest edge */
+.sb-anim-slide .sb-track.sb-y {
+  transform: translateX(calc((1 - var(--sb-presence, 1)) * 100%));
+}
+.sb-anim-slide .sb-track.sb-x {
+  transform: translateY(calc((1 - var(--sb-presence, 1)) * 100%));
+}
+
+/* Scale: track scales on the cross axis */
+.sb-anim-scale .sb-track.sb-y {
+  transform-origin: right center;
+  transform: scaleX(var(--sb-presence, 1));
+}
+.sb-anim-scale .sb-track.sb-x {
+  transform-origin: center bottom;
+  transform: scaleY(var(--sb-presence, 1));
+}
+
+/* --- Both-axes corner gap --- */
+.sb-has-both .sb-track.sb-y {
+  bottom: calc(var(--sb-y-bottom) + var(--sb-corner-gap));
+}
+.sb-has-both .sb-track.sb-x {
+  right: calc(var(--sb-x-right) + var(--sb-corner-gap));
+}
+
+/* --- Reduced motion --- */
+@media (prefers-reduced-motion: reduce) {
+  .sb-track {
+    transition: none !important;
+  }
+  .sb-thumb {
+    transition: none !important;
+  }
+  .sb-anim-fade .sb-track,
+  .sb-anim-slide .sb-track,
+  .sb-anim-scale .sb-track {
+    transition: none !important;
+  }
+}

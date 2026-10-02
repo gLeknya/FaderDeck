@@ -1856,6 +1856,8 @@ function syncSettingsViewportUi() {
   const settingsScroller = dom.settingsContent;
   const settingsTabActive = isMenuOpen() && getActiveMenuTab() === 'settings';
 
+  dom.menuPanelOverlay?.classList.toggle('settings-tab-active', settingsTabActive);
+
   if (!settingsScroller || !settingsTabActive) {
     dom.settingsScrollShell?.classList.remove(
       'has-overflow',
@@ -1870,6 +1872,9 @@ function syncSettingsViewportUi() {
     resetSettingsSectionEffects();
     return;
   }
+
+  const inst = window.faderScroll?.getInstance(settingsScroller);
+  inst?.update();
 
   const maxScroll = Math.max(
     0,

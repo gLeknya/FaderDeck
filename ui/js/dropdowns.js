@@ -52,8 +52,20 @@ function setDropdownOpen(dropdown, isOpen) {
       dropdown._customSelectViewport ||
       panel.querySelector('.custom-select-panel-viewport');
     if (viewport) {
-      const inst = window.faderScroll?.createScroll(viewport, { axis: 'y' });
-      inst?.update();
+      requestAnimationFrame(() => {
+        const inst = window.faderScroll?.createScroll(viewport, {
+          axis: 'y',
+          hideWhenNoOverflow: true,
+          triggers: {
+            scroll: true,
+            hoverHost: false,
+            hoverTrack: true,
+            drag: true,
+            resize: true
+          }
+        });
+        inst?.update();
+      });
     }
   }
 }
@@ -274,7 +286,17 @@ function createCustomDropdown(select) {
   document.body.appendChild(panel);
   dropdown._customSelectPanel = panel;
   dropdown._customSelectViewport = viewport;
-  window.faderScroll?.createScroll(viewport, { axis: 'y' });
+  window.faderScroll?.createScroll(viewport, {
+    axis: 'y',
+    hideWhenNoOverflow: true,
+    triggers: {
+      scroll: true,
+      hoverHost: false,
+      hoverTrack: true,
+      drag: true,
+      resize: true
+    }
+  });
 
   const trigger = dropdown.querySelector('.custom-select-trigger');
 

@@ -1,0 +1,245 @@
+/* === Demo Page Styles === */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  margin: 0;
+  padding: 20px;
+  background: #f5f5f5;
+  color: #333;
+  line-height: 1.6;
+}
+
+h1 {
+  margin: 0 0 8px;
+  font-size: 2rem;
+}
+
+h2 {
+  margin: 0 0 6px;
+  font-size: 1.25rem;
+}
+
+h3 {
+  margin: 0 0 4px;
+  font-size: 0.95rem;
+}
+
+p {
+  margin: 0 0 8px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+code {
+  background: #e8e8e8;
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-size: 0.85em;
+}
+
+.container {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* === Cards === */
+.card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 24px;
+  box-shadow: 0 1px 3px rgb(0 0 0 / .06);
+}
+
+/* === Grids === */
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px;
+}
+
+/* === Scroll containers === */
+.scroll-container {
+  height: 200px;
+  overflow: auto;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fafafa;
+  position: relative;
+}
+
+.content-padding {
+  padding: 12px 16px;
+}
+
+.tall-content {
+  min-height: 600px;
+}
+
+/* Horizontal containers */
+.scroll-h-container {
+  height: 120px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  background: #fafafa;
+  position: relative;
+}
+
+.h-content {
+  display: flex;
+  gap: 8px;
+  padding: 10px;
+  width: max-content;
+}
+
+.h-content::before {
+  content: '';
+}
+
+.h-item {
+  flex-shrink: 0;
+  width: 120px;
+  height: 80px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: #fff;
+}
+
+/* === Both axes === */
+.both-content {
+  width: max-content;
+}
+
+.both-inner-box {
+  width: 1200px;
+  height: 800px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 2rem;
+  font-weight: 700;
+  border-radius: 12px;
+  margin: 12px;
+}
+
+/* === External mount === */
+.mount-wrapper {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+
+.mount-wrapper .scroll-container {
+  flex: 1;
+}
+
+.external-rail {
+  width: 16px;
+  background: #eee;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  position: relative;
+  flex-shrink: 0;
+}
+
+/* === Dynamic content === */
+.controls {
+  margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.controls button {
+  padding: 6px 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+  transition: background 0.15s;
+}
+
+.controls button:hover {
+  background: #e8e8e8;
+}
+
+.dynamic-container {
+  transition: height 0.3s ease;
+}
+
+.dynamic-container.small {
+  height: 120px;
+}
+
+.dynamic-container ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.dynamic-container li {
+  padding: 8px 16px;
+  border-bottom: 1px solid #eee;
+}
+
+/* === Themes === */
+.light-theme {
+  --sb-thumb-bg: rgb(100 100 100 / .4);
+  --sb-thumb-bg-hover: rgb(80 80 80 / .6);
+  --sb-thumb-bg-active: rgb(60 60 60 / .8);
+  background: #fff;
+}
+
+.dark-theme {
+  --sb-thumb-bg: rgb(200 200 200 / .4);
+  --sb-thumb-bg-hover: rgb(220 220 220 / .6);
+  --sb-thumb-bg-active: rgb(240 240 240 / .8);
+  --sb-track-bg: rgb(255 255 255 / .05);
+  background: #1e1e1e;
+  color: #ddd;
+}
+
+/* === Gradient thumb === */
+.gradient-thumb {
+  --sb-thumb-bg: linear-gradient(135deg, #667eea, #764ba2);
+  --sb-thumb-bg-hover: linear-gradient(135deg, #764ba2, #667eea);
+  --sb-thumb-bg-active: linear-gradient(135deg, #5a6fd6, #6b4298);
+  --sb-thickness: 8px;
+  --sb-thickness-active: 12px;
+}
+
+/* === Custom positioning === */
+.left-side {
+  --sb-y-left: 2px;
+  --sb-y-right: auto;
+}
+
+.large-insets {
+  --sb-y-top: 20px;
+  --sb-y-bottom: 20px;
+  --sb-y-right: 10px;
+}
+
+/* === Thin preset theme === */
+.sb-theme-thin {
+  --sb-thickness: 3px;
+  --sb-thickness-active: 6px;
+}

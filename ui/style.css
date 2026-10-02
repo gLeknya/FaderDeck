@@ -679,9 +679,9 @@ select {
   top: 12px;
   left: calc(var(--menu-rail-width) + 12px);
   z-index: 15;
-  width: fit-content;
+  width: max-content;
   height: fit-content;
-  max-width: min(380px, calc(100% - 120px));
+  max-width: calc(100vw - var(--menu-rail-width) - 24px);
   opacity: 1;
   transform: translateX(0);
   transition:
@@ -706,6 +706,7 @@ select {
 
 .menu-panel-card {
   position: relative;
+  z-index: 2;
   width: 360px;
   max-width: min(360px, calc(100vw - 140px));
   max-height: calc(100vh - var(--toolbar-height) - 24px);
@@ -804,7 +805,7 @@ select {
   min-height: 0;
   display: flex;
   overflow: hidden;
-  padding-right: 14px;
+  padding-right: 0;
 }
 
 .menu-panel-view.is-active {
@@ -930,12 +931,14 @@ select {
   height: 100%;
   min-width: 0;
   min-height: 0;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .main-content-canvas {
   min-width: 100%;
   width: max-content;
+  height: 100%;
   min-height: 100%;
   display: flex;
   flex-direction: column;
@@ -3236,16 +3239,9 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   opacity: 0;
   transform: translateX(-20px) scale(0.985);
   pointer-events: none;
-  border-radius: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  background:
-    radial-gradient(
-      circle at 0% 0%,
-      rgba(255, 255, 255, 0.06),
-      transparent 34%
-    ),
-    rgba(28, 28, 28, 0.97);
-  box-shadow: 0 26px 56px rgba(0, 0, 0, 0.36);
+  background: transparent;
+  border: none;
+  box-shadow: none;
   overflow: visible;
   transition:
     opacity 0.22s ease,
@@ -3265,13 +3261,25 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
 }
 
 .entity-edit-side-panel-inner {
+  position: relative;
+  z-index: 2;
   height: 100%;
   display: flex;
   flex-direction: column;
   gap: 14px;
   padding: 20px 14px 18px 18px;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background:
+    radial-gradient(
+      circle at 0% 0%,
+      rgba(255, 255, 255, 0.06),
+      transparent 34%
+    ),
+    rgba(28, 28, 28, 0.97);
+  box-shadow: 0 26px 56px rgba(0, 0, 0, 0.36);
 }
 
 .entity-edit-side-header {

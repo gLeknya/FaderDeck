@@ -55,3 +55,56 @@
 .custom-select-panel.sb-host {
   position: fixed;
 }
+
+/* Hide scrollbars when there is no overflow on that axis */
+.sb-host:not(.sb-scrollable-y) > .sb-track.sb-y,
+.custom-select-panel:not(.sb-scrollable-y) > .sb-track.sb-y,
+.custom-select-panel:not(.sb-scrollable-y) .sb-track.sb-y {
+  display: none !important;
+}
+
+.sb-host:not(.sb-scrollable-x) > .sb-track.sb-x,
+.main-content-host:not(.sb-scrollable-x) > .sb-track.sb-x {
+  display: none !important;
+}
+
+/* Main Content Canvas: strictly no vertical scrollbar under any circumstances */
+.main-content-host > .sb-track.sb-y {
+  display: none !important;
+}
+
+/* Settings Menu: scrollbar positioned 6px outside the window to the right,
+   slides behind the settings card on hide, slides out on appear */
+#menuPanelOverlay > .sb-track.sb-y {
+  position: absolute;
+  z-index: 1;
+  top: 18px;
+  bottom: 18px;
+  right: -12px; /* 6px track + 6px gap outside .menu-panel-card */
+  pointer-events: auto;
+  transform: translateX(calc((var(--sb-presence, 1) - 1) * 24px));
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease;
+}
+
+.menu-panel-overlay.hidden > .sb-track.sb-y,
+.menu-panel-overlay:not(.settings-tab-active) > .sb-track.sb-y,
+.menu-panel-overlay:not(.settings-tab-active) .sb-track.sb-y {
+  display: none !important;
+}
+
+/* Entity Editor Side Panel: scrollbar positioned 6px outside the panel to the right,
+   slides behind the side panel inner card on hide, slides out on appear */
+#entityEditSidePanel > .sb-track.sb-y {
+  position: absolute;
+  z-index: 1;
+  top: 20px;
+  bottom: 18px;
+  right: -12px; /* 6px track + 6px gap outside the panel */
+  pointer-events: auto;
+  transform: translateX(calc((var(--sb-presence, 1) - 1) * 24px));
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease;
+}
+
+#entityEditSidePanel:not(.is-open) > .sb-track.sb-y {
+  display: none !important;
+}

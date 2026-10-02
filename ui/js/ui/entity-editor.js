@@ -3164,7 +3164,7 @@
         </div>
 
         <div class="entity-edit-button-side-host sb-host">
-          <div class="entity-edit-button-side-layout" data-scroll="y">
+          <div class="entity-edit-button-side-layout" data-scroll="y" data-scroll-animation="slide" data-scroll-mount="#entityEditSidePanel">
             <div class="entity-edit-button-side-inline">
               <div class="entity-edit-button-name-row entity-edit-button-name-row--compact">
                 ${renderChannelButtonIconPicker(resolvedButton)}
@@ -3958,7 +3958,7 @@
           }
 
           <div class="entity-edit-side-options-shell sb-host">
-            <div class="entity-edit-side-options" id="entityEditSideOptions" data-scroll="y">
+            <div class="entity-edit-side-options" id="entityEditSideOptions" data-scroll="y" data-scroll-animation="slide" data-scroll-mount="#entityEditSidePanel">
               ${renderSidePanelOptions(resolvedTargetEntity)}
             </div>
           </div>
