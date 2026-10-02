@@ -25,11 +25,7 @@
           Меню
         </button>
 
-        <select id="midiInput">
-          <option value="" data-i18n="toolbar.selectMidi">
-            Выберите MIDI-устройство
-          </option>
-        </select>
+        <div id="midiInput"></div>
 
         <div class="status-indicator">
           <div class="status-dot" id="statusDot"></div>
@@ -53,14 +49,10 @@
 
       <div class="toolbar-section toolbar-right">
         <div class="toolbar-profile-picker">
-          <select
+          <div
             id="toolbarProfileSelect"
             data-i18n-title="profiles.toolbarTitle"
-          >
-            <option value="" data-i18n="profiles.toolbarPlaceholder">
-              Профили
-            </option>
-          </select>
+          ></div>
         </div>
 
         <!-- Layout editor foundation is intentionally parked for now.
@@ -530,52 +522,12 @@
                     id="volumeHudSettingsAdvanced"
                     aria-hidden="true"
                   >
-                    <label class="settings-item settings-item-nested">
+                    <div class="settings-item settings-item-nested">
                       <span data-i18n="settings.volumeHudPosition"
                         >Положение HUD</span
                       >
-                      <select
-                        id="volumeHudSettingsPositionSelect"
-                        class="settings-select"
-                      >
-                        <option
-                          value="bottom-center"
-                          data-i18n="settings.volumeHudPositions.bottomCenter"
-                        >
-                          Снизу по центру
-                        </option>
-                        <option
-                          value="bottom-left"
-                          data-i18n="settings.volumeHudPositions.bottomLeft"
-                        >
-                          Снизу слева
-                        </option>
-                        <option
-                          value="bottom-right"
-                          data-i18n="settings.volumeHudPositions.bottomRight"
-                        >
-                          Снизу справа
-                        </option>
-                        <option
-                          value="top-center"
-                          data-i18n="settings.volumeHudPositions.topCenter"
-                        >
-                          Сверху по центру
-                        </option>
-                        <option
-                          value="top-left"
-                          data-i18n="settings.volumeHudPositions.topLeft"
-                        >
-                          Сверху слева
-                        </option>
-                        <option
-                          value="top-right"
-                          data-i18n="settings.volumeHudPositions.topRight"
-                        >
-                          Сверху справа
-                        </option>
-                      </select>
-                    </label>
+                      <div id="volumeHudSettingsPositionSelect"></div>
+                    </div>
 
                     <div class="settings-item settings-item-nested">
                       <span data-i18n="settings.volumeHudOrientation"
@@ -753,17 +705,10 @@
                     <div id="betaUpdatesToggle"></div>
                   </div>
 
-                  <label class="settings-item">
+                  <div class="settings-item">
                     <span data-i18n="settings.language">Язык</span>
-                    <select id="languageSelect" class="settings-select">
-                      <option value="ru" data-i18n="languages.ru">
-                        Русский
-                      </option>
-                      <option value="en" data-i18n="languages.en">
-                        English
-                      </option>
-                    </select>
-                  </label>
+                    <div id="languageSelect"></div>
+                  </div>
                 </section>
 
                 <section class="settings-section">
@@ -1188,7 +1133,7 @@
     <script src="js/state/ui-store.js"></script>
     <script src="js/runtime/audio-runtime.js"></script>
     <script src="js/ui/modal-manager.js"></script>
-    <script src="js/dropdowns.js"></script>
+    <script src="js/fd-dropdown.js"></script>
     <script src="js/actions/profile-actions.js"></script>
     <script src="js/profiles/profile-store.js"></script>
     <script src="js/profiles/profile-service.js"></script>

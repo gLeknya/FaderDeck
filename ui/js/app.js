@@ -253,17 +253,16 @@ function ensureDynamicUiAugments() {
     mediaControllerItem &&
     !document.getElementById('mediaControllerTargetSettingsSelect')
   ) {
-    const mediaControllerTargetItem = document.createElement('label');
+    const mediaControllerTargetItem = document.createElement('div');
     mediaControllerTargetItem.className = 'settings-item settings-item-nested';
     mediaControllerTargetItem.innerHTML = `
       <span id="mediaControllerTargetSettingsLabel"></span>
-      <select id="mediaControllerTargetSettingsSelect" class="settings-select"></select>
+      <div id="mediaControllerTargetSettingsSelect"></div>
     `;
     mediaControllerItem.insertAdjacentElement(
       'afterend',
       mediaControllerTargetItem
     );
-    enhanceCustomSelects?.(mediaControllerTargetItem);
   }
 
   window.mediaControllerUi?.ensureStandaloneButtonsTopRow?.();
@@ -498,7 +497,7 @@ function getAvailableMediaControllerSessions() {
   return window.mediaControllerUi?.getAvailableSessions?.() || [];
 }
 
-function buildMediaControllerTargetSettingsOptionsMarkup() {
+function buildMediaControllerTargetSettingsItems() {
   const selectedAppId = getMediaControllerTargetAppId();
   const availableSessions = getAvailableMediaControllerSessions();
   const hasSelectedSession = selectedAppId
@@ -508,14 +507,15 @@ function buildMediaControllerTargetSettingsOptionsMarkup() {
     : true;
   const autoLabel = t('mediaController.autoTarget');
   const unavailableLabel = t('mediaController.unavailableTarget');
-  const options = [
-    `<option value="${MEDIA_CONTROLLER_AUTO_TARGET_VALUE}">${escapeOptionHtml(autoLabel)}</option>`
+  const items = [
+    { label: autoLabel, value: MEDIA_CONTROLLER_AUTO_TARGET_VALUE }
   ];
 
   if (selectedAppId && !hasSelectedSession) {
-    options.push(
-      `<option value="${escapeOptionHtml(selectedAppId)}">${escapeOptionHtml(unavailableLabel)}</option>`
-    );
+    items.push({
+      label: unavailableLabel,
+      value: selectedAppId
+    });
   }
 
   availableSessions.forEach((session) => {
@@ -526,12 +526,50 @@ function buildMediaControllerTargetSettingsOptionsMarkup() {
     }
 
     const label = String(session?.label || appId).trim();
-    options.push(
-      `<option value="${escapeOptionHtml(appId)}">${escapeOptionHtml(label)}</option>`
-    );
+    items.push({
+      label,
+      value: appId
+    });
   });
 
-  return options.join('');
+  return items;
+}
+
+let mediaControllerTargetDropdown = null;
+
+function ensureMediaControllerTargetDropdown() {
+  if (mediaControllerTargetDropdown) {
+    return mediaControllerTargetDropdown;
+  }
+
+  const host = dom.mediaControllerTargetSettingsSelect;
+  if (!host) {
+    return null;
+  }
+
+  mediaControllerTargetDropdown = new FDDropdown(host, {
+    items: [],
+    placeholder: t('mediaController.autoTarget'),
+    direction: 'auto',
+    className: 'fdd-settings',
+    onChange(value) {
+      const nextValue = String(value || '').trim();
+      const targetAppId =
+        nextValue === MEDIA_CONTROLLER_AUTO_TARGET_VALUE ? '' : nextValue;
+
+      window.uiActions?.setMediaControllerTargetAppId?.(targetAppId, {
+        source: 'ui'
+      });
+      syncMediaControllerTargetSettingsUi({ force: true });
+      window.mediaControllerUi?.getRuntimeSnapshot?.({ force: true });
+    },
+    onOpen() {
+      refreshMediaControllerTargetSettingsOptions({ force: true });
+    }
+  });
+
+  host._fdd = mediaControllerTargetDropdown;
+  return mediaControllerTargetDropdown;
 }
 
 function syncMediaControllerTargetSettingsUi(options = {}) {
@@ -541,38 +579,18 @@ function syncMediaControllerTargetSettingsUi(options = {}) {
     );
   }
 
-  if (!dom.mediaControllerTargetSettingsSelect) {
+  const dd = ensureMediaControllerTargetDropdown();
+  if (!dd) {
     return;
   }
 
-  const select = dom.mediaControllerTargetSettingsSelect;
-  const optionsMarkup = buildMediaControllerTargetSettingsOptionsMarkup();
+  const items = buildMediaControllerTargetSettingsItems();
   const selectedValue =
     getMediaControllerTargetAppId() || MEDIA_CONTROLLER_AUTO_TARGET_VALUE;
-  const customDropdown = select.nextElementSibling?.classList.contains(
-    'custom-select'
-  )
-    ? select.nextElementSibling
-    : null;
-  const isDropdownOpen = Boolean(customDropdown?.classList.contains('open'));
 
-  if (options.force === true || !isDropdownOpen) {
-    if (select.dataset.optionsMarkup !== optionsMarkup) {
-      select.innerHTML = optionsMarkup;
-      select.dataset.optionsMarkup = optionsMarkup;
-      enhanceCustomSelects?.(select);
-    }
-
-    if (select.value !== selectedValue) {
-      select.value = selectedValue;
-    }
-
-    select.dataset.pendingSync = 'false';
-  } else {
-    select.dataset.pendingSync = 'true';
+  if (options.force === true || !dd.isOpen) {
+    dd.setItems(items, { value: selectedValue });
   }
-
-  select.title = select.options[select.selectedIndex]?.text || '';
 }
 
 function refreshMediaControllerTargetSettingsOptions(options = {}) {
@@ -1231,6 +1249,44 @@ function syncVolumeHudPreviewUi(settings = getVolumeHudPresentationSettings()) {
   }
 }
 
+let volumeHudPositionDropdown = null;
+
+function getVolumeHudPositionItems() {
+  return [
+    { value: 'bottom-center', label: t('settings.volumeHudPositions.bottomCenter') },
+    { value: 'bottom-left', label: t('settings.volumeHudPositions.bottomLeft') },
+    { value: 'bottom-right', label: t('settings.volumeHudPositions.bottomRight') },
+    { value: 'top-center', label: t('settings.volumeHudPositions.topCenter') },
+    { value: 'top-left', label: t('settings.volumeHudPositions.topLeft') },
+    { value: 'top-right', label: t('settings.volumeHudPositions.topRight') }
+  ];
+}
+
+function ensureVolumeHudPositionDropdown() {
+  if (volumeHudPositionDropdown) {
+    return volumeHudPositionDropdown;
+  }
+
+  const host = dom.volumeHudPositionSelect;
+  if (!host) {
+    return null;
+  }
+
+  volumeHudPositionDropdown = new FDDropdown(host, {
+    items: getVolumeHudPositionItems(),
+    value: getVolumeHudPosition(),
+    direction: 'auto',
+    className: 'fdd-settings',
+    onChange(value) {
+      if (!value) return;
+      window.uiActions?.setVolumeHudPosition(value, { source: 'ui' });
+    }
+  });
+
+  host._fdd = volumeHudPositionDropdown;
+  return volumeHudPositionDropdown;
+}
+
 function syncVolumeHudUi() {
   const settings = getVolumeHudPresentationSettings();
 
@@ -1246,10 +1302,18 @@ function syncVolumeHudUi() {
     );
   }
 
-  if (dom.volumeHudPositionSelect) {
-    dom.volumeHudPositionSelect.value = settings.position;
-    dom.volumeHudPositionSelect.disabled = !settings.enabled;
-    enhanceCustomSelects?.(dom.volumeHudPositionSelect);
+  const hudDd = ensureVolumeHudPositionDropdown();
+  if (hudDd) {
+    hudDd.setItems(getVolumeHudPositionItems(), { value: settings.position });
+    if (!settings.enabled) {
+      hudDd.root.classList.add('fdd-disabled');
+      hudDd.root.style.pointerEvents = 'none';
+      hudDd.head.setAttribute('aria-disabled', 'true');
+    } else {
+      hudDd.root.classList.remove('fdd-disabled');
+      hudDd.root.style.pointerEvents = '';
+      hudDd.head.removeAttribute('aria-disabled');
+    }
   }
 
   if (dom.volumeHudOrientationToggle) {
@@ -1603,10 +1667,44 @@ function syncVolumeCurveUi() {
   scheduleMenuPanelCardSizeSync();
 }
 
+let languageDropdown = null;
+
+function getLanguageItems() {
+  return [
+    { value: 'ru', label: t('languages.ru') },
+    { value: 'en', label: t('languages.en') }
+  ];
+}
+
+function ensureLanguageDropdown() {
+  if (languageDropdown) {
+    return languageDropdown;
+  }
+
+  const host = dom.languageSelect;
+  if (!host) {
+    return null;
+  }
+
+  languageDropdown = new FDDropdown(host, {
+    items: getLanguageItems(),
+    value: getCurrentLanguage(),
+    direction: 'auto',
+    className: 'fdd-settings',
+    onChange(value) {
+      if (!value) return;
+      setLanguage(value);
+    }
+  });
+
+  host._fdd = languageDropdown;
+  return languageDropdown;
+}
+
 function syncLanguageUi() {
-  if (dom.languageSelect) {
-    dom.languageSelect.value = getCurrentLanguage();
-    enhanceCustomSelects?.(dom.languageSelect);
+  const dd = ensureLanguageDropdown();
+  if (dd) {
+    dd.setItems(getLanguageItems(), { value: getCurrentLanguage() });
   }
 
   void syncAboutAppUi();
@@ -2266,46 +2364,10 @@ function setupSettings() {
     onChange: (checked) => window.uiActions?.setMediaControllerVisible(checked, { source: 'ui' })
   });
 
-  dom.mediaControllerTargetSettingsSelect?.addEventListener(
-    'custom-select:will-open',
-    () => {
-      refreshMediaControllerTargetSettingsOptions({ force: true });
-    }
-  );
-
-  dom.mediaControllerTargetSettingsSelect?.addEventListener(
-    'change',
-    (event) => {
-      const nextValue = String(event.target.value || '').trim();
-      const targetAppId =
-        nextValue === MEDIA_CONTROLLER_AUTO_TARGET_VALUE ? '' : nextValue;
-
-      window.uiActions?.setMediaControllerTargetAppId?.(targetAppId, {
-        source: 'ui'
-      });
-      syncMediaControllerTargetSettingsUi({ force: true });
-      window.mediaControllerUi?.getRuntimeSnapshot?.({ force: true });
-    }
-  );
-
-  dom.mediaControllerTargetSettingsSelect?.addEventListener('blur', () => {
-    if (
-      dom.mediaControllerTargetSettingsSelect?.dataset.pendingSync === 'true'
-    ) {
-      syncMediaControllerTargetSettingsUi({ force: true });
-    }
-  });
-
   initSettingsSwitch('volumeHudSettingsToggle', 'volumeHudToggle', {
     checked: getVolumeHudEnabled(),
     label: t('settings.volumeHud'),
     onChange: (checked) => window.uiActions?.setVolumeHudEnabled(checked, { source: 'ui' })
-  });
-
-  dom.volumeHudPositionSelect?.addEventListener('change', (event) => {
-    window.uiActions?.setVolumeHudPosition(event.target.value, {
-      source: 'ui'
-    });
   });
 
   dom.volumeHudOrientationToggle?.addEventListener('click', () => {
@@ -2387,9 +2449,6 @@ function setupSettings() {
     window.uiActions?.setVolumeCurveAmount(sliderValue, { source: 'ui' });
   });
 
-  dom.languageSelect?.addEventListener('change', (event) => {
-    setLanguage(event.target.value);
-  });
 
   dom.volumeCurveDemoTrack?.addEventListener(
     'pointerdown',
@@ -2957,7 +3016,6 @@ function initializeAppShell() {
   initUiStore?.();
   window.audioRuntime?.init?.();
   applyTranslations();
-  enhanceCustomSelects?.(document);
   initChannelUiStateSync?.();
   initStandaloneButtonsStateSync?.();
   initChannelButtonsRuntime?.();

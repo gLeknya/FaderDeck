@@ -1,4 +1,5 @@
 let midiUiStateSyncInitialized = false;
+let midiDropdown = null;
 
 function getMidiService() {
   return window.midiService || null;
@@ -38,21 +39,13 @@ function isMidiDisabledSelection() {
 }
 
 function setMidiSelectLoadingState(isLoading) {
-  const select = getMidiSelect();
-
-  if (!select) {
+  if (!midiDropdown) {
     return;
   }
 
-  if (isLoading) {
-    select.dataset.dropdownStatusLabel = t('toolbar.scanningMidi');
-    select.dataset.dropdownLoading = 'true';
-  } else {
-    delete select.dataset.dropdownStatusLabel;
-    delete select.dataset.dropdownLoading;
+  if (isLoading && midiDropdown.index === -1) {
+    midiDropdown.ph.textContent = t('toolbar.scanningMidi');
   }
-
-  enhanceCustomSelects?.(select);
 }
 
 function getMidiRuntimeInputs() {
@@ -95,10 +88,36 @@ function buildMidiOptions(inputs) {
   return items;
 }
 
-function populateMidiInputs() {
-  const select = getMidiSelect();
+function ensureMidiDropdown() {
+  if (midiDropdown) {
+    return midiDropdown;
+  }
 
-  if (!select) {
+  const host = getMidiSelect();
+  if (!host) {
+    return null;
+  }
+
+  midiDropdown = new FDDropdown(host, {
+    items: [],
+    placeholder: t('toolbar.selectMidi'),
+    direction: 'down',
+    className: 'fdd-midi',
+    onChange(value, detail) {
+      handleMidiDropdownChange(value, detail);
+    },
+    onOpen() {
+      handleMidiSelectOpen();
+    }
+  });
+
+  host._fdd = midiDropdown;
+  return midiDropdown;
+}
+
+function populateMidiInputs() {
+  const dd = ensureMidiDropdown();
+  if (!dd) {
     return;
   }
 
@@ -116,19 +135,27 @@ function populateMidiInputs() {
     ? disabledOptionValue
     : optionItems.some((input) => input.id === selectedMidiInputId)
       ? selectedMidiInputId
-      : '';
+      : null;
 
-  select.innerHTML = `
-    <option value="">${t('toolbar.selectMidi')}</option>
-    <option value="${disabledOptionValue}" data-style-variant="danger">${t('toolbar.disableMidi')}</option>
-    ${optionItems.map((input) => `<option value="${input.id}">${input.name}</option>`).join('')}
-  `;
-  select.value = selectedValue;
+  const items = [
+    { label: t('toolbar.disableMidi'), value: disabledOptionValue },
+    ...optionItems.map((input) => ({ label: input.name, value: input.id }))
+  ];
+
+  dd.ph.textContent = t('toolbar.selectMidi');
+  dd.setItems(items, {
+    value: selectedValue !== null ? selectedValue : undefined,
+    index: selectedValue === null ? -1 : undefined
+  });
 
   if (!serviceState.supported) {
-    select.setAttribute('disabled', 'true');
+    dd.root.classList.add('fdd-disabled');
+    dd.root.style.pointerEvents = 'none';
+    dd.head.setAttribute('aria-disabled', 'true');
   } else {
-    select.removeAttribute('disabled');
+    dd.root.classList.remove('fdd-disabled');
+    dd.root.style.pointerEvents = '';
+    dd.head.removeAttribute('aria-disabled');
   }
 
   setMidiSelectLoadingState(Boolean(serviceState.scanning));
@@ -163,19 +190,17 @@ async function handleMidiSelectOpen() {
   }
 }
 
-function handleMidiSelectChange(event) {
+function handleMidiDropdownChange(nextValue, detail) {
   const midiService = getMidiService();
-  const nextValue = event.target.value || '';
-  const selectedOption = event.target.options[event.target.selectedIndex];
   const disabledOptionValue =
     midiService?.getDisabledOptionValue?.() || '__disabled__';
 
-  if (nextValue === disabledOptionValue) {
+  if (!nextValue || nextValue === disabledOptionValue) {
     window.midiActions?.disableMidiInputSelection?.({ source: 'midi-ui' });
   } else {
     window.midiActions?.selectMidiInput?.(
       nextValue,
-      selectedOption?.textContent?.trim() || '',
+      detail?.item?.label?.trim() || '',
       { source: 'midi-ui' }
     );
   }
@@ -211,10 +236,6 @@ function initWebMIDI() {
   midiService?.init?.();
   initMidiUiStateSync();
   syncMidiUiFromService();
-
-  const select = getMidiSelect();
-  select?.addEventListener('custom-select:will-open', handleMidiSelectOpen);
-  select?.addEventListener('change', handleMidiSelectChange);
 
   if (!midiService?.getState?.().supported) {
     updateMidiStatus(false, t('status.unsupported'));

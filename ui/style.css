@@ -53,6 +53,8 @@ body.modal-open {
 .toolbar select,
 .toolbar input,
 .toolbar .btn,
+.toolbar .fdd,
+.toolbar .fdd *,
 .window-controls,
 .window-btn {
   -webkit-app-region: no-drag;
@@ -270,299 +272,79 @@ select {
   cursor: pointer;
 }
 
-.native-select-hidden {
-  position: absolute !important;
-  opacity: 0 !important;
-  pointer-events: none !important;
-  width: 1px !important;
-  height: 1px !important;
+/* ── FDDropdown theme overrides ─────────────────────────────────── */
+
+.fdd {
+  --fdd-bg: #2a2a2a;
+  --fdd-border: rgba(255, 255, 255, 0.12);
+  --fdd-hover: rgba(255, 255, 255, 0.07);
+  --fdd-active: rgba(255, 255, 255, 0.12);
+  --fdd-text: var(--color-text, #e6e6e6);
+  --fdd-muted: var(--color-text-secondary, #8c8c8c);
+  --fdd-radius: 12px;
+  --fdd-item-radius: 10px;
+  --fdd-head: 30px;
+  --fdd-item-h: 34px;
+  --fdd-gap: 2px;
+  --fdd-pad: 6px;
 }
 
-.custom-select {
-  position: relative;
-  min-width: 0;
-}
-
-.custom-select.open {
-  z-index: 60;
-}
-
-.custom-select-trigger {
-  width: 100%;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: #2a2a2a;
-  color: var(--color-text);
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  cursor: pointer;
-  transition:
-    border-color 0.22s ease,
-    background 0.22s ease,
-    transform 0.22s ease,
-    box-shadow 0.22s ease;
-}
-
-.custom-select-trigger:hover {
-  border-color: rgba(255, 255, 255, 0.2);
-  background: #313131;
-}
-
-.custom-select.open .custom-select-trigger {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: #2a2a2a;
-  box-shadow: none;
-}
-
-.custom-select.open .custom-select-trigger:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: #2a2a2a;
-}
-
-.custom-select.is-disabled .custom-select-trigger {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.custom-select-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  text-align: left;
-}
-
-.custom-select-spinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.16);
-  border-top-color: rgba(255, 255, 255, 0.88);
-  animation: dropdown-spinner 0.7s linear infinite;
-  flex: 0 0 auto;
-  display: none;
-}
-
-.custom-select-arrow {
-  width: 8px;
-  height: 8px;
-  border-right: 2px solid currentColor;
-  border-bottom: 2px solid currentColor;
-  transform: rotate(45deg) translateY(-1px);
-  color: rgba(255, 255, 255, 0.52);
-  transition:
-    transform 0.18s ease,
-    color 0.18s ease;
-  flex: 0 0 auto;
-}
-
-.custom-select.open .custom-select-arrow {
-  transform: rotate(225deg) translateY(-1px);
-  color: rgba(255, 255, 255, 0.84);
-}
-
-.custom-select.is-loading .custom-select-arrow {
-  display: none;
-}
-
-.custom-select.is-loading .custom-select-spinner {
-  display: inline-flex;
-}
-
-.custom-select-panel {
-  position: fixed !important;
-  box-sizing: border-box;
-  left: var(--custom-select-panel-left, 0);
-  top: var(--custom-select-panel-top, 0);
-  bottom: auto;
-  width: var(--custom-select-panel-width, 160px);
-  z-index: 2400;
-  padding: 0;
-  border-radius: 0 0 14px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  border-top: none;
-  background: #2a2a2a;
-  opacity: 0;
-  transform: translateY(-3px) scaleY(0.94);
-  transform-origin: top;
-  pointer-events: none;
-  transition:
-    opacity 0.24s ease,
-    transform 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
-  max-height: var(--custom-select-panel-max-height, 240px);
-  overflow: hidden;
-  display: flex;
-  box-shadow: none;
-}
-
-.custom-select-panel-viewport {
-  flex: 1 1 auto;
-  min-height: 0;
-  width: 100%;
-  max-height: inherit;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 6px 6px 8px;
-}
-
-.custom-select-panel.open-upward {
-  top: auto;
-  bottom: var(--custom-select-panel-bottom, 0);
-  border-top: 1px solid rgba(255, 255, 255, 0.16);
-  border-bottom: none;
-  border-radius: 14px 14px 0 0;
-  transform-origin: bottom;
-  transform: translateY(3px) scaleY(0.94);
-}
-
-.custom-select-status {
-  min-height: 38px;
-  padding: 0 12px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--color-text-secondary);
+.fdd.fdd-midi {
+  --fdd-head: 26px;
+  --fdd-item-h: 30px;
+  --fdd-radius: 8px;
+  --fdd-item-radius: 8px;
+  min-width: 180px;
   font-size: 12px;
 }
 
-.custom-select-status-spinner {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.12);
-  border-top-color: rgba(255, 255, 255, 0.84);
-  flex: 0 0 auto;
-  opacity: 0;
-}
-
-.custom-select-status.is-loading .custom-select-status-spinner {
-  opacity: 1;
-  animation: dropdown-spinner 0.7s linear infinite;
-}
-
-@keyframes dropdown-spinner {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.custom-select-panel.is-open {
-  opacity: 1;
-  transform: translateY(0) scaleY(1);
-  pointer-events: auto;
-}
-
-.custom-select.open .custom-select-trigger {
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.custom-select.open-upward.open .custom-select-trigger {
-  border-bottom-left-radius: 12px;
-  border-bottom-right-radius: 12px;
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-}
-
-.custom-select-option {
-  width: 100%;
-  border: none;
-  background: transparent;
-  color: var(--color-text-secondary);
-  min-height: 34px;
-  padding: 0 12px;
-  border-radius: 10px;
-  display: flex;
-  align-items: center;
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    transform 0.2s ease;
-}
-
-.custom-select-option:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.07);
-  color: var(--color-text);
-  transform: translateX(1px);
-}
-
-.custom-select-option.active {
-  background: rgba(255, 255, 255, 0.12);
-  color: #fff;
-}
-
-.custom-select-option.danger.active {
-  background: rgba(214, 60, 60, 0.14);
-  color: #ffdede;
-}
-
-.custom-select-option:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-
-.custom-select-option.danger:hover:not(:disabled) {
-  background: rgba(214, 60, 60, 0.18);
-  color: #fff0f0;
-  transform: translateX(1px);
-}
-
-.custom-select--toolbar {
+.fdd.fdd-toolbar {
+  --fdd-head: 26px;
+  --fdd-item-h: 30px;
+  --fdd-radius: 8px;
+  --fdd-item-radius: 8px;
   min-width: 150px;
   max-width: 190px;
-}
-
-.custom-select--toolbar .custom-select-trigger {
-  min-height: 26px;
-  padding: 0 10px 0 12px;
-  border-radius: 8px;
   font-size: 12px;
 }
 
-.custom-select--toolbar.open .custom-select-trigger {
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
+.fdd.fdd-settings {
+  --fdd-head: 30px;
+  --fdd-item-h: 30px;
+  --fdd-radius: 12px;
+  --fdd-item-radius: 10px;
+  min-width: 120px;
+  font-size: 12px;
 }
 
-.custom-select--midi {
+.fdd.fdd-channel {
+  --fdd-head: 36px;
+  --fdd-item-h: 32px;
+  --fdd-radius: 14px;
+  --fdd-item-radius: 10px;
+  font-size: 12px;
+}
+
+.fdd.fdd-raise {
+  z-index: 100;
+}
+
+.fdd.fdd-raise .fdd-card {
+  z-index: 100;
+}
+
+#mediaControllerTargetSettingsSelect {
+  min-width: 196px;
+  max-width: 240px;
+}
+
+#midiInput {
   min-width: 180px;
 }
 
-.custom-select--midi .custom-select-trigger {
-  min-height: 26px;
-  padding: 0 10px 0 12px;
-  border-radius: 8px;
-  font-size: 12px;
-}
-
-.custom-select--settings {
-  min-width: 120px;
-}
-
-.custom-select--settings .custom-select-trigger {
-  min-height: 30px;
-  padding: 0 12px;
-  border-radius: 12px;
-  font-size: 12px;
-}
-
-.custom-select-panel:not(.has-panel-options) {
-  display: none;
-}
-
-.custom-select--channel {
-  width: 100%;
-}
-
-.custom-select--channel .custom-select-trigger {
-  min-height: 40px;
-  padding: 0 14px;
-  border-radius: 14px;
-  font-size: 12px;
+#toolbarProfileSelect {
+  min-width: 150px;
+  max-width: 190px;
 }
 
 .app-shell {
@@ -3588,7 +3370,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   z-index: 3;
 }
 
-.entity-edit-button-settings-card--action:has(.custom-select.open) {
+.entity-edit-button-settings-card--action:has(.fdd-open) {
   z-index: 24;
 }
 
@@ -3958,7 +3740,8 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   pointer-events: none;
 }
 
-.entity-edit-button-select-shell:has(.custom-select)::after {
+.entity-edit-button-select-shell:has(.fdd)::after,
+.entity-edit-button-select-shell:has(.fdd-editor-mount)::after {
   display: none;
 }
 
@@ -3986,11 +3769,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   color: #111;
 }
 
-.entity-edit-button-select-field:has(.custom-select.open) {
+.entity-edit-button-select-field:has(.fdd-open) {
   z-index: 12;
 }
 
-.entity-edit-button-select-field .custom-select {
+.entity-edit-button-select-field .fdd {
   width: 100%;
 }
 
@@ -4834,11 +4617,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   will-change: transform, opacity;
 }
 
-.settings-section:has(.custom-select.open) {
+.settings-section:has(.fdd-open) {
   z-index: 8;
 }
 
-.settings-item:has(.custom-select.open) {
+.settings-item:has(.fdd-open) {
   position: relative;
   z-index: 9;
 }
@@ -5124,20 +4907,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   background: rgba(255, 255, 255, 0.12);
 }
 
-.settings-select {
-  min-width: 120px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid var(--color-border);
-  color: var(--color-text);
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-}
 
-#mediaControllerTargetSettingsSelect {
-  min-width: 196px;
-  max-width: 240px;
-}
 
 #volumeHudPositionSelect,
 #volumeHudOrientationSelect {
@@ -5753,8 +5523,7 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   color: #fff;
 }
 
-.toolbar-profile-picker select,
-#toolbarProfileSelect {
+.toolbar-profile-picker select {
   min-width: 150px;
   max-width: 190px;
   height: 22px;
@@ -5763,6 +5532,11 @@ body.fader-interpolation-enabled .fader-track:not(.is-dragging) .fader-thumb {
   background: #2a2a2a;
   border: 1px solid transparent;
   font-size: 12px;
+}
+
+#toolbarProfileSelect {
+  min-width: 150px;
+  max-width: 190px;
 }
 
 .toolbar-profile-picker.hidden {

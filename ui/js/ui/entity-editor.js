@@ -2171,11 +2171,14 @@
     attrs = '',
     placeholder = ''
   ) {
-    const normalizedValue = String(value ?? '');
     const resolvedAttrs = String(attrs || '').trim();
-    const includePlaceholder =
-      placeholder &&
-      !options.some((option) => String(option.value) === normalizedValue);
+    const itemsJson = JSON.stringify(
+      options.map((option) => ({
+        label: String(option.label ?? option.value ?? ''),
+        value: String(option.value ?? ''),
+        ...(option.disabled ? { disabled: true } : {})
+      }))
+    );
 
     return `
       <label class="entity-edit-button-select-field">
@@ -2185,24 +2188,11 @@
             : ''
         }
         <span class="entity-edit-button-select-shell">
-          <select class="entity-edit-button-select app-selector" ${resolvedAttrs}>
-            ${
-              includePlaceholder
-                ? `<option value="">${escapeHtml(placeholder)}</option>`
-                : ''
-            }
-            ${options
-              .map(
-                (option) => `
-              <option
-                value="${escapeHtml(option.value)}"
-                ${String(option.value) === normalizedValue ? 'selected' : ''}>
-                ${escapeHtml(option.label)}
-              </option>
-            `
-              )
-              .join('')}
-          </select>
+          <div class="fdd-editor-mount" ${resolvedAttrs}
+               data-fdd-items="${escapeHtml(itemsJson)}"
+               data-fdd-value="${escapeHtml(String(value ?? ''))}"
+               ${placeholder ? `data-fdd-placeholder="${escapeHtml(placeholder)}"` : ''}>
+          </div>
         </span>
       </label>
     `;
@@ -3610,14 +3600,34 @@
       return;
     }
 
-    const enhance =
-      typeof enhanceCustomSelects === 'function'
-        ? enhanceCustomSelects
-        : window.enhanceCustomSelects;
+    root.querySelectorAll('.fdd-editor-mount').forEach((container) => {
+      if (container.querySelector('.fdd')) {
+        return;
+      }
 
-    if (typeof enhance === 'function') {
-      enhance(root);
-    }
+      let items;
+      try {
+        items = JSON.parse(container.dataset.fddItems || '[]');
+      } catch (e) {
+        items = [];
+      }
+
+      const value = container.dataset.fddValue;
+      const placeholder = container.dataset.fddPlaceholder || '';
+      const hasValue =
+        value !== undefined &&
+        value !== '' &&
+        items.some((item) => String(item.value) === String(value));
+
+      new FDDropdown(container, {
+        items,
+        index: hasValue ? undefined : -1,
+        value: hasValue ? value : undefined,
+        placeholder: placeholder || undefined,
+        direction: 'auto',
+        className: 'fdd-channel'
+      });
+    });
   }
 
   function captureSidePanelMotionSnapshot() {
@@ -5019,75 +5029,7 @@
     const currentButton = getEditorButtonEntity(
       editorState.sidePanelButtonId || editorState.buttonId
     );
-    const actionGroupSelect = event.target.closest(
-      '[data-editor-button-action-group-select]'
-    );
-    const actionTypeSelect = event.target.closest(
-      '[data-editor-button-action-type-select]'
-    );
-    const linkedChannelSelect = event.target.closest(
-      '[data-editor-button-linked-channel-select]'
-    );
-    const deviceSelect = event.target.closest(
-      '[data-editor-button-device-select]'
-    );
     const pathInput = event.target.closest('[data-editor-button-path-field]');
-    const actionValueRange = event.target.closest(
-      '[data-editor-side-button-action-value]'
-    );
-    const indicatorThresholdRange = event.target.closest(
-      '[data-editor-side-button-indicator-threshold]'
-    );
-
-    if (actionGroupSelect) {
-      const nextActionType = getDefaultActionTypeForGroup(
-        actionGroupSelect.value
-      );
-      updateSidePanelChannelButton(
-        buildSynchronizedButtonActionPatch(currentButton, nextActionType, null),
-        { type: 'standalone-buttons/update' }
-      );
-      return true;
-    }
-
-    if (actionTypeSelect) {
-      updateSidePanelChannelButton(
-        buildSynchronizedButtonActionPatch(
-          currentButton,
-          actionTypeSelect.value,
-          null
-        ),
-        { type: 'standalone-buttons/update' }
-      );
-      return true;
-    }
-
-    if (linkedChannelSelect) {
-      const linkedChannelId = Number.parseInt(linkedChannelSelect.value, 10);
-      updateSidePanelChannelButton(
-        {
-          linkedChannelId: Number.isFinite(linkedChannelId)
-            ? linkedChannelId
-            : null
-        },
-        {
-          type: 'standalone-buttons/update'
-        }
-      );
-      return true;
-    }
-
-    if (deviceSelect) {
-      updateSidePanelChannelButton(
-        {
-          deviceId: String(deviceSelect.value || '').trim()
-        },
-        {
-          type: 'standalone-buttons/update'
-        }
-      );
-      return true;
-    }
 
     if (pathInput) {
       const fieldName = String(
@@ -5151,6 +5093,79 @@
 
       scheduleEntityEditorLivePeakMeterUpdate();
 
+      return true;
+    }
+
+    return false;
+  }
+
+  function handleStandaloneButtonMainFddChange(event) {
+    if (editorState.entityType !== 'button') {
+      return false;
+    }
+
+    const currentButton = getEditorButtonEntity(
+      editorState.sidePanelButtonId || editorState.buttonId
+    );
+    const actionGroupSelect = event.target.closest(
+      '[data-editor-button-action-group-select]'
+    );
+    const actionTypeSelect = event.target.closest(
+      '[data-editor-button-action-type-select]'
+    );
+    const linkedChannelSelect = event.target.closest(
+      '[data-editor-button-linked-channel-select]'
+    );
+    const deviceSelect = event.target.closest(
+      '[data-editor-button-device-select]'
+    );
+    const value = event.detail?.value;
+
+    if (actionGroupSelect) {
+      const nextActionType = getDefaultActionTypeForGroup(value);
+      updateSidePanelChannelButton(
+        buildSynchronizedButtonActionPatch(currentButton, nextActionType, null),
+        { type: 'standalone-buttons/update' }
+      );
+      return true;
+    }
+
+    if (actionTypeSelect) {
+      updateSidePanelChannelButton(
+        buildSynchronizedButtonActionPatch(
+          currentButton,
+          value,
+          null
+        ),
+        { type: 'standalone-buttons/update' }
+      );
+      return true;
+    }
+
+    if (linkedChannelSelect) {
+      const linkedChannelId = Number.parseInt(value, 10);
+      updateSidePanelChannelButton(
+        {
+          linkedChannelId: Number.isFinite(linkedChannelId)
+            ? linkedChannelId
+            : null
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
+      return true;
+    }
+
+    if (deviceSelect) {
+      updateSidePanelChannelButton(
+        {
+          deviceId: String(value || '').trim()
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
       return true;
     }
 
@@ -5590,6 +5605,12 @@
     }
   }
 
+  function handleMainFddChange(event) {
+    if (handleStandaloneButtonMainFddChange(event)) {
+      return;
+    }
+  }
+
   function handleMainKeyDown(event) {
     if (handleStandaloneButtonMainKeyDown(event)) {
       return;
@@ -5812,79 +5833,7 @@
       editorState.entityType === 'button'
         ? 'standalone-buttons/update'
         : 'channels/button-update';
-    const actionGroupSelect = event.target.closest(
-      '[data-editor-button-action-group-select]'
-    );
-    const actionTypeSelect = event.target.closest(
-      '[data-editor-button-action-type-select]'
-    );
-    const linkedChannelSelect = event.target.closest(
-      '[data-editor-button-linked-channel-select]'
-    );
-    const deviceSelect = event.target.closest(
-      '[data-editor-button-device-select]'
-    );
     const pathInput = event.target.closest('[data-editor-button-path-field]');
-    const actionValueRange = event.target.closest(
-      '[data-editor-side-button-action-value]'
-    );
-    const indicatorThresholdRange = event.target.closest(
-      '[data-editor-side-button-indicator-threshold]'
-    );
-
-    if (actionGroupSelect) {
-      const nextActionType = getDefaultActionTypeForGroup(
-        actionGroupSelect.value
-      );
-      updateSidePanelChannelButton(
-        buildSynchronizedButtonActionPatch(
-          currentButton,
-          nextActionType,
-          editorState.entityType === 'fader' ? editorState.channelId : null
-        ),
-        { type: updateType }
-      );
-      return;
-    }
-
-    if (actionTypeSelect) {
-      updateSidePanelChannelButton(
-        buildSynchronizedButtonActionPatch(
-          currentButton,
-          actionTypeSelect.value,
-          editorState.entityType === 'fader' ? editorState.channelId : null
-        ),
-        { type: updateType }
-      );
-      return;
-    }
-
-    if (linkedChannelSelect) {
-      const linkedChannelId = Number.parseInt(linkedChannelSelect.value, 10);
-      updateSidePanelChannelButton(
-        {
-          linkedChannelId: Number.isFinite(linkedChannelId)
-            ? linkedChannelId
-            : null
-        },
-        {
-          type: updateType
-        }
-      );
-      return;
-    }
-
-    if (deviceSelect) {
-      updateSidePanelChannelButton(
-        {
-          deviceId: String(deviceSelect.value || '').trim()
-        },
-        {
-          type: updateType
-        }
-      );
-      return;
-    }
 
     if (pathInput) {
       const fieldName = String(
@@ -5949,6 +5898,79 @@
         type: updateType
       }
     );
+  }
+
+  function handleSidePanelFddChange(event) {
+    const currentButton = getEditorButtonEntity(editorState.sidePanelButtonId);
+    const updateType =
+      editorState.entityType === 'button'
+        ? 'standalone-buttons/update'
+        : 'channels/button-update';
+    const actionGroupSelect = event.target.closest(
+      '[data-editor-button-action-group-select]'
+    );
+    const actionTypeSelect = event.target.closest(
+      '[data-editor-button-action-type-select]'
+    );
+    const linkedChannelSelect = event.target.closest(
+      '[data-editor-button-linked-channel-select]'
+    );
+    const deviceSelect = event.target.closest(
+      '[data-editor-button-device-select]'
+    );
+    const value = event.detail?.value;
+
+    if (actionGroupSelect) {
+      const nextActionType = getDefaultActionTypeForGroup(value);
+      updateSidePanelChannelButton(
+        buildSynchronizedButtonActionPatch(
+          currentButton,
+          nextActionType,
+          editorState.entityType === 'fader' ? editorState.channelId : null
+        ),
+        { type: updateType }
+      );
+      return;
+    }
+
+    if (actionTypeSelect) {
+      updateSidePanelChannelButton(
+        buildSynchronizedButtonActionPatch(
+          currentButton,
+          value,
+          editorState.entityType === 'fader' ? editorState.channelId : null
+        ),
+        { type: updateType }
+      );
+      return;
+    }
+
+    if (linkedChannelSelect) {
+      const linkedChannelId = Number.parseInt(value, 10);
+      updateSidePanelChannelButton(
+        {
+          linkedChannelId: Number.isFinite(linkedChannelId)
+            ? linkedChannelId
+            : null
+        },
+        {
+          type: updateType
+        }
+      );
+      return;
+    }
+
+    if (deviceSelect) {
+      updateSidePanelChannelButton(
+        {
+          deviceId: String(value || '').trim()
+        },
+        {
+          type: updateType
+        }
+      );
+      return;
+    }
   }
 
   function handleSidePanelFocusOut(event) {
@@ -6971,11 +6993,13 @@
     dom.main.addEventListener('click', handleMainClick);
     dom.main.addEventListener('input', handleMainInput);
     dom.main.addEventListener('change', handleMainChange);
+    dom.main.addEventListener('fdd:change', handleMainFddChange);
     dom.main.addEventListener('focusout', handleMainFocusOut);
     dom.main.addEventListener('keydown', handleMainKeyDown);
     dom.sidePanel?.addEventListener('click', handleSidePanelClick);
     dom.sidePanel?.addEventListener('input', handleSidePanelInput);
     dom.sidePanel?.addEventListener('change', handleSidePanelChange);
+    dom.sidePanel?.addEventListener('fdd:change', handleSidePanelFddChange);
     dom.sidePanel?.addEventListener('focusout', handleSidePanelFocusOut);
     dom.sidePanel?.addEventListener('keydown', handleSidePanelKeyDown);
     dom.sidePanel?.addEventListener('pointerenter', () => {

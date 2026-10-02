@@ -87,10 +87,39 @@ function syncToolbarProfilePickerVisibility() {
   picker.classList.toggle('hidden', !isEnabled);
 }
 
-function syncToolbarProfileSelect() {
-  const select = getToolbarProfileSelect();
+let toolbarProfileDropdown = null;
 
-  if (!select) {
+function ensureToolbarProfileDropdown() {
+  if (toolbarProfileDropdown) {
+    return toolbarProfileDropdown;
+  }
+
+  const host = getToolbarProfileSelect();
+  if (!host) {
+    return null;
+  }
+
+  toolbarProfileDropdown = new FDDropdown(host, {
+    items: [],
+    placeholder: t('profiles.toolbarPlaceholder'),
+    direction: 'down',
+    className: 'fdd-toolbar',
+    onChange(value) {
+      if (!value) {
+        return;
+      }
+      loadProfileByName(value);
+    }
+  });
+
+  host._fdd = toolbarProfileDropdown;
+  return toolbarProfileDropdown;
+}
+
+function syncToolbarProfileSelect() {
+  const dd = ensureToolbarProfileDropdown();
+
+  if (!dd) {
     return;
   }
 
@@ -101,24 +130,18 @@ function syncToolbarProfileSelect() {
   const hasCurrentVisible = visibleProfiles.some(
     (profile) => profile.name === currentProfileName
   );
-  const placeholderSelected = !currentProfileName || !hasCurrentVisible;
 
-  select.innerHTML = `
-    <option value="" ${placeholderSelected ? 'selected' : ''}>
-      ${t('profiles.toolbarPlaceholder')}
-    </option>
-    ${visibleProfiles
-      .map(
-        (profile) => `
-      <option value="${escapeHtml(profile.name)}" ${profile.name === currentProfileName ? 'selected' : ''}>
-        ${escapeHtml(profile.name)}
-      </option>
-    `
-      )
-      .join('')}
-  `;
+  const items = visibleProfiles.map((profile) => ({
+    label: profile.name,
+    value: profile.name
+  }));
 
-  enhanceCustomSelects?.(select);
+  dd.ph.textContent = t('profiles.toolbarPlaceholder');
+  dd.setItems(items, {
+    value: hasCurrentVisible ? currentProfileName : undefined,
+    index: hasCurrentVisible ? undefined : -1
+  });
+
   syncToolbarProfilePickerVisibility();
 }
 
@@ -632,13 +655,6 @@ function bindProfilesUi() {
     return;
   }
 
-  getToolbarProfileSelect()?.addEventListener('change', (event) => {
-    if (!event.target.value) {
-      return;
-    }
-
-    loadProfileByName(event.target.value);
-  });
 
   document
     .getElementById('saveCurrentProfileButton')

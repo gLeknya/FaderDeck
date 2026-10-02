@@ -2364,7 +2364,6 @@ function renderMixer() {
   primeChannelFaderDomCache(container);
   setupFaderDrag();
   setupChannelPickupUi();
-  enhanceCustomSelects?.(container);
   triggerNewChannelFlash(container);
   syncAddChannelStripHeight(container);
   scheduleContentMetricsUpdate();
