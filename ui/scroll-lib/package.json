@@ -1,0 +1,16 @@
+{
+  "name": "fader-scroll",
+  "version": "0.1.0",
+  "description": "Lightweight custom scrollbar library for FaderDeck",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./styles/*": "./styles/*"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "demo": "node scripts/serve.js"
+  },
+  "license": "MIT"
+}

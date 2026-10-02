@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/config.schema.json",
   "productName": "FaderDeck",
-  "version": "2.0.0",
+  "version": "0.8.3",
   "identifier": "com.faderdeck.app",
   "build": {
     "frontendDist": "../ui"

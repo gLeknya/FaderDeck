@@ -1240,12 +1240,109 @@
     window.addEventListener('pointercancel', stopPreviewDrag);
   }
 
-  function renderEditorToggle(isEnabled, attributes = '') {
-    return `
-      <button class="settings-toggle ${isEnabled ? 'on' : ''}" type="button" ${attributes}>
-        ${isEnabled ? t('settings.on') : t('settings.off')}
-      </button>
-    `;
+  function enhanceEntityEditorSwitches(root, channel) {
+    if (!root || !channel) {
+      return;
+    }
+
+    const createSw = window.createSwitch;
+    if (typeof createSw !== 'function') {
+      return;
+    }
+
+    const customMount = root.querySelector(
+      '[data-editor-switch-mount="customSettingsEnabled"]'
+    );
+    if (customMount) {
+      const isEnabled = Boolean(channel.customSettingsEnabled);
+      const sw = createSw({
+        checked: isEnabled,
+        label: t('editor.customSettings'),
+        onChange: (checked) => {
+          if (checked && !channel.customSettingsEnabled) {
+            const resolvedSettings = getEditorChannelResolvedSettings(channel);
+            updateChannelCustomSettingsState?.(
+              channel.id,
+              {
+                faderInterpolationEnabled: Boolean(
+                  resolvedSettings.faderInterpolationEnabled
+                ),
+                softTakeoverEnabled: Boolean(
+                  resolvedSettings.softTakeoverEnabled
+                ),
+                softTakeoverThreshold:
+                  Number(resolvedSettings.softTakeoverThreshold) || 0,
+                volumeCurveEnabled: Boolean(resolvedSettings.volumeCurveEnabled),
+                volumeCurveType:
+                  resolvedSettings.volumeCurveType || 'ease-in-out',
+                volumeCurveAmount:
+                  Number(resolvedSettings.volumeCurveAmount) || 0,
+                showFractionalNumbers: Boolean(
+                  resolvedSettings.showFractionalNumbers
+                )
+              },
+              {
+                source: 'entity-editor'
+              }
+            );
+          }
+
+          setChannelCustomSettingsEnabledState?.(channel.id, checked, {
+            source: 'entity-editor'
+          });
+          saveProfileToLocal?.();
+          renderEntityEditor();
+          requestAnimationFrame(() => {
+            if (checked) {
+              dom.main
+                ?.querySelector('.entity-edit-custom-expandable.open')
+                ?.scrollIntoView({
+                  block: 'nearest',
+                  behavior: 'smooth'
+                });
+            }
+          });
+        }
+      });
+      customMount.replaceWith(sw);
+    }
+
+    const customSettings = getEditorCustomSettings(channel);
+    const settingsDefinitions = [
+      {
+        key: 'faderInterpolationEnabled',
+        label: t('settings.faderInterpolation')
+      },
+      {
+        key: 'softTakeoverEnabled',
+        label: t('settings.softTakeover')
+      },
+      {
+        key: 'volumeCurveEnabled',
+        label: t('settings.volumeCurve')
+      },
+      {
+        key: 'showFractionalNumbers',
+        label: t('editor.localFractionalNumbers')
+      }
+    ];
+
+    for (const def of settingsDefinitions) {
+      const mount = root.querySelector(
+        `[data-editor-switch-mount="${def.key}"]`
+      );
+      if (mount) {
+        const sw = createSw({
+          checked: Boolean(customSettings[def.key]),
+          label: def.label,
+          onChange: (checked) => {
+            updateChannelCustomSetting(def.key, checked);
+            renderEntityEditor();
+          }
+        });
+        mount.replaceWith(sw);
+      }
+    }
   }
 
   function renderEditorTargets(channel) {
@@ -2074,11 +2171,14 @@
     attrs = '',
     placeholder = ''
   ) {
-    const normalizedValue = String(value ?? '');
     const resolvedAttrs = String(attrs || '').trim();
-    const includePlaceholder =
-      placeholder &&
-      !options.some((option) => String(option.value) === normalizedValue);
+    const itemsJson = JSON.stringify(
+      options.map((option) => ({
+        label: String(option.label ?? option.value ?? ''),
+        value: String(option.value ?? ''),
+        ...(option.disabled ? { disabled: true } : {})
+      }))
+    );
 
     return `
       <label class="entity-edit-button-select-field">
@@ -2088,24 +2188,11 @@
             : ''
         }
         <span class="entity-edit-button-select-shell">
-          <select class="entity-edit-button-select app-selector" ${resolvedAttrs}>
-            ${
-              includePlaceholder
-                ? `<option value="">${escapeHtml(placeholder)}</option>`
-                : ''
-            }
-            ${options
-              .map(
-                (option) => `
-              <option
-                value="${escapeHtml(option.value)}"
-                ${String(option.value) === normalizedValue ? 'selected' : ''}>
-                ${escapeHtml(option.label)}
-              </option>
-            `
-              )
-              .join('')}
-          </select>
+          <div class="fdd-editor-mount" ${resolvedAttrs}
+               data-fdd-items="${escapeHtml(itemsJson)}"
+               data-fdd-value="${escapeHtml(String(value ?? ''))}"
+               ${placeholder ? `data-fdd-placeholder="${escapeHtml(placeholder)}"` : ''}>
+          </div>
         </span>
       </label>
     `;
@@ -3066,24 +3153,26 @@
           </button>
         </div>
 
-        <div class="entity-edit-button-side-layout">
-          <div class="entity-edit-button-side-inline">
-            <div class="entity-edit-button-name-row entity-edit-button-name-row--compact">
-              ${renderChannelButtonIconPicker(resolvedButton)}
-              <button
-                class="btn entity-edit-button-midi-bind"
-                type="button"
-                data-editor-bind-channel-button-midi="${resolvedButton.id}">
-                ${t('editor.buttonMidiBind')}
-              </button>
+        <div class="entity-edit-button-side-host sb-host">
+          <div class="entity-edit-button-side-layout" data-scroll="y" data-scroll-animation="slide" data-scroll-mount="#entityEditSidePanel">
+            <div class="entity-edit-button-side-inline">
+              <div class="entity-edit-button-name-row entity-edit-button-name-row--compact">
+                ${renderChannelButtonIconPicker(resolvedButton)}
+                <button
+                  class="btn entity-edit-button-midi-bind"
+                  type="button"
+                  data-editor-bind-channel-button-midi="${resolvedButton.id}">
+                  ${t('editor.buttonMidiBind')}
+                </button>
+              </div>
             </div>
-          </div>
 
-          ${renderButtonModeAndGroupRow(resolvedButton, { layout: 'stacked' })}
+            ${renderButtonModeAndGroupRow(resolvedButton, { layout: 'stacked' })}
 
-          <div class="entity-edit-button-card-stack">
-            ${renderButtonActionCard(resolvedButton, { ownerChannelId: channel?.id })}
-            ${renderButtonIndicatorBehaviorCard(resolvedButton, { channelId: channel?.id })}
+            <div class="entity-edit-button-card-stack">
+              ${renderButtonActionCard(resolvedButton, { ownerChannelId: channel?.id })}
+              ${renderButtonIndicatorBehaviorCard(resolvedButton, { channelId: channel?.id })}
+            </div>
           </div>
         </div>
       </div>
@@ -3319,19 +3408,13 @@
           <div class="entity-edit-custom-settings">
             <div class="settings-item">
               <span>${t('settings.faderInterpolation')}</span>
-              ${renderEditorToggle(
-                customSettings.faderInterpolationEnabled,
-                'data-editor-setting-toggle="faderInterpolationEnabled"'
-              )}
+              <div data-editor-switch-mount="faderInterpolationEnabled"></div>
             </div>
 
             <div class="settings-group">
               <div class="settings-item">
                 <span>${t('settings.softTakeover')}</span>
-                ${renderEditorToggle(
-                  customSettings.softTakeoverEnabled,
-                  'data-editor-setting-toggle="softTakeoverEnabled"'
-                )}
+                <div data-editor-switch-mount="softTakeoverEnabled"></div>
               </div>
 
               <div class="settings-expandable ${customSettings.softTakeoverEnabled ? 'open' : ''}">
@@ -3357,10 +3440,7 @@
             <div class="settings-group">
               <div class="settings-item">
                 <span>${t('settings.volumeCurve')}</span>
-                ${renderEditorToggle(
-                  customSettings.volumeCurveEnabled,
-                  'data-editor-setting-toggle="volumeCurveEnabled"'
-                )}
+                <div data-editor-switch-mount="volumeCurveEnabled"></div>
               </div>
 
               <div class="settings-expandable ${customSettings.volumeCurveEnabled ? 'open' : ''}">
@@ -3388,10 +3468,7 @@
 
             <div class="settings-item">
               <span>${t('editor.localFractionalNumbers')}</span>
-              ${renderEditorToggle(
-                customSettings.showFractionalNumbers,
-                'data-editor-setting-toggle="showFractionalNumbers"'
-              )}
+              <div data-editor-switch-mount="showFractionalNumbers"></div>
             </div>
           </div>
         </div>
@@ -3453,10 +3530,7 @@
         <section class="entity-edit-section">
           <div class="entity-edit-section-header">
             <span>${t('editor.customSettings')}</span>
-            ${renderEditorToggle(
-              Boolean(channel?.customSettingsEnabled),
-              'data-editor-toggle-custom-settings'
-            )}
+            <div data-editor-switch-mount="customSettingsEnabled"></div>
           </div>
           ${renderFaderCustomSettings(channel)}
         </section>
@@ -3526,14 +3600,34 @@
       return;
     }
 
-    const enhance =
-      typeof enhanceCustomSelects === 'function'
-        ? enhanceCustomSelects
-        : window.enhanceCustomSelects;
+    root.querySelectorAll('.fdd-editor-mount').forEach((container) => {
+      if (container.querySelector('.fdd')) {
+        return;
+      }
 
-    if (typeof enhance === 'function') {
-      enhance(root);
-    }
+      let items;
+      try {
+        items = JSON.parse(container.dataset.fddItems || '[]');
+      } catch (e) {
+        items = [];
+      }
+
+      const value = container.dataset.fddValue;
+      const placeholder = container.dataset.fddPlaceholder || '';
+      const hasValue =
+        value !== undefined &&
+        value !== '' &&
+        items.some((item) => String(item.value) === String(value));
+
+      new FDDropdown(container, {
+        items,
+        index: hasValue ? undefined : -1,
+        value: hasValue ? value : undefined,
+        placeholder: placeholder || undefined,
+        direction: 'auto',
+        className: 'fdd-channel'
+      });
+    });
   }
 
   function captureSidePanelMotionSnapshot() {
@@ -3773,6 +3867,12 @@
     ) {
       dom.shell?.classList.remove('entity-edit-side-open');
       dom.shell?.classList.remove('entity-edit-side-closing');
+      const oldSideScroll =
+        dom.sideOptions ||
+        dom.sidePanel.querySelector('.entity-edit-button-side-layout');
+      if (oldSideScroll) {
+        window.faderScroll?.getInstance(oldSideScroll)?.destroy();
+      }
       dom.sidePanel.classList.remove('is-open');
       dom.sidePanel.classList.remove('is-closing');
       dom.sidePanel.innerHTML = '';
@@ -3791,6 +3891,13 @@
             ?.scrollTop || 0
         : 0;
 
+    const oldSideScroll =
+      dom.sideOptions ||
+      dom.sidePanel.querySelector('.entity-edit-button-side-layout');
+    if (oldSideScroll) {
+      window.faderScroll?.getInstance(oldSideScroll)?.destroy();
+    }
+
     dom.shell?.classList.toggle(
       'entity-edit-side-open',
       editorState.sidePanelOpen
@@ -3805,6 +3912,7 @@
     if (!isTargetsSidePanelMode()) {
       dom.sidePanel.innerHTML =
         renderChannelButtonSidePanel(resolvedTargetEntity);
+      window.faderScroll?.initScrolls(dom.sidePanel);
       enhanceEntityEditorCustomSelects(dom.sidePanel);
       applySidePanelMotionSnapshot(motionSnapshot, {
         choiceKeys: motionChoiceKeys
@@ -3859,8 +3967,8 @@
               : ''
           }
 
-          <div class="entity-edit-side-options-shell">
-            <div class="entity-edit-side-options" id="entityEditSideOptions">
+          <div class="entity-edit-side-options-shell sb-host">
+            <div class="entity-edit-side-options" id="entityEditSideOptions" data-scroll="y" data-scroll-animation="slide" data-scroll-mount="#entityEditSidePanel">
               ${renderSidePanelOptions(resolvedTargetEntity)}
             </div>
           </div>
@@ -3869,6 +3977,9 @@
 
     enhanceEntityEditorCustomSelects(dom.sidePanel);
     dom.sideOptions = $('entityEditSideOptions');
+    if (dom.sideOptions) {
+      window.faderScroll?.initScrolls(dom.sidePanel);
+    }
   }
 
   function syncEditorTargetsBody(channel = getEditorTargetEntity()) {
@@ -4367,6 +4478,7 @@
 
       dom.main.innerHTML = renderFaderEditor(channel);
       enhanceEntityEditorCustomSelects(dom.main);
+      enhanceEntityEditorSwitches(dom.main, channel);
       renderSidePanel(channel);
       syncEditorRangeFills();
       scheduleEntityEditorLivePeakMeterUpdate();
@@ -4917,75 +5029,7 @@
     const currentButton = getEditorButtonEntity(
       editorState.sidePanelButtonId || editorState.buttonId
     );
-    const actionGroupSelect = event.target.closest(
-      '[data-editor-button-action-group-select]'
-    );
-    const actionTypeSelect = event.target.closest(
-      '[data-editor-button-action-type-select]'
-    );
-    const linkedChannelSelect = event.target.closest(
-      '[data-editor-button-linked-channel-select]'
-    );
-    const deviceSelect = event.target.closest(
-      '[data-editor-button-device-select]'
-    );
     const pathInput = event.target.closest('[data-editor-button-path-field]');
-    const actionValueRange = event.target.closest(
-      '[data-editor-side-button-action-value]'
-    );
-    const indicatorThresholdRange = event.target.closest(
-      '[data-editor-side-button-indicator-threshold]'
-    );
-
-    if (actionGroupSelect) {
-      const nextActionType = getDefaultActionTypeForGroup(
-        actionGroupSelect.value
-      );
-      updateSidePanelChannelButton(
-        buildSynchronizedButtonActionPatch(currentButton, nextActionType, null),
-        { type: 'standalone-buttons/update' }
-      );
-      return true;
-    }
-
-    if (actionTypeSelect) {
-      updateSidePanelChannelButton(
-        buildSynchronizedButtonActionPatch(
-          currentButton,
-          actionTypeSelect.value,
-          null
-        ),
-        { type: 'standalone-buttons/update' }
-      );
-      return true;
-    }
-
-    if (linkedChannelSelect) {
-      const linkedChannelId = Number.parseInt(linkedChannelSelect.value, 10);
-      updateSidePanelChannelButton(
-        {
-          linkedChannelId: Number.isFinite(linkedChannelId)
-            ? linkedChannelId
-            : null
-        },
-        {
-          type: 'standalone-buttons/update'
-        }
-      );
-      return true;
-    }
-
-    if (deviceSelect) {
-      updateSidePanelChannelButton(
-        {
-          deviceId: String(deviceSelect.value || '').trim()
-        },
-        {
-          type: 'standalone-buttons/update'
-        }
-      );
-      return true;
-    }
 
     if (pathInput) {
       const fieldName = String(
@@ -5049,6 +5093,79 @@
 
       scheduleEntityEditorLivePeakMeterUpdate();
 
+      return true;
+    }
+
+    return false;
+  }
+
+  function handleStandaloneButtonMainFddChange(event) {
+    if (editorState.entityType !== 'button') {
+      return false;
+    }
+
+    const currentButton = getEditorButtonEntity(
+      editorState.sidePanelButtonId || editorState.buttonId
+    );
+    const actionGroupSelect = event.target.closest(
+      '[data-editor-button-action-group-select]'
+    );
+    const actionTypeSelect = event.target.closest(
+      '[data-editor-button-action-type-select]'
+    );
+    const linkedChannelSelect = event.target.closest(
+      '[data-editor-button-linked-channel-select]'
+    );
+    const deviceSelect = event.target.closest(
+      '[data-editor-button-device-select]'
+    );
+    const value = event.detail?.value;
+
+    if (actionGroupSelect) {
+      const nextActionType = getDefaultActionTypeForGroup(value);
+      updateSidePanelChannelButton(
+        buildSynchronizedButtonActionPatch(currentButton, nextActionType, null),
+        { type: 'standalone-buttons/update' }
+      );
+      return true;
+    }
+
+    if (actionTypeSelect) {
+      updateSidePanelChannelButton(
+        buildSynchronizedButtonActionPatch(
+          currentButton,
+          value,
+          null
+        ),
+        { type: 'standalone-buttons/update' }
+      );
+      return true;
+    }
+
+    if (linkedChannelSelect) {
+      const linkedChannelId = Number.parseInt(value, 10);
+      updateSidePanelChannelButton(
+        {
+          linkedChannelId: Number.isFinite(linkedChannelId)
+            ? linkedChannelId
+            : null
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
+      return true;
+    }
+
+    if (deviceSelect) {
+      updateSidePanelChannelButton(
+        {
+          deviceId: String(value || '').trim()
+        },
+        {
+          type: 'standalone-buttons/update'
+        }
+      );
       return true;
     }
 
@@ -5248,58 +5365,6 @@
       return;
     }
 
-    if (event.target.closest('[data-editor-toggle-custom-settings]')) {
-      const channel = getEditorChannel();
-
-      if (!channel) {
-        return;
-      }
-
-      if (!channel.customSettingsEnabled) {
-        const resolvedSettings = getEditorChannelResolvedSettings(channel);
-        updateChannelCustomSettingsState?.(
-          channel.id,
-          {
-            faderInterpolationEnabled: Boolean(
-              resolvedSettings.faderInterpolationEnabled
-            ),
-            softTakeoverEnabled: Boolean(resolvedSettings.softTakeoverEnabled),
-            softTakeoverThreshold:
-              Number(resolvedSettings.softTakeoverThreshold) || 0,
-            volumeCurveEnabled: Boolean(resolvedSettings.volumeCurveEnabled),
-            volumeCurveType: resolvedSettings.volumeCurveType || 'ease-in-out',
-            volumeCurveAmount: Number(resolvedSettings.volumeCurveAmount) || 0,
-            showFractionalNumbers: Boolean(
-              resolvedSettings.showFractionalNumbers
-            )
-          },
-          {
-            source: 'entity-editor'
-          }
-        );
-      }
-
-      setChannelCustomSettingsEnabledState?.(
-        channel.id,
-        !channel.customSettingsEnabled,
-        {
-          source: 'entity-editor'
-        }
-      );
-      saveProfileToLocal?.();
-      renderEntityEditor();
-      requestAnimationFrame(() => {
-        if (!channel.customSettingsEnabled) {
-          dom.main
-            ?.querySelector('.entity-edit-custom-expandable.open')
-            ?.scrollIntoView({
-              block: 'nearest',
-              behavior: 'smooth'
-            });
-        }
-      });
-      return;
-    }
 
     const removeTargetButton = event.target.closest(
       '[data-editor-remove-target]'
@@ -5451,15 +5516,6 @@
       return;
     }
 
-    const toggleButton = event.target.closest('[data-editor-setting-toggle]');
-
-    if (toggleButton && editorState.entityType === 'fader') {
-      const settingKey = toggleButton.dataset.editorSettingToggle;
-      const currentSettings = getEditorCustomSettings(getEditorChannel());
-      updateChannelCustomSetting(settingKey, !currentSettings[settingKey]);
-      renderEntityEditor();
-      return;
-    }
 
     const curveButton = event.target.closest('[data-editor-curve-type]');
 
@@ -5545,6 +5601,12 @@
 
   function handleMainChange(event) {
     if (handleStandaloneButtonMainChange(event)) {
+      return;
+    }
+  }
+
+  function handleMainFddChange(event) {
+    if (handleStandaloneButtonMainFddChange(event)) {
       return;
     }
   }
@@ -5771,79 +5833,7 @@
       editorState.entityType === 'button'
         ? 'standalone-buttons/update'
         : 'channels/button-update';
-    const actionGroupSelect = event.target.closest(
-      '[data-editor-button-action-group-select]'
-    );
-    const actionTypeSelect = event.target.closest(
-      '[data-editor-button-action-type-select]'
-    );
-    const linkedChannelSelect = event.target.closest(
-      '[data-editor-button-linked-channel-select]'
-    );
-    const deviceSelect = event.target.closest(
-      '[data-editor-button-device-select]'
-    );
     const pathInput = event.target.closest('[data-editor-button-path-field]');
-    const actionValueRange = event.target.closest(
-      '[data-editor-side-button-action-value]'
-    );
-    const indicatorThresholdRange = event.target.closest(
-      '[data-editor-side-button-indicator-threshold]'
-    );
-
-    if (actionGroupSelect) {
-      const nextActionType = getDefaultActionTypeForGroup(
-        actionGroupSelect.value
-      );
-      updateSidePanelChannelButton(
-        buildSynchronizedButtonActionPatch(
-          currentButton,
-          nextActionType,
-          editorState.entityType === 'fader' ? editorState.channelId : null
-        ),
-        { type: updateType }
-      );
-      return;
-    }
-
-    if (actionTypeSelect) {
-      updateSidePanelChannelButton(
-        buildSynchronizedButtonActionPatch(
-          currentButton,
-          actionTypeSelect.value,
-          editorState.entityType === 'fader' ? editorState.channelId : null
-        ),
-        { type: updateType }
-      );
-      return;
-    }
-
-    if (linkedChannelSelect) {
-      const linkedChannelId = Number.parseInt(linkedChannelSelect.value, 10);
-      updateSidePanelChannelButton(
-        {
-          linkedChannelId: Number.isFinite(linkedChannelId)
-            ? linkedChannelId
-            : null
-        },
-        {
-          type: updateType
-        }
-      );
-      return;
-    }
-
-    if (deviceSelect) {
-      updateSidePanelChannelButton(
-        {
-          deviceId: String(deviceSelect.value || '').trim()
-        },
-        {
-          type: updateType
-        }
-      );
-      return;
-    }
 
     if (pathInput) {
       const fieldName = String(
@@ -5908,6 +5898,79 @@
         type: updateType
       }
     );
+  }
+
+  function handleSidePanelFddChange(event) {
+    const currentButton = getEditorButtonEntity(editorState.sidePanelButtonId);
+    const updateType =
+      editorState.entityType === 'button'
+        ? 'standalone-buttons/update'
+        : 'channels/button-update';
+    const actionGroupSelect = event.target.closest(
+      '[data-editor-button-action-group-select]'
+    );
+    const actionTypeSelect = event.target.closest(
+      '[data-editor-button-action-type-select]'
+    );
+    const linkedChannelSelect = event.target.closest(
+      '[data-editor-button-linked-channel-select]'
+    );
+    const deviceSelect = event.target.closest(
+      '[data-editor-button-device-select]'
+    );
+    const value = event.detail?.value;
+
+    if (actionGroupSelect) {
+      const nextActionType = getDefaultActionTypeForGroup(value);
+      updateSidePanelChannelButton(
+        buildSynchronizedButtonActionPatch(
+          currentButton,
+          nextActionType,
+          editorState.entityType === 'fader' ? editorState.channelId : null
+        ),
+        { type: updateType }
+      );
+      return;
+    }
+
+    if (actionTypeSelect) {
+      updateSidePanelChannelButton(
+        buildSynchronizedButtonActionPatch(
+          currentButton,
+          value,
+          editorState.entityType === 'fader' ? editorState.channelId : null
+        ),
+        { type: updateType }
+      );
+      return;
+    }
+
+    if (linkedChannelSelect) {
+      const linkedChannelId = Number.parseInt(value, 10);
+      updateSidePanelChannelButton(
+        {
+          linkedChannelId: Number.isFinite(linkedChannelId)
+            ? linkedChannelId
+            : null
+        },
+        {
+          type: updateType
+        }
+      );
+      return;
+    }
+
+    if (deviceSelect) {
+      updateSidePanelChannelButton(
+        {
+          deviceId: String(value || '').trim()
+        },
+        {
+          type: updateType
+        }
+      );
+      return;
+    }
   }
 
   function handleSidePanelFocusOut(event) {
@@ -6484,6 +6547,12 @@
     }
 
     if (dom.sidePanel) {
+      const oldSideScroll =
+        dom.sideOptions ||
+        dom.sidePanel.querySelector('.entity-edit-button-side-layout');
+      if (oldSideScroll) {
+        window.faderScroll?.getInstance(oldSideScroll)?.destroy();
+      }
       dom.sidePanel.innerHTML = '';
       dom.sidePanel.classList.remove('is-open');
     }
@@ -6924,11 +6993,13 @@
     dom.main.addEventListener('click', handleMainClick);
     dom.main.addEventListener('input', handleMainInput);
     dom.main.addEventListener('change', handleMainChange);
+    dom.main.addEventListener('fdd:change', handleMainFddChange);
     dom.main.addEventListener('focusout', handleMainFocusOut);
     dom.main.addEventListener('keydown', handleMainKeyDown);
     dom.sidePanel?.addEventListener('click', handleSidePanelClick);
     dom.sidePanel?.addEventListener('input', handleSidePanelInput);
     dom.sidePanel?.addEventListener('change', handleSidePanelChange);
+    dom.sidePanel?.addEventListener('fdd:change', handleSidePanelFddChange);
     dom.sidePanel?.addEventListener('focusout', handleSidePanelFocusOut);
     dom.sidePanel?.addEventListener('keydown', handleSidePanelKeyDown);
     dom.sidePanel?.addEventListener('pointerenter', () => {

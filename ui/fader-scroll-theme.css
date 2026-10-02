@@ -1,0 +1,110 @@
+/* ============================================================
+   FaderDeck Theme for fader-scroll
+   Matches existing FaderDeck scrollbar styling:
+   - 6px width/height
+   - transparent track
+   - rgba(255, 255, 255, 0.15) thumb
+   - rgba(255, 255, 255, 0.3) on hover
+   - rgba(255, 255, 255, 0.45) on active drag
+   - 6px border-radius
+   ============================================================ */
+
+:root {
+  --sb-thickness: 6px;
+  --sb-thickness-active: 6px;
+  --sb-thickness-transition: 150ms;
+
+  --sb-track-bg: transparent;
+  --sb-track-radius: 6px;
+
+  --sb-thumb-bg: rgba(255, 255, 255, 0.15);
+  --sb-thumb-bg-hover: rgba(255, 255, 255, 0.3);
+  --sb-thumb-bg-active: rgba(255, 255, 255, 0.45);
+  --sb-thumb-radius: 6px;
+  --sb-thumb-border: none;
+  --sb-thumb-shadow: none;
+
+  /* Y-track offsets */
+  --sb-y-top: 2px;
+  --sb-y-bottom: 2px;
+  --sb-y-right: 2px;
+  --sb-y-left: auto;
+
+  /* X-track offsets */
+  --sb-x-left: 2px;
+  --sb-x-right: 2px;
+  --sb-x-bottom: 2px;
+  --sb-x-top: auto;
+
+  --sb-corner-gap: calc(var(--sb-thickness-active) + 4px);
+  --sb-z: 15;
+}
+
+/* Thin preset for compact panels (e.g. debug panel) */
+.sb-theme-thin {
+  --sb-thickness: 5px;
+  --sb-thickness-active: 5px;
+  --sb-track-radius: 3px;
+  --sb-thumb-radius: 3px;
+  --sb-y-top: 2px;
+  --sb-y-bottom: 2px;
+  --sb-y-right: 1px;
+}
+
+/* Prevent .sb-host from breaking fixed dropdown panels */
+.custom-select-panel.sb-host {
+  position: fixed;
+}
+
+/* Hide scrollbars when there is no overflow on that axis */
+.sb-host:not(.sb-scrollable-y) > .sb-track.sb-y,
+.custom-select-panel:not(.sb-scrollable-y) > .sb-track.sb-y,
+.custom-select-panel:not(.sb-scrollable-y) .sb-track.sb-y {
+  display: none !important;
+}
+
+.sb-host:not(.sb-scrollable-x) > .sb-track.sb-x,
+.main-content-host:not(.sb-scrollable-x) > .sb-track.sb-x {
+  display: none !important;
+}
+
+/* Main Content Canvas: strictly no vertical scrollbar under any circumstances */
+.main-content-host > .sb-track.sb-y {
+  display: none !important;
+}
+
+/* Settings Menu: scrollbar positioned 6px outside the window to the right,
+   slides behind the settings card on hide, slides out on appear */
+#menuPanelOverlay > .sb-track.sb-y {
+  position: absolute;
+  z-index: 1;
+  top: 18px;
+  bottom: 18px;
+  right: -12px; /* 6px track + 6px gap outside .menu-panel-card */
+  pointer-events: auto;
+  transform: translateX(calc((var(--sb-presence, 1) - 1) * 24px));
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease;
+}
+
+.menu-panel-overlay.hidden > .sb-track.sb-y,
+.menu-panel-overlay:not(.settings-tab-active) > .sb-track.sb-y,
+.menu-panel-overlay:not(.settings-tab-active) .sb-track.sb-y {
+  display: none !important;
+}
+
+/* Entity Editor Side Panel: scrollbar positioned 6px outside the panel to the right,
+   slides behind the side panel inner card on hide, slides out on appear */
+#entityEditSidePanel > .sb-track.sb-y {
+  position: absolute;
+  z-index: 1;
+  top: 20px;
+  bottom: 18px;
+  right: -12px; /* 6px track + 6px gap outside the panel */
+  pointer-events: auto;
+  transform: translateX(calc((var(--sb-presence, 1) - 1) * 24px));
+  transition: transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease;
+}
+
+#entityEditSidePanel:not(.is-open) > .sb-track.sb-y {
+  display: none !important;
+}

@@ -23,7 +23,7 @@
         './state/ui-store.js',
         './runtime/audio-runtime.js',
         './ui/modal-manager.js',
-        './dropdowns.js'
+        './fd-dropdown.js'
       ]
     },
     {

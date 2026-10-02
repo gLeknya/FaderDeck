@@ -2038,6 +2038,7 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
       shell.innerHTML =
         '<div class="media-controller" id="mediaController"></div>';
       contentShell.appendChild(shell);
+      window.__cornerBiteBridge?.syncBottomPlayerShape?.();
     }
 
     return shell;
@@ -2188,6 +2189,7 @@ window.isMediaControllerStandaloneButton = isMediaControllerStandaloneButton;
 
     shell.classList.toggle('hidden', !getMediaControllerVisible());
     shell.classList.toggle('is-context-selected', hasSelection);
+    window.__cornerBiteBridge?.syncBottomPlayerShape?.();
 
     ensureMediaControllerButtons({ persist: false });
     const renderEntries = getRenderableControllerEntries();
