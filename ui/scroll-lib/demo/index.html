@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>fader-scroll Demo</title>
+  <link rel="stylesheet" href="../styles/fader-scroll.css">
+  <link rel="stylesheet" href="demo.css">
+</head>
+<body>
+  <div class="container">
+    <h1>fader-scroll Demo</h1>
+    <p>A lightweight, vanilla JS custom scrollbar library.</p>
+
+    <!-- 1. Vertical Scroll -->
+    <section class="card">
+      <h2>1. Vertical Scroll</h2>
+      <p>Standard vertical scrollbar. Native scroll is hidden, track is overlay.</p>
+      <div class="scroll-container" id="demo-vertical">
+        <div class="content-padding">
+          <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nulla accumsan, metus ultrices eleifend gravida, nulla nunc varius lectus, nec rutrum justo nibh eu lectus. Ut vulputate semper dui. Fusce erat ante, pellentesque massa facilisis.</p>
+          <p>Pellentesque volutpat imperdiet arcu eget ullamcorper. Aenean vel nisi eget ligula auctor rhoncus. Nullam nec purus nec libero imperdiet semper id vitae risus. Mauris sollicitudin mauris sit amet est sodales ultricies.</p>
+          <p>Proin aliquet mi varius enim convallis, nec feugiat diam lobortis. Aliquam quis ex cursus, egestas ligula eu, eleifend sem. Aenean vitae nisl nec odio egestas rhoncus et tristique metus.</p>
+          <p>Vestibulum ante ipsum primis in faucibus orci luctus et ultrices posuere cubilia curae; Nam vel dui vitae sem congue rutrum et eleifend ex. Ut nec metus non felis bibendum vehicula.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 2. Horizontal Scroll (3 modes) -->
+    <section class="card">
+      <h2>2. Horizontal Scroll (Wheel Modes)</h2>
+      <p>Test scrolling with mouse wheel (without Shift).</p>
+      <div class="grid-3">
+        <div>
+          <h3>Shift (Default)</h3>
+          <p>Requires Shift to scroll.</p>
+          <div class="scroll-h-container" id="demo-h-shift">
+            <div class="h-content"></div>
+          </div>
+        </div>
+        <div>
+          <h3>Always</h3>
+          <p>Always scrolls horizontally.</p>
+          <div class="scroll-h-container" id="demo-h-always">
+            <div class="h-content"></div>
+          </div>
+        </div>
+        <div>
+          <h3>Auto</h3>
+          <p>Scrolls horizontally if no vertical overflow.</p>
+          <div class="scroll-h-container" id="demo-h-auto">
+            <div class="h-content"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 3. Both Axes -->
+    <section class="card">
+      <h2>3. Both Axes</h2>
+      <p>A container with both vertical and horizontal overflow.</p>
+      <div class="scroll-container" id="demo-both" style="width: 100%;">
+        <div class="both-content">
+          <div class="both-inner-box">Huge Content Area</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4. External Mount -->
+    <section class="card">
+      <h2>4. External Mount</h2>
+      <p>Track mounted in a separate rail element outside the host.</p>
+      <div class="mount-wrapper">
+        <div class="scroll-container" id="demo-mount-scroll">
+          <div class="content-padding">
+            <p>Scroll this area.</p>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
+            <p>Pellentesque volutpat imperdiet arcu eget ullamcorper.</p>
+            <p>Proin aliquet mi varius enim convallis, nec feugiat diam.</p>
+            <p>Vestibulum ante ipsum primis in faucibus orci luctus.</p>
+          </div>
+        </div>
+        <div id="mount-rail" class="external-rail"></div>
+      </div>
+    </section>
+
+    <!-- 5. Visibility Modes -->
+    <section class="card">
+      <h2>5. Visibility Modes (Declarative API)</h2>
+      <p>Using <code>data-scroll</code> and <code>data-scroll-visibility</code>.</p>
+      <div class="grid-2">
+        <div>
+          <h3>Auto (Default)</h3>
+          <div class="scroll-container" data-scroll="y" data-scroll-visibility="auto">
+            <div class="content-padding tall-content">Auto fades out after inactivity.</div>
+          </div>
+        </div>
+        <div>
+          <h3>Always</h3>
+          <div class="scroll-container" data-scroll="y" data-scroll-visibility="always">
+            <div class="content-padding tall-content">Always visible.</div>
+          </div>
+        </div>
+        <div>
+          <h3>Hover</h3>
+          <div class="scroll-container" data-scroll="y" data-scroll-visibility="hover">
+            <div class="content-padding tall-content">Visible on hover or drag.</div>
+          </div>
+        </div>
+        <div>
+          <h3>Never</h3>
+          <div class="scroll-container" data-scroll="y" data-scroll-visibility="never">
+            <div class="content-padding tall-content">Never visible, but still scrolls.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 6. Animations -->
+    <section class="card">
+      <h2>6. Animations</h2>
+      <p>Different appearance animations using <code>data-scroll-animation</code>.</p>
+      <div class="grid-3">
+        <div>
+          <h3>Fade</h3>
+          <div class="scroll-container" data-scroll="y" data-scroll-animation="fade">
+            <div class="content-padding tall-content">Default opacity fade.</div>
+          </div>
+        </div>
+        <div>
+          <h3>Slide</h3>
+          <div class="scroll-container" data-scroll="y" data-scroll-animation="slide">
+            <div class="content-padding tall-content">Slides in from the edge.</div>
+          </div>
+        </div>
+        <div>
+          <h3>Scale</h3>
+          <div class="scroll-container" data-scroll="y" data-scroll-animation="scale">
+            <div class="content-padding tall-content">Scales up on the cross axis.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 7. Dynamic Content -->
+    <section class="card">
+      <h2>7. Dynamic Content</h2>
+      <p>Test smooth thumb resizing with ResizeObserver / MutationObserver.</p>
+      <div class="controls">
+        <button id="btn-add">Add Content</button>
+        <button id="btn-remove">Remove Content</button>
+        <button id="btn-resize">Toggle Container Size</button>
+      </div>
+      <div class="scroll-container dynamic-container" id="demo-dynamic">
+        <ul id="dynamic-list" class="content-padding">
+          <li>Item 1</li>
+          <li>Item 2</li>
+          <li>Item 3</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- 8. Presets & Themes -->
+    <section class="card">
+      <h2>8. Presets & Themes</h2>
+      <div class="grid-2">
+        <div>
+          <h3>Preset "thin"</h3>
+          <p>Defined via JS <code>definePreset</code>.</p>
+          <div class="scroll-container" data-scroll="y" data-scroll-preset="thin">
+            <div class="content-padding tall-content">Uses the 'thin' preset options.</div>
+          </div>
+        </div>
+        <div>
+          <h3>Theme Switching</h3>
+          <div class="controls">
+            <button id="btn-theme-light">Light</button>
+            <button id="btn-theme-dark">Dark</button>
+          </div>
+          <div class="scroll-container light-theme" id="demo-theme" data-scroll="y">
+            <div class="content-padding tall-content">Changes CSS vars dynamically.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 9. Gradient Thumb -->
+    <section class="card">
+      <h2>9. Gradient Thumb</h2>
+      <p>Custom CSS variables applied on the element.</p>
+      <div class="scroll-container gradient-thumb" data-scroll="y">
+        <div class="content-padding tall-content">Beautiful gradient scrollbar.</div>
+      </div>
+    </section>
+
+    <!-- 10. Custom Positioning -->
+    <section class="card">
+      <h2>10. Custom Positioning</h2>
+      <div class="grid-2">
+        <div>
+          <h3>Left Side</h3>
+          <div class="scroll-container left-side" data-scroll="y">
+            <div class="content-padding tall-content">Scrollbar on the left.</div>
+          </div>
+        </div>
+        <div>
+          <h3>Large Insets</h3>
+          <div class="scroll-container large-insets" data-scroll="y" data-scroll-animation="none">
+            <div class="content-padding tall-content">Track is heavily inset.</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <script type="module" src="demo.js"></script>
+</body>
+</html>

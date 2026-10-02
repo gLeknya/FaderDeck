@@ -17,9 +17,18 @@ pub fn run() {
     let app_state = AppState::new();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            window::main_window::focus_main_window(app);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
         .manage(app_state)
+        .on_window_event(|window, event| {
+            use std::io::Write;
+            if let Ok(mut f) = std::fs::OpenOptions::new().create(true).append(true).open("c:\\projects\\code\\FaderDeck_rework\\exit_reason.log") {
+                let _ = writeln!(f, "[{:?}] Window event on {}: {:?}", std::time::SystemTime::now(), window.label(), event);
+            }
+        })
         .setup(|app| {
             let handle = app.handle().clone();
 
@@ -70,6 +79,9 @@ pub fn run() {
                     }
                 }
             });
+
+            // 7. Bring main window to the front and focus on launch
+            window::main_window::focus_main_window(&handle);
 
             Ok(())
         })

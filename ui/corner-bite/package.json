@@ -1,0 +1,20 @@
+{
+  "name": "corner-bite",
+  "version": "1.0.0",
+  "description": "Smooth concave (bite) and convex corner rounding and animation library for HTML/CSS/JS with zero dependencies",
+  "type": "module",
+  "main": "./src/index.js",
+  "scripts": {
+    "test": "node --test test/**/*.test.js"
+  },
+  "keywords": [
+    "svg",
+    "corners",
+    "concave",
+    "fillet",
+    "rounded-corners",
+    "clip-path",
+    "animation"
+  ],
+  "license": "MIT"
+}

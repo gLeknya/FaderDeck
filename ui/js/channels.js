@@ -2364,7 +2364,6 @@ function renderMixer() {
   primeChannelFaderDomCache(container);
   setupFaderDrag();
   setupChannelPickupUi();
-  enhanceCustomSelects?.(container);
   triggerNewChannelFlash(container);
   syncAddChannelStripHeight(container);
   scheduleContentMetricsUpdate();
@@ -2408,8 +2407,12 @@ function initMixerContainerEvents() {
       return;
     }
 
-    const addStrip = event.target.closest('[data-channel-action="add"]');
+    const addStrip = event.target.closest(
+      '[data-channel-action="add"], [data-action="create-channel"], .add-channel-strip'
+    );
     if (addStrip) {
+      event.preventDefault();
+      event.stopPropagation();
       if (!getChannelLayoutEditModeEnabled()) {
         createChannel();
       }
@@ -2509,6 +2512,8 @@ function initChannelUiStateSync() {
   ) {
     return;
   }
+
+  initMixerContainerEvents();
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {

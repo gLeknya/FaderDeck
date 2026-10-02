@@ -63,17 +63,22 @@ pub fn get_application_icons(application_paths: Option<Vec<String>>) -> Value {
 
 #[tauri::command]
 pub fn get_app_info() -> Value {
-    json!({
-        "name": "FaderDeck",
-        "version": "2.0.0",
-        "platform": "win32",
-        "arch": "x64",
-        "engine": "tauri_v2_rust",
-        "releaseChannel": "b",
-        "releaseBadgeLabel": "beta",
-        "updatedAt": null,
-        "bugReportUrl": "https://github.com/gLeknya/FaderDeck/issues",
-        "releasesUrl": "https://github.com/gLeknya/FaderDeck/releases"
+    let info = crate::system::version::get_application_info();
+    serde_json::to_value(info).unwrap_or_else(|_| {
+        json!({
+            "name": "FaderDeck",
+            "version": "0.8.3b",
+            "platform": "win32",
+            "arch": "x64",
+            "engine": "tauri_v2_rust",
+            "releaseChannel": "beta",
+            "releaseChannelCode": "b",
+            "releaseBadgeLabel": "beta",
+            "releaseChannelName": "Beta",
+            "updatedAt": null,
+            "bugReportUrl": "https://github.com/gLeknya/FaderDeck/issues",
+            "releasesUrl": "https://github.com/gLeknya/FaderDeck/releases"
+        })
     })
 }
 
@@ -180,6 +185,16 @@ mod tests {
         assert!(!is_allowed_external_url("file:///c:/windows/system32/calc.exe"));
         assert!(!is_allowed_external_url("javascript:alert(1)"));
         assert!(!is_allowed_external_url("powershell -c evil"));
+    }
+
+    #[test]
+    fn test_get_app_info() {
+        let info = get_app_info();
+        assert_eq!(info["version"], "0.8.3b");
+        assert_eq!(info["releaseChannel"], "beta");
+        assert_eq!(info["releaseChannelCode"], "b");
+        assert_eq!(info["releaseBadgeLabel"], "beta");
+        assert!(info["updatedAt"].is_string());
     }
 }
 
